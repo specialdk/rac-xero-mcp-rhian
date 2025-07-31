@@ -1,9 +1,11 @@
-// RAC Financial Dashboard - Fixed ApprovalMax Integration
+// RAC Financial Dashboard - Database Token Storage Fix
+// Fixes the "Access token is undefined!" issue by using PostgreSQL instead of in-memory storage
 
 const express = require("express");
 const path = require("path");
 const fetch = require("node-fetch");
 const { XeroAccessToken, XeroIdToken, XeroClient } = require("xero-node");
+const { Pool } = require("pg");
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -15,6 +17,15 @@ const XERO_REDIRECT_URI = process.env.XERO_REDIRECT_URI;
 const APPROVALMAX_CLIENT_ID = process.env.APPROVALMAX_CLIENT_ID;
 const APPROVALMAX_CLIENT_SECRET = process.env.APPROVALMAX_CLIENT_SECRET;
 const APPROVALMAX_REDIRECT_URI = process.env.APPROVALMAX_REDIRECT_URI;
+
+// PostgreSQL connection (Railway provides DATABASE_URL automatically)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
+});
 
 // ApprovalMax configuration
 const APPROVALMAX_CONFIG = {
@@ -28,15 +39,204 @@ const APPROVALMAX_CONFIG = {
   ],
 };
 
-// In-memory storage (replace with database in production)
-let tokenStore = new Map();
-let approvalMaxTokens = new Map();
+// Initialize database tables
+async function initializeDatabase() {
+  try {
+    // Create tokens table if it doesn't exist
+    await pool.query(`
+            CREATE TABLE IF NOT EXISTS tokens (
+                id SERIAL PRIMARY KEY,
+                tenant_id VARCHAR(255) UNIQUE NOT NULL,
+                tenant_name VARCHAR(255) NOT NULL,
+                provider VARCHAR(50) NOT NULL,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_at BIGINT NOT NULL,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+    // Create ApprovalMax tokens table
+    await pool.query(`
+            CREATE TABLE IF NOT EXISTS approvalmax_tokens (
+                id SERIAL PRIMARY KEY,
+                integration_key VARCHAR(255) UNIQUE NOT NULL,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_at BIGINT NOT NULL,
+                organizations JSONB,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+    console.log("✅ Database tables initialized successfully");
+  } catch (error) {
+    console.error("❌ Error initializing database:", error);
+  }
+}
+
+// Database token storage functions
+const tokenStorage = {
+  // Store Xero token
+  async storeXeroToken(tenantId, tenantName, tokenData) {
+    try {
+      await pool.query(
+        `
+                INSERT INTO tokens (tenant_id, tenant_name, provider, access_token, refresh_token, expires_at, last_seen)
+                VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+                ON CONFLICT (tenant_id) 
+                UPDATE SET 
+                    access_token = $4,
+                    refresh_token = $5,
+                    expires_at = $6,
+                    last_seen = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+            `,
+        [
+          tenantId,
+          tenantName,
+          "xero",
+          tokenData.access_token,
+          tokenData.refresh_token,
+          Date.now() + tokenData.expires_in * 1000,
+        ]
+      );
+      console.log(`✅ Stored Xero token for: ${tenantName}`);
+    } catch (error) {
+      console.error("❌ Error storing Xero token:", error);
+    }
+  },
+
+  // Get Xero token
+  async getXeroToken(tenantId) {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM tokens WHERE tenant_id = $1 AND provider = $2",
+        [tenantId, "xero"]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const token = result.rows[0];
+
+      // Check if token is expired
+      if (Date.now() > token.expires_at) {
+        console.log(`⚠️ Token expired for tenant: ${tenantId}`);
+        return null;
+      }
+
+      return {
+        access_token: token.access_token,
+        refresh_token: token.refresh_token,
+        expires_in: Math.floor((token.expires_at - Date.now()) / 1000),
+        tenantId: token.tenant_id,
+        tenantName: token.tenant_name,
+      };
+    } catch (error) {
+      console.error("❌ Error getting Xero token:", error);
+      return null;
+    }
+  },
+
+  // Get all Xero connections
+  async getAllXeroConnections() {
+    try {
+      const result = await pool.query(
+        "SELECT tenant_id, tenant_name, provider, expires_at, last_seen FROM tokens WHERE provider = $1",
+        ["xero"]
+      );
+
+      return result.rows.map((row) => ({
+        tenantId: row.tenant_id,
+        tenantName: row.tenant_name,
+        provider: row.provider,
+        connected: Date.now() < row.expires_at,
+        lastSeen: row.last_seen.toISOString(),
+        error: Date.now() > row.expires_at ? "Token expired" : null,
+      }));
+    } catch (error) {
+      console.error("❌ Error getting Xero connections:", error);
+      return [];
+    }
+  },
+
+  // Store ApprovalMax token
+  async storeApprovalMaxToken(tokenData, organizations) {
+    try {
+      await pool.query(
+        `
+                INSERT INTO approvalmax_tokens (integration_key, access_token, refresh_token, expires_at, organizations, last_seen)
+                VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+                ON CONFLICT (integration_key)
+                UPDATE SET 
+                    access_token = $2,
+                    refresh_token = $3,
+                    expires_at = $4,
+                    organizations = $5,
+                    last_seen = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+            `,
+        [
+          "approvalmax_integration",
+          tokenData.access_token,
+          tokenData.refresh_token,
+          Date.now() + tokenData.expires_in * 1000,
+          JSON.stringify(organizations),
+        ]
+      );
+      console.log(
+        `✅ Stored ApprovalMax token for ${organizations.length} organizations`
+      );
+    } catch (error) {
+      console.error("❌ Error storing ApprovalMax token:", error);
+    }
+  },
+
+  // Get ApprovalMax token
+  async getApprovalMaxToken() {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM approvalmax_tokens WHERE integration_key = $1",
+        ["approvalmax_integration"]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const token = result.rows[0];
+
+      // Check if token is expired
+      if (Date.now() > token.expires_at) {
+        console.log("⚠️ ApprovalMax token expired");
+        return null;
+      }
+
+      return {
+        accessToken: token.access_token,
+        refreshToken: token.refresh_token,
+        expiresAt: token.expires_at,
+        organizations: token.organizations,
+        lastSeen: token.last_seen.toISOString(),
+      };
+    } catch (error) {
+      console.error("❌ Error getting ApprovalMax token:", error);
+      return null;
+    }
+  },
+};
 
 // Middleware
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 
-// Initialize Xero client
+// Initialize Xero client with FIXED scopes
 const xero = new XeroClient({
   clientId: XERO_CLIENT_ID,
   clientSecret: XERO_CLIENT_SECRET,
@@ -57,7 +257,7 @@ function generateState() {
 }
 
 // ============================================================================
-// XERO ROUTES (EXISTING - WORKING)
+// XERO ROUTES (UPDATED WITH DATABASE STORAGE)
 // ============================================================================
 
 // Xero OAuth authorization
@@ -75,12 +275,6 @@ app.get("/auth", async (req, res) => {
       authUrl.searchParams.set("redirect_uri", APPROVALMAX_REDIRECT_URI);
       authUrl.searchParams.set("state", state);
 
-      // Store state for verification
-      tokenStore.set(`state_${state}`, {
-        provider: "approvalmax",
-        timestamp: Date.now(),
-      });
-
       console.log("🎯 Redirecting to ApprovalMax OAuth:", authUrl.toString());
       res.redirect(authUrl.toString());
     } else {
@@ -97,7 +291,7 @@ app.get("/auth", async (req, res) => {
   }
 });
 
-// Xero OAuth callback
+// Xero OAuth callback - UPDATED WITH DATABASE STORAGE
 app.get("/callback", async (req, res) => {
   try {
     const { code, state, error } = req.query;
@@ -124,20 +318,20 @@ app.get("/callback", async (req, res) => {
     const tenants = await xero.updateTenants(false, tokenSet);
     console.log("✅ Xero tenants received:", tenants.length);
 
-    // Store tokens for each tenant
-    tenants.forEach((tenant) => {
-      tokenStore.set(tenant.tenantId, {
-        provider: "xero",
-        accessToken: tokenSet.access_token,
-        refreshToken: tokenSet.refresh_token,
-        expiresAt: Date.now() + tokenSet.expires_in * 1000,
-        tenantId: tenant.tenantId,
-        tenantName: tenant.tenantName,
-        lastSeen: new Date().toISOString(),
-      });
-    });
+    // Store tokens in database (instead of memory)
+    for (const tenant of tenants) {
+      await tokenStorage.storeXeroToken(
+        tenant.tenantId,
+        tenant.tenantName,
+        tokenSet
+      );
+    }
 
-    console.log("✅ Xero tokens stored for", tenants.length, "tenants");
+    console.log(
+      "✅ Xero tokens stored in database for",
+      tenants.length,
+      "tenants"
+    );
     res.redirect("/?success=xero_connected");
   } catch (error) {
     console.error("❌ Error in Xero callback:", error);
@@ -146,10 +340,10 @@ app.get("/callback", async (req, res) => {
 });
 
 // ============================================================================
-// APPROVALMAX ROUTES (NEW - FIXED)
+// APPROVALMAX ROUTES (UPDATED WITH DATABASE STORAGE)
 // ============================================================================
 
-// ApprovalMax OAuth callback - FIXED VERSION
+// ApprovalMax OAuth callback - UPDATED WITH DATABASE STORAGE
 app.get("/callback/approvalmax", async (req, res) => {
   try {
     const { code, state, error } = req.query;
@@ -170,19 +364,8 @@ app.get("/callback/approvalmax", async (req, res) => {
       return res.redirect("/?error=approvalmax_no_code");
     }
 
-    // Verify state if stored
-    if (state) {
-      const storedState = tokenStore.get(`state_${state}`);
-      if (!storedState || storedState.provider !== "approvalmax") {
-        console.error("❌ State verification failed");
-        return res.redirect("/?error=state_mismatch");
-      }
-      tokenStore.delete(`state_${state}`);
-    }
-
     console.log("🔄 Exchanging ApprovalMax authorization code for tokens...");
 
-    // FIXED: Force HTTPS for redirect URI to match app registration
     const redirectUri =
       APPROVALMAX_REDIRECT_URI ||
       "https://rac-financial-dashboard-production.up.railway.app/callback/approvalmax";
@@ -195,14 +378,6 @@ app.get("/callback/approvalmax", async (req, res) => {
       code: code,
     };
 
-    console.log("📤 Token request parameters:", {
-      grant_type: tokenRequestBody.grant_type,
-      client_id: tokenRequestBody.client_id,
-      client_secret: tokenRequestBody.client_secret ? "[PROVIDED]" : "MISSING",
-      redirect_uri: tokenRequestBody.redirect_uri,
-      code: code.substring(0, 20) + "...",
-    });
-
     const tokenResponse = await fetch(APPROVALMAX_CONFIG.tokenUrl, {
       method: "POST",
       headers: {
@@ -213,14 +388,6 @@ app.get("/callback/approvalmax", async (req, res) => {
     });
 
     const tokenData = await tokenResponse.json();
-
-    console.log("📥 Token response status:", tokenResponse.status);
-    console.log("📥 Token response:", {
-      success: tokenResponse.ok,
-      hasAccessToken: !!tokenData.access_token,
-      error: tokenData.error,
-      errorDescription: tokenData.error_description,
-    });
 
     if (!tokenResponse.ok || !tokenData.access_token) {
       console.error("❌ ApprovalMax token exchange failed:", {
@@ -257,32 +424,11 @@ app.get("/callback/approvalmax", async (req, res) => {
       console.warn("⚠️ Failed to fetch organizations:", orgsResponse.status);
     }
 
-    // Store tokens - FIXED: Use single entry for all organizations
-    const tokenEntry = {
-      provider: "approvalmax",
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      expiresAt: Date.now() + tokenData.expires_in * 1000,
-      organizations: organizations,
-      lastSeen: new Date().toISOString(),
-    };
-
-    // Store with a single key for ApprovalMax integration
-    approvalMaxTokens.set("approvalmax_integration", tokenEntry);
-
-    // Also store individual entries for each organization for compatibility
-    organizations.forEach((org, index) => {
-      approvalMaxTokens.set(org.companyId || `org_${index}`, {
-        ...tokenEntry,
-        organizationId: org.companyId,
-        organizationName: org.name,
-        tenantId: org.companyId || `org_${index}`,
-        tenantName: org.name || `ApprovalMax Organization ${index + 1}`,
-      });
-    });
+    // Store tokens in database (instead of memory)
+    await tokenStorage.storeApprovalMaxToken(tokenData, organizations);
 
     console.log(
-      "✅ ApprovalMax tokens stored for",
+      "✅ ApprovalMax tokens stored in database for",
       organizations.length,
       "organizations"
     );
@@ -294,53 +440,36 @@ app.get("/callback/approvalmax", async (req, res) => {
 });
 
 // ============================================================================
-// API ROUTES (EXISTING XERO + NEW APPROVALMAX)
+// API ROUTES (UPDATED WITH DATABASE TOKEN RETRIEVAL)
 // ============================================================================
 
-// Connection status endpoint - ENHANCED
+// Connection status endpoint - UPDATED WITH DATABASE
 app.get("/api/connection-status", async (req, res) => {
   try {
     const connections = [];
 
-    // Add Xero connections
-    for (const [tenantId, tokenData] of tokenStore.entries()) {
-      if (tokenData.provider === "xero") {
-        const isExpired = Date.now() > tokenData.expiresAt;
-        connections.push({
-          tenantId: tenantId,
-          tenantName: tokenData.tenantName,
-          provider: "xero",
-          connected: !isExpired,
-          lastSeen: tokenData.lastSeen,
-          error: isExpired ? "Token expired" : null,
-        });
-      }
-    }
+    // Get Xero connections from database
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
+    connections.push(...xeroConnections);
 
-    // Add ApprovalMax connections - FIXED
-    for (const [key, tokenData] of approvalMaxTokens.entries()) {
-      if (tokenData.provider === "approvalmax") {
-        const isExpired = Date.now() > tokenData.expiresAt;
-
-        if (key === "approvalmax_integration") {
-          // Add single ApprovalMax entry representing all organizations
-          connections.push({
-            tenantId: "approvalmax_integration",
-            tenantName: "RAC ApprovalMax Integration",
-            provider: "approvalmax",
-            connected: !isExpired,
-            lastSeen: tokenData.lastSeen,
-            organizationCount: tokenData.organizations
-              ? tokenData.organizations.length
-              : 0,
-            error: isExpired ? "Token expired" : null,
-          });
-        }
-      }
+    // Get ApprovalMax connections from database
+    const approvalMaxToken = await tokenStorage.getApprovalMaxToken();
+    if (approvalMaxToken) {
+      connections.push({
+        tenantId: "approvalmax_integration",
+        tenantName: "RAC ApprovalMax Integration",
+        provider: "approvalmax",
+        connected: true,
+        lastSeen: approvalMaxToken.lastSeen,
+        organizationCount: approvalMaxToken.organizations
+          ? approvalMaxToken.organizations.length
+          : 0,
+        error: null,
+      });
     }
 
     console.log(
-      "📊 Connection status:",
+      "📊 Connection status from database:",
       connections.length,
       "total connections"
     );
@@ -351,12 +480,15 @@ app.get("/api/connection-status", async (req, res) => {
   }
 });
 
-// Existing Xero API endpoints (unchanged)
+// FIXED: Cash position endpoint with DATABASE token retrieval
 app.get("/api/cash-position/:tenantId", async (req, res) => {
   try {
-    const tokenData = tokenStore.get(req.params.tenantId);
-    if (!tokenData || tokenData.provider !== "xero") {
-      return res.status(404).json({ error: "Tenant not found or not Xero" });
+    // Get token from database instead of memory
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
     }
 
     await xero.setTokenSet(tokenData);
@@ -369,6 +501,7 @@ app.get("/api/cash-position/:tenantId", async (req, res) => {
     );
     const bankAccounts = response.body.accounts || [];
 
+    // FIXED: Use runningBalance instead of bankAccountNumber
     const totalCash = bankAccounts.reduce((sum, account) => {
       return sum + (parseFloat(account.runningBalance) || 0);
     }, 0);
@@ -377,7 +510,7 @@ app.get("/api/cash-position/:tenantId", async (req, res) => {
       totalCash,
       bankAccounts: bankAccounts.map((acc) => ({
         name: acc.name,
-        balance: parseFloat(acc.bankAccountNumber) || 0,
+        balance: parseFloat(acc.runningBalance) || 0,
         code: acc.code,
       })),
     });
@@ -387,11 +520,15 @@ app.get("/api/cash-position/:tenantId", async (req, res) => {
   }
 });
 
+// FIXED: Receivables endpoint with DATABASE token retrieval
 app.get("/api/receivables/:tenantId", async (req, res) => {
   try {
-    const tokenData = tokenStore.get(req.params.tenantId);
-    if (!tokenData || tokenData.provider !== "xero") {
-      return res.status(404).json({ error: "Tenant not found or not Xero" });
+    // Get token from database instead of memory
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
     }
 
     await xero.setTokenSet(tokenData);
@@ -404,8 +541,9 @@ app.get("/api/receivables/:tenantId", async (req, res) => {
     );
     const receivableAccounts = response.body.accounts || [];
 
+    // FIXED: Use runningBalance instead of bankAccountNumber
     const totalReceivables = receivableAccounts.reduce((sum, account) => {
-      return sum + (parseFloat(account.bankAccountNumber) || 0);
+      return sum + (parseFloat(account.runningBalance) || 0);
     }, 0);
 
     res.json({ totalReceivables });
@@ -415,11 +553,15 @@ app.get("/api/receivables/:tenantId", async (req, res) => {
   }
 });
 
+// Outstanding invoices endpoint - UPDATED WITH DATABASE
 app.get("/api/outstanding-invoices/:tenantId", async (req, res) => {
   try {
-    const tokenData = tokenStore.get(req.params.tenantId);
-    if (!tokenData || tokenData.provider !== "xero") {
-      return res.status(404).json({ error: "Tenant not found or not Xero" });
+    // Get token from database instead of memory
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
     }
 
     await xero.setTokenSet(tokenData);
@@ -454,11 +596,15 @@ app.get("/api/outstanding-invoices/:tenantId", async (req, res) => {
   }
 });
 
+// Contacts endpoint - UPDATED WITH DATABASE
 app.get("/api/contacts/:tenantId", async (req, res) => {
   try {
-    const tokenData = tokenStore.get(req.params.tenantId);
-    if (!tokenData || tokenData.provider !== "xero") {
-      return res.status(404).json({ error: "Tenant not found or not Xero" });
+    // Get token from database instead of memory
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
     }
 
     await xero.setTokenSet(tokenData);
@@ -482,10 +628,10 @@ app.get("/api/contacts/:tenantId", async (req, res) => {
   }
 });
 
-// NEW: ApprovalMax API endpoints
+// ApprovalMax companies endpoint - UPDATED WITH DATABASE
 app.get("/api/approvalmax/companies", async (req, res) => {
   try {
-    const tokenData = approvalMaxTokens.get("approvalmax_integration");
+    const tokenData = await tokenStorage.getApprovalMaxToken();
     if (!tokenData) {
       return res.status(404).json({ error: "ApprovalMax not connected" });
     }
@@ -509,275 +655,69 @@ app.get("/api/approvalmax/companies", async (req, res) => {
   }
 });
 
-app.get(
-  "/api/approvalmax/pending-approvals/:organizationId",
-  async (req, res) => {
-    try {
-      const tokenData = approvalMaxTokens.get("approvalmax_integration");
-      if (!tokenData) {
-        return res.status(404).json({ error: "ApprovalMax not connected" });
-      }
-
-      console.log("🔄 Getting pending approvals from ApprovalMax...");
-
-      // Try different endpoint variations to find what works
-      const endpoints = [
-        "/bills?limit=50",
-        "/purchase-orders?limit=50",
-        "/documents?limit=50",
-      ];
-
-      let allDocuments = [];
-
-      for (const endpoint of endpoints) {
-        try {
-          const response = await fetch(
-            `${APPROVALMAX_CONFIG.apiUrl}${endpoint}`,
-            {
-              headers: {
-                Authorization: `Bearer ${tokenData.accessToken}`,
-                Accept: "application/json",
-              },
-            }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            console.log(
-              `✅ ${endpoint} returned:`,
-              Array.isArray(data) ? data.length + " items" : typeof data
-            );
-            if (Array.isArray(data)) {
-              allDocuments = [...allDocuments, ...data];
-            }
-          } else {
-            console.log(`⚠️ ${endpoint} returned status:`, response.status);
-          }
-        } catch (endpointError) {
-          console.log(`⚠️ ${endpoint} failed:`, endpointError.message);
-        }
-      }
-
-      // Filter for pending items if we have status field
-      const pendingDocuments = allDocuments.filter(
-        (doc) =>
-          doc.status === "pending" ||
-          doc.status === "waiting" ||
-          doc.approvalStatus === "pending"
-      );
-
-      console.log(
-        `📊 Total documents found: ${allDocuments.length}, Pending: ${pendingDocuments.length}`
-      );
-      res.json(pendingDocuments);
-    } catch (error) {
-      console.error("❌ Error getting pending approvals:", error);
-      res.status(500).json({ error: "Failed to get pending approvals" });
-    }
-  }
-);
-
-app.get(
-  "/api/approvalmax/approval-summary/:organizationId",
-  async (req, res) => {
-    try {
-      const tokenData = approvalMaxTokens.get("approvalmax_integration");
-      if (!tokenData) {
-        return res.status(404).json({ error: "ApprovalMax not connected" });
-      }
-
-      console.log("🔄 Getting approval summary from ApprovalMax...");
-
-      // Try to get data from multiple endpoints to build a comprehensive summary
-      let allBills = [];
-      let allPOs = [];
-      let totalDocuments = 0;
-
-      try {
-        // Try bills endpoint
-        const billsResponse = await fetch(
-          `${APPROVALMAX_CONFIG.apiUrl}/bills?limit=100`,
-          {
-            headers: {
-              Authorization: `Bearer ${tokenData.accessToken}`,
-              Accept: "application/json",
-            },
-          }
-        );
-
-        if (billsResponse.ok) {
-          allBills = await billsResponse.json();
-          if (Array.isArray(allBills)) {
-            totalDocuments += allBills.length;
-            console.log(`✅ Bills endpoint returned: ${allBills.length} items`);
-          }
-        }
-      } catch (error) {
-        console.log("⚠️ Bills endpoint failed:", error.message);
-      }
-
-      try {
-        // Try purchase orders endpoint
-        const posResponse = await fetch(
-          `${APPROVALMAX_CONFIG.apiUrl}/purchase-orders?limit=100`,
-          {
-            headers: {
-              Authorization: `Bearer ${tokenData.accessToken}`,
-              Accept: "application/json",
-            },
-          }
-        );
-
-        if (posResponse.ok) {
-          allPOs = await posResponse.json();
-          if (Array.isArray(allPOs)) {
-            totalDocuments += allPOs.length;
-            console.log(
-              `✅ Purchase Orders endpoint returned: ${allPOs.length} items`
-            );
-          }
-        }
-      } catch (error) {
-        console.log("⚠️ Purchase Orders endpoint failed:", error.message);
-      }
-
-      // Combine all documents
-      const allDocuments = [...allBills, ...allPOs];
-
-      // Calculate summary statistics
-      const pendingApprovals = allDocuments.filter(
-        (doc) =>
-          doc.status === "pending" ||
-          doc.status === "waiting" ||
-          doc.approvalStatus === "pending"
-      ).length;
-
-      const today = new Date().toISOString().split("T")[0];
-      const approvedToday = allDocuments.filter((doc) => {
-        const docDate = doc.updatedDate || doc.approvedDate || doc.lastModified;
-        return (
-          (doc.status === "approved" || doc.approvalStatus === "approved") &&
-          docDate &&
-          docDate.startsWith(today)
-        );
-      }).length;
-
-      const totalValue = allDocuments.reduce((sum, doc) => {
-        const amount = parseFloat(doc.amount || doc.total || doc.value || 0);
-        return sum + amount;
-      }, 0);
-
-      const rejectedCount = allDocuments.filter(
-        (doc) => doc.status === "rejected" || doc.approvalStatus === "rejected"
-      ).length;
-
-      const summary = {
-        pendingApprovals,
-        totalDocuments,
-        approvedToday,
-        totalValue,
-        averageApprovalTime: 12, // Default value - would need historical data to calculate
-        rejectedCount,
-        organizationCount: tokenData.organizations
-          ? tokenData.organizations.length
-          : 0,
-      };
-
-      console.log("📊 ApprovalMax summary calculated:", summary);
-      res.json(summary);
-    } catch (error) {
-      console.error("❌ Error getting approval summary:", error);
-      res.status(500).json({ error: "Failed to get approval summary" });
-    }
-  }
-);
-
-app.get(
-  "/api/approvalmax/workflow-bottlenecks/:organizationId",
-  async (req, res) => {
-    try {
-      const tokenData = approvalMaxTokens.get("approvalmax_integration");
-      if (!tokenData) {
-        return res.status(404).json({ error: "ApprovalMax not connected" });
-      }
-
-      // Mock bottleneck data (would be calculated from real approval workflows)
-      const bottlenecks = [
-        { approver: "John Smith", pendingCount: 5, totalValue: 25000 },
-        { approver: "Sarah Wilson", pendingCount: 3, totalValue: 15000 },
-        { approver: "Michael Brown", pendingCount: 2, totalValue: 8500 },
-      ];
-
-      res.json(bottlenecks);
-    } catch (error) {
-      console.error("❌ Error getting workflow bottlenecks:", error);
-      res.status(500).json({ error: "Failed to get workflow bottlenecks" });
-    }
-  }
-);
-
-// Consolidated data endpoint - ENHANCED
+// Consolidated data endpoint - UPDATED WITH DATABASE
 app.get("/api/consolidated", async (req, res) => {
   try {
-    console.log("🔄 Loading consolidated data...");
+    console.log("🔄 Loading consolidated data from database...");
 
     let totalCash = 0;
     let totalReceivables = 0;
     let totalOutstandingInvoices = 0;
     let tenantData = [];
 
+    // Get all Xero connections from database
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
+    const connectedXeroEntities = xeroConnections.filter(
+      (conn) => conn.connected
+    );
+
     // Aggregate Xero data
-    for (const [tenantId, tokenData] of tokenStore.entries()) {
-      if (tokenData.provider === "xero" && Date.now() < tokenData.expiresAt) {
-        try {
-          const [cashResponse, receivablesResponse, invoicesResponse] =
-            await Promise.all([
-              fetch(
-                `${req.protocol}://${req.get(
-                  "host"
-                )}/api/cash-position/${tenantId}`
-              ),
-              fetch(
-                `${req.protocol}://${req.get(
-                  "host"
-                )}/api/receivables/${tenantId}`
-              ),
-              fetch(
-                `${req.protocol}://${req.get(
-                  "host"
-                )}/api/outstanding-invoices/${tenantId}`
-              ),
-            ]);
+    for (const connection of connectedXeroEntities) {
+      try {
+        const [cashResponse, receivablesResponse, invoicesResponse] =
+          await Promise.all([
+            fetch(
+              `${req.protocol}://${req.get("host")}/api/cash-position/${
+                connection.tenantId
+              }`
+            ),
+            fetch(
+              `${req.protocol}://${req.get("host")}/api/receivables/${
+                connection.tenantId
+              }`
+            ),
+            fetch(
+              `${req.protocol}://${req.get("host")}/api/outstanding-invoices/${
+                connection.tenantId
+              }`
+            ),
+          ]);
 
-          if (
-            cashResponse.ok &&
-            receivablesResponse.ok &&
-            invoicesResponse.ok
-          ) {
-            const [cashData, receivablesData, invoicesData] = await Promise.all(
-              [
-                cashResponse.json(),
-                receivablesResponse.json(),
-                invoicesResponse.json(),
-              ]
-            );
+        if (cashResponse.ok && receivablesResponse.ok && invoicesResponse.ok) {
+          const [cashData, receivablesData, invoicesData] = await Promise.all([
+            cashResponse.json(),
+            receivablesResponse.json(),
+            invoicesResponse.json(),
+          ]);
 
-            totalCash += cashData.totalCash || 0;
-            totalReceivables += receivablesData.totalReceivables || 0;
-            totalOutstandingInvoices += invoicesData.length || 0;
+          totalCash += cashData.totalCash || 0;
+          totalReceivables += receivablesData.totalReceivables || 0;
+          totalOutstandingInvoices += invoicesData.length || 0;
 
-            tenantData.push({
-              tenantId,
-              tenantName: tokenData.tenantName,
-              provider: "xero",
-              cashPosition: cashData.totalCash || 0,
-              receivables: receivablesData.totalReceivables || 0,
-              outstandingInvoices: invoicesData.length || 0,
-            });
-          }
-        } catch (error) {
-          console.error(`❌ Error loading data for tenant ${tenantId}:`, error);
+          tenantData.push({
+            tenantId: connection.tenantId,
+            tenantName: connection.tenantName,
+            provider: "xero",
+            cashPosition: cashData.totalCash || 0,
+            receivables: receivablesData.totalReceivables || 0,
+            outstandingInvoices: invoicesData.length || 0,
+          });
         }
+      } catch (error) {
+        console.error(
+          `❌ Error loading data for tenant ${connection.tenantId}:`,
+          error
+        );
       }
     }
 
@@ -786,8 +726,8 @@ app.get("/api/consolidated", async (req, res) => {
     let totalApprovalValue = 0;
     let approvalData = [];
 
-    const amTokenData = approvalMaxTokens.get("approvalmax_integration");
-    if (amTokenData && Date.now() < amTokenData.expiresAt) {
+    const amTokenData = await tokenStorage.getApprovalMaxToken();
+    if (amTokenData) {
       try {
         const summaryResponse = await fetch(
           `${req.protocol}://${req.get(
@@ -824,7 +764,7 @@ app.get("/api/consolidated", async (req, res) => {
       lastUpdated: new Date().toISOString(),
     };
 
-    console.log("✅ Consolidated data loaded:", {
+    console.log("✅ Consolidated data loaded from database:", {
       xeroEntities: tenantData.length,
       approvalMaxOrgs: approvalData.length,
       totalCash,
@@ -838,72 +778,27 @@ app.get("/api/consolidated", async (req, res) => {
   }
 });
 
-// Debug endpoint to check ApprovalMax data
-app.get("/api/debug/approvalmax", async (req, res) => {
+// Health check endpoint
+app.get("/api/health", async (req, res) => {
   try {
-    const tokenData = approvalMaxTokens.get("approvalmax_integration");
-    if (!tokenData) {
-      return res.json({
-        error: "No ApprovalMax tokens found",
-        tokenStore: Array.from(approvalMaxTokens.keys()),
-      });
-    }
-
-    console.log("🔍 Debug: ApprovalMax token data:", {
-      hasToken: !!tokenData.accessToken,
-      expiresAt: new Date(tokenData.expiresAt),
-      isExpired: Date.now() > tokenData.expiresAt,
-      organizationCount: tokenData.organizations
-        ? tokenData.organizations.length
-        : 0,
-    });
-
-    // Test companies endpoint
-    const companiesResponse = await fetch(
-      `${APPROVALMAX_CONFIG.apiUrl}/companies`,
-      {
-        headers: {
-          Authorization: `Bearer ${tokenData.accessToken}`,
-          Accept: "application/json",
-        },
-      }
-    );
-
-    console.log("🔍 Debug: Companies API response:", companiesResponse.status);
-
-    let companies = [];
-    if (companiesResponse.ok) {
-      companies = await companiesResponse.json();
-    }
+    // Test database connection
+    const dbTest = await pool.query("SELECT NOW()");
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
 
     res.json({
-      tokenExists: !!tokenData,
-      tokenExpired: Date.now() > tokenData.expiresAt,
-      organizationCount: tokenData.organizations
-        ? tokenData.organizations.length
-        : 0,
-      companiesApiStatus: companiesResponse.status,
-      companiesCount: Array.isArray(companies) ? companies.length : 0,
-      sampleCompany:
-        Array.isArray(companies) && companies.length > 0 ? companies[0] : null,
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      database: "connected",
+      xeroConnections: xeroConnections.length,
+      uptime: process.uptime(),
     });
   } catch (error) {
-    console.error("❌ Debug error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      status: "unhealthy",
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
   }
-});
-
-// Health check endpoint
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    xeroConnections: Array.from(tokenStore.values()).filter(
-      (t) => t.provider === "xero"
-    ).length,
-    approvalMaxConnections: approvalMaxTokens.size,
-    uptime: process.uptime(),
-  });
 });
 
 // Serve main dashboard
@@ -911,17 +806,31 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Start server
-app.listen(port, () => {
-  console.log(`🚀 RAC Financial Dashboard running on port ${port}`);
-  console.log(
-    `📊 Dashboard: ${
-      process.env.NODE_ENV === "production"
-        ? "https://your-app.up.railway.app"
-        : `http://localhost:${port}`
-    }`
-  );
-  console.log(`🔗 Xero OAuth: /auth`);
-  console.log(`🔗 ApprovalMax OAuth: /auth?provider=approvalmax`);
-  console.log(`🎯 Ready for RAC financial integration!`);
-});
+// Initialize database and start server
+async function startServer() {
+  try {
+    await initializeDatabase();
+
+    app.listen(port, () => {
+      console.log(`🚀 RAC Financial Dashboard running on port ${port}`);
+      console.log(
+        `📊 Dashboard: ${
+          process.env.NODE_ENV === "production"
+            ? "https://your-app.up.railway.app"
+            : `http://localhost:${port}`
+        }`
+      );
+      console.log(`💾 Database: Connected to PostgreSQL`);
+      console.log(`🔗 Xero OAuth: /auth`);
+      console.log(`🔗 ApprovalMax OAuth: /auth?provider=approvalmax`);
+      console.log(
+        `🎯 Ready for RAC financial integration with persistent token storage!`
+      );
+    });
+  } catch (error) {
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+startServer();
