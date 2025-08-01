@@ -492,7 +492,7 @@ app.get("/api/cash-position/:tenantId", async (req, res) => {
     }
 
     await xero.setTokenSet(tokenData);
-    xero.setTenantId(req.params.tenantId);
+    //xero.setTenantId(req.params.tenantId);
 
     const response = await xero.accountingApi.getAccounts(
       req.params.tenantId,
@@ -532,7 +532,7 @@ app.get("/api/receivables/:tenantId", async (req, res) => {
     }
 
     await xero.setTokenSet(tokenData);
-    xero.setTenantId(req.params.tenantId);
+    //xero.setTenantId(req.params.tenantId);
 
     const response = await xero.accountingApi.getAccounts(
       req.params.tenantId,
@@ -565,7 +565,7 @@ app.get("/api/outstanding-invoices/:tenantId", async (req, res) => {
     }
 
     await xero.setTokenSet(tokenData);
-    xero.setTenantId(req.params.tenantId);
+    //xero.setTenantId(req.params.tenantId);
 
     const response = await xero.accountingApi.getInvoices(
       req.params.tenantId,
@@ -608,7 +608,7 @@ app.get("/api/contacts/:tenantId", async (req, res) => {
     }
 
     await xero.setTokenSet(tokenData);
-    xero.setTenantId(req.params.tenantId);
+    //xero.setTenantId(req.params.tenantId);
 
     const response = await xero.accountingApi.getContacts(req.params.tenantId);
     const contacts = response.body.contacts || [];
