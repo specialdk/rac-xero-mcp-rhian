@@ -86,16 +86,16 @@ const tokenStorage = {
     try {
       await pool.query(
         `
-                INSERT INTO tokens (tenant_id, tenant_name, provider, access_token, refresh_token, expires_at, last_seen)
-                VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
-                ON CONFLICT (tenant_id) 
-                UPDATE SET 
-                    access_token = $4,
-                    refresh_token = $5,
-                    expires_at = $6,
-                    last_seen = CURRENT_TIMESTAMP,
-                    updated_at = CURRENT_TIMESTAMP
-            `,
+    INSERT INTO tokens (tenant_id, tenant_name, provider, access_token, refresh_token, expires_at, last_seen)
+    VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+    ON CONFLICT (tenant_id) 
+    DO UPDATE SET 
+        access_token = $4,
+        refresh_token = $5,
+        expires_at = $6,
+        last_seen = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+`,
         [
           tenantId,
           tenantName,
