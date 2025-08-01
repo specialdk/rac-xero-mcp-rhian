@@ -1162,7 +1162,7 @@
 
         try {
           if (selectedTenant === "consolidated") {
-            await loadConsolidatedData();
+            await loadTrialBalanceData(); // ← CHANGE: Load trial balance instead of old consolidated data
           } else {
             await loadIndividualTenantData(selectedTenant);
           }
@@ -1173,16 +1173,19 @@
       }
 
       // Load consolidated data across all RAC entities
-      async function loadConsolidatedData() {
-        try {
-          const response = await fetch("/api/consolidated");
-          const data = await response.json();
+      async function loadDashboardData() {
+        const selectedTenant =
+          document.getElementById("subsidiary-select").value;
 
-          dashboardData = data;
-          renderConsolidatedView(data);
+        try {
+          if (selectedTenant === "consolidated") {
+            await loadConsolidatedData(); // ← This will now use trial balance
+          } else {
+            await loadIndividualTenantData(selectedTenant);
+          }
         } catch (error) {
-          console.error("Error loading consolidated data:", error);
-          showError("Failed to load consolidated data");
+          console.error("Error loading dashboard data:", error);
+          showError("Failed to load financial data");
         }
       }
 
@@ -1280,438 +1283,204 @@
         loadDashboardData();
       }
 
-      // Render consolidated view - MODIFIED Financial Overview Card
-      // Render consolidated view - MODIFIED Financial Overview Card
-      function renderConsolidatedView(data) {
+      // ==============================================================================
+      // TRIAL BALANCE DASHBOARD VIEW - Replace renderConsolidatedView function
+      // ==============================================================================
+
+      // Load and render trial balance data
+      async function loadTrialBalanceData() {
+        try {
+          const response = await fetch("/api/consolidated-trial-balance");
+          const data = await response.json();
+
+          dashboardData = data;
+          renderTrialBalanceView(data);
+        } catch (error) {
+          console.error("Error loading trial balance:", error);
+          showError("Failed to load trial balance data");
+        }
+      }
+
+      // Render trial balance view - REPLACES renderConsolidatedView
+      function renderTrialBalanceView(data) {
         document.querySelector(".toggle-btn").parentElement.style.display =
           "block";
         const content = document.getElementById("dashboard-content");
 
-        const avgInvoiceValue =
-          data.totalReceivables / Math.max(data.totalOutstandingInvoices, 1);
-        const totalPortfolio = data.totalCash + data.totalReceivables;
+        const totals = data.consolidated.totals;
+        const balanceCheck = data.balanceCheck;
 
         content.innerHTML = `
-        <!-- Consolidated Financial Overview - MODIFIED WITH ACCOUNT LIST -->
+        <!-- Trial Balance Overview - FULL WIDTH -->
         <div class="demo-card financial-overview">
             <div class="card-header">
-                <h3>💰 Financial Overview</h3>
-                <p>Current RAC consolidated financial position</p>
+                <h3>⚖️ RAC Consolidated Trial Balance</h3>
+                <p>Consolidated financial position across ${
+                  data.entities.length
+                } RAC entities</p>
             </div>
             <div class="card-content">
                 <div class="dashboard-mockup">
-                    <!-- Bank Accounts List with Scrolling -->
-                    <div style="margin-bottom: 15px;">
-                        <div style="font-weight: bold; margin-bottom: 8px; color: #13547a;">Bank Accounts:</div>
-                        <div style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 5px; padding: 10px; background: #f9f9f9;">
+                    <!-- Balance Check Status -->
+                    <div style="margin-bottom: 20px; padding: 15px; border-radius: 8px; ${
+                      balanceCheck.debitsEqualCredits
+                        ? "background: #d4edda; border: 1px solid #c3e6cb; color: #155724;"
+                        : "background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;"
+                    }">
+                        <div style="font-weight: bold; margin-bottom: 5px;">
                             ${
-                              data.tenantData.length > 0 &&
-                              data.tenantData[0] &&
-                              data.tenantData[0].bankAccounts
-                                ? data.tenantData[0].bankAccounts
-                                    .map(
-                                      (acc) => `
-                                    <div style="display: flex; justify-content: space-between; padding: 2px 0; font-size: 0.9rem; border-bottom: 1px solid #f0f0f0;">
-                                        <span style="color: #666;">${
-                                          acc.name
-                                        }</span>
-                                        <span style="font-weight: bold; color: #13547a;">$${acc.balance.toLocaleString()}</span>
+                              balanceCheck.debitsEqualCredits
+                                ? "✅ Books are BALANCED"
+                                : "⚠️ Books are OUT OF BALANCE"
+                            }
+                        </div>
+                        <div style="font-size: 0.9rem;">
+                            Debits: $${totals.totalDebits.toLocaleString()} | Credits: $${totals.totalCredits.toLocaleString()}
+                            ${
+                              !balanceCheck.debitsEqualCredits
+                                ? ` | Difference: $${Math.abs(
+                                    balanceCheck.difference
+                                  ).toLocaleString()}`
+                                : ""
+                            }
+                        </div>
+                        <div style="font-size: 0.9rem; margin-top: 5px;">
+                            Accounting Equation: Assets ($${totals.totalAssets.toLocaleString()}) = Liabilities + Equity ($${(
+          totals.totalLiabilities + totals.totalEquity
+        ).toLocaleString()})
+                            ${
+                              balanceCheck.accountingEquation.balanced
+                                ? " ✅"
+                                : " ⚠️"
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Trial Balance Summary -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-size: 1.2rem; font-weight: bold; color: #28a745;">$${totals.totalAssets.toLocaleString()}</div>
+                            <div style="font-size: 0.9rem; color: #666;">Total Assets</div>
+                        </div>
+                        <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-size: 1.2rem; font-weight: bold; color: #dc3545;">$${totals.totalLiabilities.toLocaleString()}</div>
+                            <div style="font-size: 0.9rem; color: #666;">Total Liabilities</div>
+                        </div>
+                        <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-size: 1.2rem; font-weight: bold; color: #17a2b8;">$${totals.totalEquity.toLocaleString()}</div>
+                            <div style="font-size: 0.9rem; color: #666;">Total Equity</div>
+                        </div>
+                    </div>
+
+                    <!-- Entity-by-Entity Breakdown -->
+                    <div style="margin-bottom: 15px;">
+                        <div style="font-weight: bold; margin-bottom: 10px; color: #13547a;">📊 Entity Breakdown:</div>
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 5px; padding: 15px; background: #f9f9f9;">
+                            ${data.entities
+                              .map(
+                                (entity) => `
+                                <div style="margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+                                    <div style="font-weight: bold; color: #13547a; margin-bottom: 8px;">
+                                        🏢 ${entity.tenantName}
                                     </div>
-                                `
-                                    )
-                                    .join("")
-                                : '<div style="color: #999; font-style: italic;">No bank accounts loaded</div>'
-                            }
-                        </div>
-                    </div>
-                    
-                    <!-- Summary Metrics -->
-                    <div class="metric-row" style="border-top: 2px solid #13547a; padding-top: 10px; margin-top: 10px;">
-                        <span class="metric-label">Total Cash Position</span>
-                        <span class="metric-value large">${data.totalCash.toLocaleString()}</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Outstanding Invoices</span>
-                        <span class="metric-value large">${data.totalReceivables.toLocaleString()}</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Invoice Count</span>
-                        <span class="metric-value">${
-                          data.totalOutstandingInvoices
-                        } outstanding</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Average Invoice Value</span>
-                        <span class="metric-value">${avgInvoiceValue.toLocaleString()}</span>
-                    </div>
-                </div>
-                <div class="success-box">
-                    ✅ All figures shown in AUD from live Xero data across ${
-                      data.tenantData.length
-                    } RAC entities
-                </div>
-            </div>
-        </div>
-
-        <!-- Procurement & Approvals Overview -->
-        <div class="demo-card">
-            <div class="card-header approvalmax">
-                <h3>📋 Procurement & Approvals</h3>
-                <p>RAC approval workflow status and insights</p>
-            </div>
-            <div class="card-content">
-                <div class="dashboard-mockup approvalmax">
-                    <div class="metric-row">
-                        <span class="metric-label">Pending Approvals</span>
-                        <span class="metric-value large approvalmax">${
-                          data.totalPendingApprovals || 0
-                        }</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Total Approval Value</span>
-                        <span class="metric-value large approvalmax">${(
-                          data.totalApprovalValue || 0
-                        ).toLocaleString()}</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Connected Organizations</span>
-                        <span class="metric-value approvalmax">${
-                          data.approvalData ? data.approvalData.length : 0
-                        } ApprovalMax orgs</span>
-                    </div>
-                </div>
-                ${
-                  data.totalPendingApprovals > 0
-                    ? `
-                    <div class="alert-box">
-                        ⚠️ ${data.totalPendingApprovals} approvals pending - review workflow bottlenecks
-                    </div>
-                `
-                    : `
-                    <div class="success-box">
-                        ✅ No pending approvals - workflows running smoothly
-                    </div>
-                `
-                }
-            </div>
-        </div>
-
-        <!-- Cash Flow Intelligence -->
-        <div class="demo-card">
-            <div class="card-header">
-                <h3>📈 Cash Flow Intelligence</h3>
-                <p>RAC portfolio analysis and insights</p>
-            </div>
-            <div class="card-content">
-                <div class="dashboard-mockup">
-                    <p><strong>Portfolio Insights:</strong></p>
-                    <div style="margin: 8px 0; font-size: 0.9rem;">
-                        • Total portfolio value: ${totalPortfolio.toLocaleString()}
-                    </div>
-                    <div style="margin: 8px 0; font-size: 0.9rem;">
-                        • Cash-to-receivables ratio: ${(
-                          (data.totalCash /
-                            Math.max(data.totalReceivables, 1)) *
-                          100
-                        ).toFixed(1)}%
-                    </div>
-                    <div style="margin: 8px 0; font-size: 0.9rem;">
-                        • Average invoice value: ${avgInvoiceValue.toLocaleString()}
-                    </div>
-                    <div style="margin: 8px 0; font-size: 0.9rem;">
-                        • Strongest performer: ${
-                          data.tenantData.length > 0
-                            ? data.tenantData.reduce((max, tenant) =>
-                                tenant.cashPosition > max.cashPosition
-                                  ? tenant
-                                  : max
-                              ).tenantName
-                            : "N/A"
-                        }
-                    </div>
-                </div>
-                <div class="alert-box">
-                    💡 ${
-                      data.totalReceivables > data.totalCash
-                        ? "Consider follow-up on high-value outstanding invoices"
-                        : "Strong cash position - good liquidity"
-                    }
-                </div>
-            </div>
-        </div>
-
-        <!-- Integration Status -->
-        <div class="demo-card">
-            <div class="card-header">
-                <h3>🔗 Integration Status</h3>
-                <p>Connected RAC entities and system health</p>
-            </div>
-            <div class="card-content">
-                <div class="dashboard-mockup">
-                    <div class="metric-row">
-                        <span class="metric-label">Xero Entities</span>
-                        <span class="metric-value">${
-                          data.tenantData.length
-                        } connected</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">ApprovalMax Orgs</span>
-                        <span class="metric-value">${
-                          data.approvalData ? data.approvalData.length : 0
-                        } connected</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Data Accuracy</span>
-                        <span class="metric-value" style="color: green;">100% Live Data</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Last Sync</span>
-                        <span class="metric-value">Just now</span>
-                    </div>
-                </div>
-                <div class="success-box">
-                    ✅ Multi-system integration active - Xero financial data + ApprovalMax procurement workflows
-                </div>
-            </div>
-        </div>
-    `;
-      }
-      // Render Xero individual tenant view
-      function renderXeroTenantView(data) {
-        document.querySelector(".toggle-btn").parentElement.style.display =
-          "none";
-        const content = document.getElementById("dashboard-content");
-
-        const outstandingAmount = data.invoices.reduce(
-          (sum, inv) => sum + (inv.amountDue || 0),
-          0
-        );
-        const customerCount = data.contacts.filter((c) => c.isCustomer).length;
-        const supplierCount = data.contacts.filter((c) => c.isSupplier).length;
-        const avgInvoiceValue =
-          outstandingAmount / Math.max(data.invoices.length, 1);
-
-        content.innerHTML = `
-                <!-- Financial Overview -->
-                <div class="demo-card">
-                    <div class="card-header">
-                        <h3>💰 Financial Overview</h3>
-                        <p>Current entity financial position</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="dashboard-mockup">
-                            <div class="metric-row">
-                                <span class="metric-label">Outstanding Invoices</span>
-                                <span class="metric-value large">${outstandingAmount.toLocaleString()}</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Total Receivables</span>
-                                <span class="metric-value large">${data.receivables.totalReceivables.toLocaleString()}</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Total Cash</span>
-                                <span class="metric-value large">${data.cash.totalCash.toLocaleString()}</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Invoice Count</span>
-                                <span class="metric-value">${
-                                  data.invoices.length
-                                } outstanding</span>
-                            </div>
-                        </div>
-                        <div class="success-box">
-                            ✅ All figures shown in AUD from live Xero data
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Contact Database -->
-                <div class="demo-card">
-                    <div class="card-header">
-                        <h3>👥 Contact Database</h3>
-                        <p>Entity customer and supplier network</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="contacts-summary">
-                            <div class="contact-stat">
-                                <div class="number">${
-                                  data.contacts.length
-                                }</div>
-                                <div class="label">Total Contacts</div>
-                            </div>
-                            <div class="contact-stat">
-                                <div class="number">${customerCount}</div>
-                                <div class="label">Customers</div>
-                            </div>
-                            <div class="contact-stat">
-                                <div class="number">${supplierCount}</div>
-                                <div class="label">Suppliers</div>
-                            </div>
-                        </div>
-                        <div class="info-box">
-                            📊 Contact breakdown: ${(
-                              (customerCount / data.contacts.length) *
-                              100
-                            ).toFixed(1)}% customers, ${(
-          (supplierCount / data.contacts.length) *
-          100
-        ).toFixed(1)}% suppliers
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Banking & Cash Flow -->
-                <div class="demo-card">
-                    <div class="card-header">
-                        <h3>🏦 Banking & Cash Flow</h3>
-                        <p>Entity banking overview and cash management</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="dashboard-mockup">
-                            <div class="metric-row">
-                                <span class="metric-label">Total Cash Position</span>
-                                <span class="metric-value large">${data.cash.totalCash.toLocaleString()}</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Bank Accounts</span>
-                                <span class="metric-value">${
-                                  data.cash.bankAccounts.length
-                                } active accounts</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Cash-to-Receivables Ratio</span>
-                                <span class="metric-value">${(
-                                  (data.cash.totalCash /
-                                    Math.max(
-                                      data.receivables.totalReceivables,
-                                      1
-                                    )) *
-                                  100
-                                ).toFixed(1)}%</span>
-                            </div>
-                        </div>
-                        <div class="alert-box">
-                            💡 ${
-                              data.receivables.totalReceivables >
-                              data.cash.totalCash
-                                ? "Focus on collections to improve cash flow"
-                                : "Strong cash position relative to receivables"
-                            }
-                        </div>
-                    </div>
-                </div>
-            `;
-      }
-
-      // Render consolidated view - MODIFIED with Company Breakdown
-      function renderConsolidatedView(data) {
-        document.querySelector(".toggle-btn").parentElement.style.display =
-          "block";
-        const content = document.getElementById("dashboard-content");
-
-        const avgInvoiceValue =
-          data.totalReceivables / Math.max(data.totalOutstandingInvoices, 1);
-        const totalPortfolio = data.totalCash + data.totalReceivables;
-
-        content.innerHTML = `
-        <!-- Consolidated Financial Overview - MODIFIED WITH COMPANY BREAKDOWN -->
-        <div class="demo-card">
-            <div class="card-header">
-                <h3>💰 Financial Overview</h3>
-                <p>Current RAC consolidated financial position</p>
-            </div>
-            <div class="card-content">
-                <div class="dashboard-mockup">
-                    <!-- Company-by-Company Bank Accounts -->
-                    <div style="margin-bottom: 15px;">
-                        <div style="font-weight: bold; margin-bottom: 8px; color: #13547a;">Bank Accounts by Company:</div>
-                        <div style="max-height: 250px; overflow-y: auto; border: 1px solid #eee; border-radius: 5px; padding: 10px; background: #f9f9f9;">
-                            ${
-                              data.tenantData && data.tenantData.length > 0
-                                ? data.tenantData
-                                    .map((tenant) => {
-                                      const companyTotal = tenant.bankAccounts
-                                        ? tenant.bankAccounts.reduce(
-                                            (sum, acc) =>
-                                              sum + (acc.balance || 0),
-                                            0
-                                          )
-                                        : 0;
-
-                                      return `
-                                        <div style="margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
-                                            <div style="font-weight: bold; color: #13547a; margin-bottom: 5px; font-size: 0.95rem;">
-                                                📊 ${tenant.tenantName}
-                                            </div>
-                                            ${
-                                              tenant.bankAccounts &&
-                                              tenant.bankAccounts.length > 0
-                                                ? tenant.bankAccounts
-                                                    .map(
-                                                      (acc) => `
-                                                    <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 20px; font-size: 0.85rem;">
-                                                        <span style="color: #666;">${
-                                                          acc.name
-                                                        }</span>
-                                                        <span style="font-weight: bold; color: ${
-                                                          acc.balance > 0
-                                                            ? "#28a745"
-                                                            : "#6c757d"
-                                                        };">$${acc.balance.toLocaleString()}</span>
-                                                    </div>
-                                                `
-                                                    )
-                                                    .join("")
-                                                : '<div style="color: #999; font-style: italic; padding-left: 20px; font-size: 0.85rem;">No bank accounts loaded</div>'
-                                            }
-                                            <div style="display: flex; justify-content: space-between; padding: 5px 0 0 20px; font-size: 0.9rem; font-weight: bold; border-top: 1px solid #eee; margin-top: 5px;">
-                                                <span style="color: #13547a;">Company Total:</span>
-                                                <span style="color: #13547a;">$${companyTotal.toLocaleString()}</span>
-                                            </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 10px; font-size: 0.85rem;">
+                                        <div>
+                                            <div style="font-weight: bold; color: #28a745;">Assets</div>
+                                            <div>$${entity.trialBalance.totals.totalAssets.toLocaleString()}</div>
                                         </div>
-                                    `;
-                                    })
-                                    .join("")
-                                : '<div style="color: #999; font-style: italic;">No companies connected</div>'
-                            }
+                                        <div>
+                                            <div style="font-weight: bold; color: #dc3545;">Liabilities</div>
+                                            <div>$${entity.trialBalance.totals.totalLiabilities.toLocaleString()}</div>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: bold; color: #17a2b8;">Equity</div>
+                                            <div>$${entity.trialBalance.totals.totalEquity.toLocaleString()}</div>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: bold; color: #28a745;">Revenue</div>
+                                            <div>$${entity.trialBalance.totals.totalRevenue.toLocaleString()}</div>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: bold; color: #ffc107;">Expenses</div>
+                                            <div>$${entity.trialBalance.totals.totalExpenses.toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                    <div style="margin-top: 5px; font-size: 0.8rem; color: #666;">
+                                        Balance Check: ${
+                                          entity.balanceCheck.debitsEqualCredits
+                                            ? "✅ Balanced"
+                                            : "⚠️ Out of Balance"
+                                        }
+                                        | Accounts: ${
+                                          entity.totalAccounts
+                                        } total, ${entity.activeAccounts} active
+                                    </div>
+                                </div>
+                            `
+                              )
+                              .join("")}
                         </div>
                     </div>
-                    
-                    <!-- Consolidated Summary Metrics -->
-                    <div style="border-top: 2px solid #13547a; padding-top: 15px; margin-top: 10px;">
-                        <div style="font-weight: bold; margin-bottom: 10px; color: #13547a;">📈 Consolidated Summary:</div>
-                        <div class="metric-row">
-                            <span class="metric-label">Total Cash Position</span>
-                            <span class="metric-value large" style="color: ${
-                              data.totalCash > 0 ? "#28a745" : "#6c757d"
-                            };">$${data.totalCash.toLocaleString()}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Outstanding Invoices</span>
-                            <span class="metric-value large">$${data.totalReceivables.toLocaleString()}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Invoice Count</span>
-                            <span class="metric-value">${
-                              data.totalOutstandingInvoices
-                            } outstanding</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Average Invoice Value</span>
-                            <span class="metric-value">$${avgInvoiceValue.toLocaleString()}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Connected Entities</span>
-                            <span class="metric-value">${
-                              data.tenantData.length
-                            } RAC companies</span>
+
+                    <!-- Performance Metrics -->
+                    <div style="border-top: 2px solid #13547a; padding-top: 15px; margin-top: 15px;">
+                        <div style="font-weight: bold; margin-bottom: 10px; color: #13547a;">📈 Financial Performance:</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Total Revenue</span>
+                                    <span class="metric-value" style="color: #28a745;">$${totals.totalRevenue.toLocaleString()}</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Total Expenses</span>
+                                    <span class="metric-value" style="color: #dc3545;">$${totals.totalExpenses.toLocaleString()}</span>
+                                </div>
+                                <div class="metric-row" style="border-top: 1px solid #333; font-weight: bold;">
+                                    <span class="metric-label">Net Income</span>
+                                    <span class="metric-value" style="color: ${
+                                      totals.totalRevenue -
+                                        totals.totalExpenses >=
+                                      0
+                                        ? "#28a745"
+                                        : "#dc3545"
+                                    };">
+                                        $${(
+                                          totals.totalRevenue -
+                                          totals.totalExpenses
+                                        ).toLocaleString()}
+                                    </span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Connected Entities</span>
+                                    <span class="metric-value">${
+                                      data.entities.length
+                                    } RAC companies</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Total Accounts</span>
+                                    <span class="metric-value">${data.entities.reduce(
+                                      (sum, e) => sum + e.totalAccounts,
+                                      0
+                                    )} accounts</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-label">Data Accuracy</span>
+                                    <span class="metric-value" style="color: green;">100% Live Data</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="success-box">
-                    ✅ All figures shown in AUD from live Xero data across ${
-                      data.tenantData.length
-                    } RAC entities
+                <div class="${
+                  balanceCheck.debitsEqualCredits ? "success-box" : "alert-box"
+                }">
+                    ${
+                      balanceCheck.debitsEqualCredits
+                        ? "✅ Trial Balance is accurate across all RAC entities - books are properly balanced"
+                        : "⚠️ Trial Balance shows discrepancies - review accounting entries for accuracy"
+                    }
                 </div>
             </div>
         </div>
@@ -1719,115 +1488,95 @@
         <!-- Cash Flow Intelligence -->
         <div class="demo-card">
             <div class="card-header">
-                <h3>📈 Cash Flow Intelligence</h3>
-                <p>RAC portfolio analysis and insights</p>
+                <h3>📈 Financial Ratios & Analysis</h3>
+                <p>RAC portfolio financial health indicators</p>
             </div>
             <div class="card-content">
                 <div class="dashboard-mockup">
-                    <p><strong>Portfolio Insights:</strong></p>
-                    <div style="margin: 8px 0; font-size: 0.9rem;">
-                        • Total portfolio value: $${totalPortfolio.toLocaleString()}
-                    </div>
-                    <div style="margin: 8px 0; font-size: 0.9rem;">
-                        • Cash-to-receivables ratio: ${(
-                          (data.totalCash /
-                            Math.max(data.totalReceivables, 1)) *
-                          100
-                        ).toFixed(1)}%
-                    </div>
-                    <div style="margin: 8px 0; font-size: 0.9rem;">
-                        • Average invoice value: $${avgInvoiceValue.toLocaleString()}
-                    </div>
-                    <div style="margin: 8px 0; font-size: 0.9rem;">
-                        • Strongest performer: ${
-                          data.tenantData.length > 0
-                            ? data.tenantData.reduce((max, tenant) =>
-                                tenant.cashPosition > max.cashPosition
-                                  ? tenant
-                                  : max
-                              ).tenantName
+                    <p><strong>Key Financial Ratios:</strong></p>
+                    <div class="metric-row">
+                        <span class="metric-label">Debt-to-Equity Ratio</span>
+                        <span class="metric-value">${
+                          totals.totalEquity !== 0
+                            ? (
+                                totals.totalLiabilities / totals.totalEquity
+                              ).toFixed(2)
                             : "N/A"
-                        }
+                        }</span>
                     </div>
-                    <div style="margin: 8px 0; font-size: 0.9rem;">
-                        • Companies with positive cash: ${
-                          data.tenantData.filter((t) => t.cashPosition > 0)
-                            .length
-                        }/${data.tenantData.length}
+                    <div class="metric-row">
+                        <span class="metric-label">Profit Margin</span>
+                        <span class="metric-value">${
+                          totals.totalRevenue !== 0
+                            ? (
+                                ((totals.totalRevenue - totals.totalExpenses) /
+                                  totals.totalRevenue) *
+                                100
+                              ).toFixed(1) + "%"
+                            : "N/A"
+                        }</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Revenue per Entity</span>
+                        <span class="metric-value">$${
+                          data.entities.length > 0
+                            ? (
+                                totals.totalRevenue / data.entities.length
+                              ).toLocaleString()
+                            : "0"
+                        }</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Strongest Performer</span>
+                        <span class="metric-value">${
+                          data.entities.length > 0
+                            ? data.entities
+                                .reduce((max, entity) =>
+                                  entity.trialBalance.totals.totalRevenue -
+                                    entity.trialBalance.totals.totalExpenses >
+                                  max.trialBalance.totals.totalRevenue -
+                                    max.trialBalance.totals.totalExpenses
+                                    ? entity
+                                    : max
+                                )
+                                .tenantName.split(" ")
+                                .slice(0, 2)
+                                .join(" ")
+                            : "N/A"
+                        }</span>
                     </div>
                 </div>
                 <div class="alert-box">
                     💡 ${
-                      data.totalReceivables > data.totalCash
-                        ? "Consider follow-up on high-value outstanding invoices"
-                        : "Strong cash position - good liquidity"
+                      totals.totalRevenue - totals.totalExpenses >= 0
+                        ? "RAC entities are profitable - strong financial performance"
+                        : "Review expense management and revenue optimization opportunities"
                     }
                 </div>
-            </div>
-        </div>
-
-        <!-- Procurement & Approvals Overview -->
-        <div class="demo-card">
-            <div class="card-header approvalmax">
-                <h3>📋 Procurement & Approvals</h3>
-                <p>RAC approval workflow status and insights</p>
-            </div>
-            <div class="card-content">
-                <div class="dashboard-mockup approvalmax">
-                    <div class="metric-row">
-                        <span class="metric-label">Pending Approvals</span>
-                        <span class="metric-value large approvalmax">${
-                          data.totalPendingApprovals || 0
-                        }</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Total Approval Value</span>
-                        <span class="metric-value large approvalmax">$${(
-                          data.totalApprovalValue || 0
-                        ).toLocaleString()}</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Connected Organizations</span>
-                        <span class="metric-value approvalmax">${
-                          data.approvalData ? data.approvalData.length : 0
-                        } ApprovalMax orgs</span>
-                    </div>
-                </div>
-                ${
-                  data.totalPendingApprovals > 0
-                    ? `
-                    <div class="alert-box">
-                        ⚠️ ${data.totalPendingApprovals} approvals pending - review workflow bottlenecks
-                    </div>
-                `
-                    : `
-                    <div class="success-box">
-                        ✅ No pending approvals - workflows running smoothly
-                    </div>
-                `
-                }
             </div>
         </div>
 
         <!-- Integration Status -->
         <div class="demo-card">
             <div class="card-header">
-                <h3>🔗 Integration Status</h3>
-                <p>Connected RAC entities and system health</p>
+                <h3>🔗 Trial Balance Integration Status</h3>
+                <p>Connected RAC entities and data quality</p>
             </div>
             <div class="card-content">
                 <div class="dashboard-mockup">
                     <div class="metric-row">
-                        <span class="metric-label">Xero Entities</span>
+                        <span class="metric-label">Entities in Trial Balance</span>
                         <span class="metric-value">${
-                          data.tenantData.length
+                          data.entities.length
                         } connected</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">ApprovalMax Orgs</span>
+                        <span class="metric-label">Balanced Entities</span>
                         <span class="metric-value">${
-                          data.approvalData ? data.approvalData.length : 0
-                        } connected</span>
+                          data.entities.filter(
+                            (e) => e.balanceCheck.debitsEqualCredits
+                          ).length
+                        }/${data.entities.length}</span>
                     </div>
                     <div class="metric-row">
                         <span class="metric-label">Data Accuracy</span>
@@ -1838,19 +1587,15 @@
                         <span class="metric-value">Just now</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Total Bank Accounts</span>
-                        <span class="metric-value">${data.tenantData.reduce(
-                          (sum, tenant) =>
-                            sum +
-                            (tenant.bankAccounts
-                              ? tenant.bankAccounts.length
-                              : 0),
+                        <span class="metric-label">Total Accounts Monitored</span>
+                        <span class="metric-value">${data.entities.reduce(
+                          (sum, e) => sum + e.activeAccounts,
                           0
-                        )} accounts monitored</span>
+                        )} active accounts</span>
                     </div>
                 </div>
                 <div class="success-box">
-                    ✅ Multi-system integration active - Xero financial data + ApprovalMax procurement workflows
+                    ✅ Trial Balance integration active - Real-time financial data across all RAC entities
                 </div>
             </div>
         </div>

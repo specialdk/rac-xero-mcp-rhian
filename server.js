@@ -865,6 +865,312 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// ==============================================================================
+// TRIAL BALANCE API ENDPOINT - Add to server.js
+// ==============================================================================
+
+// Trial Balance endpoint - NEW
+app.get("/api/trial-balance/:tenantId", async (req, res) => {
+  try {
+    // Get token from database
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    // Get ALL accounts (not just bank accounts)
+    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
+    const allAccounts = response.body.accounts || [];
+
+    // Group accounts by type and calculate trial balance
+    const trialBalance = {
+      assets: [],
+      liabilities: [],
+      equity: [],
+      revenue: [],
+      expenses: [],
+      totals: {
+        totalDebits: 0,
+        totalCredits: 0,
+        totalAssets: 0,
+        totalLiabilities: 0,
+        totalEquity: 0,
+        totalRevenue: 0,
+        totalExpenses: 0,
+      },
+    };
+
+    // Process each account
+    allAccounts.forEach((account) => {
+      if (account.Status !== "ACTIVE") return; // Skip archived accounts
+
+      const balance = parseFloat(account.CurrentBalance) || 0;
+      const accountInfo = {
+        accountID: account.AccountID,
+        code: account.Code,
+        name: account.Name,
+        type: account.Type,
+        class: account.Class,
+        balance: balance,
+        debit: 0,
+        credit: 0,
+      };
+
+      // Determine debit/credit based on account type and balance
+      switch (account.Class) {
+        case "ASSET":
+          accountInfo.debit = balance >= 0 ? Math.abs(balance) : 0;
+          accountInfo.credit = balance < 0 ? Math.abs(balance) : 0;
+          trialBalance.assets.push(accountInfo);
+          trialBalance.totals.totalAssets += balance;
+          break;
+
+        case "LIABILITY":
+          accountInfo.credit = balance >= 0 ? Math.abs(balance) : 0;
+          accountInfo.debit = balance < 0 ? Math.abs(balance) : 0;
+          trialBalance.liabilities.push(accountInfo);
+          trialBalance.totals.totalLiabilities += balance;
+          break;
+
+        case "EQUITY":
+          accountInfo.credit = balance >= 0 ? Math.abs(balance) : 0;
+          accountInfo.debit = balance < 0 ? Math.abs(balance) : 0;
+          trialBalance.equity.push(accountInfo);
+          trialBalance.totals.totalEquity += balance;
+          break;
+
+        case "REVENUE":
+          accountInfo.credit = balance >= 0 ? Math.abs(balance) : 0;
+          accountInfo.debit = balance < 0 ? Math.abs(balance) : 0;
+          trialBalance.revenue.push(accountInfo);
+          trialBalance.totals.totalRevenue += balance;
+          break;
+
+        case "EXPENSE":
+          accountInfo.debit = balance >= 0 ? Math.abs(balance) : 0;
+          accountInfo.credit = balance < 0 ? Math.abs(balance) : 0;
+          trialBalance.expenses.push(accountInfo);
+          trialBalance.totals.totalExpenses += balance;
+          break;
+
+        default:
+          // Handle accounts without class or unknown class
+          if (balance >= 0) {
+            accountInfo.debit = Math.abs(balance);
+          } else {
+            accountInfo.credit = Math.abs(balance);
+          }
+
+          // Categorize by type if class is missing
+          switch (account.Type) {
+            case "BANK":
+            case "CURRENT":
+            case "FIXED":
+            case "INVENTORY":
+              trialBalance.assets.push(accountInfo);
+              trialBalance.totals.totalAssets += balance;
+              break;
+            case "REVENUE":
+            case "OTHERINCOME":
+              trialBalance.revenue.push(accountInfo);
+              trialBalance.totals.totalRevenue += balance;
+              break;
+            case "EXPENSE":
+            case "DIRECTCOSTS":
+            case "OVERHEADS":
+            case "DEPRECIATION":
+            case "OTHEREXPENSE":
+              trialBalance.expenses.push(accountInfo);
+              trialBalance.totals.totalExpenses += balance;
+              break;
+            default:
+              trialBalance.assets.push(accountInfo); // Default to assets
+              trialBalance.totals.totalAssets += balance;
+          }
+      }
+
+      // Add to total debits/credits
+      trialBalance.totals.totalDebits += accountInfo.debit;
+      trialBalance.totals.totalCredits += accountInfo.credit;
+    });
+
+    // Sort each category by account code
+    ["assets", "liabilities", "equity", "revenue", "expenses"].forEach(
+      (category) => {
+        trialBalance[category].sort((a, b) =>
+          (a.code || "").localeCompare(b.code || "")
+        );
+      }
+    );
+
+    // Calculate balance check
+    const balanceCheck = {
+      debitsEqualCredits:
+        Math.abs(
+          trialBalance.totals.totalDebits - trialBalance.totals.totalCredits
+        ) < 0.01,
+      difference:
+        trialBalance.totals.totalDebits - trialBalance.totals.totalCredits,
+      accountingEquation: {
+        assets: trialBalance.totals.totalAssets,
+        liabilitiesAndEquity:
+          trialBalance.totals.totalLiabilities +
+          trialBalance.totals.totalEquity,
+        balanced:
+          Math.abs(
+            trialBalance.totals.totalAssets -
+              (trialBalance.totals.totalLiabilities +
+                trialBalance.totals.totalEquity)
+          ) < 0.01,
+      },
+    };
+
+    res.json({
+      tenantId: req.params.tenantId,
+      tenantName: tokenData.tenantName,
+      trialBalance,
+      balanceCheck,
+      generatedAt: new Date().toISOString(),
+      totalAccounts: allAccounts.length,
+      activeAccounts: allAccounts.filter((acc) => acc.Status === "ACTIVE")
+        .length,
+    });
+  } catch (error) {
+    console.error("❌ Error getting trial balance:", error);
+    res.status(500).json({ error: "Failed to get trial balance" });
+  }
+});
+
+// ==============================================================================
+// CONSOLIDATED TRIAL BALANCE ENDPOINT - Add to server.js
+// ==============================================================================
+
+// Consolidated Trial Balance endpoint - NEW
+app.get("/api/consolidated-trial-balance", async (req, res) => {
+  try {
+    console.log("🔄 Loading consolidated trial balance...");
+
+    // Get all connected Xero entities
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
+    const connectedXeroEntities = xeroConnections.filter(
+      (conn) => conn.connected
+    );
+
+    const consolidatedTrialBalance = {
+      entities: [],
+      consolidated: {
+        assets: [],
+        liabilities: [],
+        equity: [],
+        revenue: [],
+        expenses: [],
+        totals: {
+          totalDebits: 0,
+          totalCredits: 0,
+          totalAssets: 0,
+          totalLiabilities: 0,
+          totalEquity: 0,
+          totalRevenue: 0,
+          totalExpenses: 0,
+        },
+      },
+      balanceCheck: {
+        debitsEqualCredits: false,
+        difference: 0,
+        accountingEquation: {
+          assets: 0,
+          liabilitiesAndEquity: 0,
+          balanced: false,
+        },
+      },
+      generatedAt: new Date().toISOString(),
+    };
+
+    // Get trial balance for each entity
+    for (const connection of connectedXeroEntities) {
+      try {
+        const trialBalanceResponse = await fetch(
+          `${req.protocol}://${req.get("host")}/api/trial-balance/${
+            connection.tenantId
+          }`
+        );
+
+        if (trialBalanceResponse.ok) {
+          const entityTrialBalance = await trialBalanceResponse.json();
+          consolidatedTrialBalance.entities.push(entityTrialBalance);
+
+          // Add to consolidated totals
+          const totals = consolidatedTrialBalance.consolidated.totals;
+          const entityTotals = entityTrialBalance.trialBalance.totals;
+
+          totals.totalDebits += entityTotals.totalDebits;
+          totals.totalCredits += entityTotals.totalCredits;
+          totals.totalAssets += entityTotals.totalAssets;
+          totals.totalLiabilities += entityTotals.totalLiabilities;
+          totals.totalEquity += entityTotals.totalEquity;
+          totals.totalRevenue += entityTotals.totalRevenue;
+          totals.totalExpenses += entityTotals.totalExpenses;
+        }
+      } catch (error) {
+        console.error(
+          `❌ Error loading trial balance for ${connection.tenantId}:`,
+          error
+        );
+      }
+    }
+
+    // Calculate consolidated balance check
+    const totals = consolidatedTrialBalance.consolidated.totals;
+    consolidatedTrialBalance.balanceCheck = {
+      debitsEqualCredits:
+        Math.abs(totals.totalDebits - totals.totalCredits) < 0.01,
+      difference: totals.totalDebits - totals.totalCredits,
+      accountingEquation: {
+        assets: totals.totalAssets,
+        liabilitiesAndEquity: totals.totalLiabilities + totals.totalEquity,
+        balanced:
+          Math.abs(
+            totals.totalAssets - (totals.totalLiabilities + totals.totalEquity)
+          ) < 0.01,
+      },
+    };
+
+    console.log("✅ Consolidated trial balance loaded:", {
+      entities: consolidatedTrialBalance.entities.length,
+      totalDebits: totals.totalDebits,
+      totalCredits: totals.totalCredits,
+      balanced: consolidatedTrialBalance.balanceCheck.debitsEqualCredits,
+    });
+
+    res.json(consolidatedTrialBalance);
+  } catch (error) {
+    console.error("❌ Error loading consolidated trial balance:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to load consolidated trial balance" });
+  }
+});
+
+// Update the main dashboard loading function
+async function loadDashboardData() {
+  const selectedTenant = document.getElementById("subsidiary-select").value;
+
+  try {
+    if (selectedTenant === "consolidated") {
+      await loadTrialBalanceData(); // Load trial balance instead of old consolidated data
+    } else {
+      await loadIndividualTenantData(selectedTenant);
+    }
+  } catch (error) {
+    console.error("Error loading dashboard data:", error);
+    showError("Failed to load financial data");
+  }
+}
+
 // Initialize database and start server
 async function startServer() {
   try {
