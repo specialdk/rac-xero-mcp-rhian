@@ -1346,6 +1346,38 @@ app.get("/api/debug/raw-accounts/:tenantId", async (req, res) => {
   }
 });
 
+// ULTRA SIMPLE DEBUG - Add this to server.js
+app.get('/api/debug/simple/:tenantId', async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res.status(404).json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
+    const allAccounts = response.body.accounts || [];
+    
+    // Just return the first 3 accounts EXACTLY as Xero sends them
+    const firstThree = allAccounts.slice(0, 3);
+    
+    console.log('Raw Xero Response Structure:');
+    console.log('Total accounts:', allAccounts.length);
+    console.log('First account keys:', firstThree[0] ? Object.keys(firstThree[0]) : 'No accounts');
+    console.log('First account full:', firstThree[0]);
+    
+    res.json({
+      message: 'Raw Xero account data',
+      totalAccounts: allAccounts.length,
+      firstThreeAccounts: firstThree,
+      firstAccountKeys: firstThree[0] ? Object.keys(firstThree[0]) : []
+    });
+  } catch (error) {
+    console.error("❌ Simple debug error:", error);
+    res.status(500).json({ error: "Simple debug failed", details: error.message });
+  }
+});
+
 // Initialize database and start server
 async function startServer() {
   try {
