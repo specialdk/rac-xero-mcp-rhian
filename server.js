@@ -1140,6 +1140,58 @@ app.get("/api/debug/accounts/:tenantId", async (req, res) => {
       })),
     };
 
+    // DEBUG endpoint - Add this first to test basic functionality
+    app.get("/api/debug/accounts/:tenantId", async (req, res) => {
+      try {
+        console.log(
+          `🔍 DEBUG: Getting accounts for tenant: ${req.params.tenantId}`
+        );
+
+        const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+        if (!tokenData) {
+          return res
+            .status(404)
+            .json({ error: "Tenant not found or token expired" });
+        }
+
+        console.log(`✅ DEBUG: Token found for: ${tokenData.tenantName}`);
+
+        await xero.setTokenSet(tokenData);
+
+        const response = await xero.accountingApi.getAccounts(
+          req.params.tenantId
+        );
+        const accounts = response.body.accounts || [];
+
+        const summary = {
+          tenantName: tokenData.tenantName,
+          totalAccounts: accounts.length,
+          activeAccounts: accounts.filter((acc) => acc.Status === "ACTIVE")
+            .length,
+          accountsWithBalance: accounts.filter(
+            (acc) => parseFloat(acc.CurrentBalance || 0) !== 0
+          ).length,
+          sampleAccounts: accounts.slice(0, 10).map((acc) => ({
+            code: acc.Code,
+            name: acc.Name,
+            type: acc.Type,
+            class: acc.Class,
+            balance: acc.CurrentBalance,
+            status: acc.Status,
+          })),
+        };
+
+        console.log(`✅ DEBUG: Account summary:`, summary);
+        res.json(summary);
+      } catch (error) {
+        console.error("❌ DEBUG: Error getting accounts:", error);
+        res.status(500).json({
+          error: "Failed to get accounts",
+          details: error.message,
+        });
+      }
+    });
+
     console.log(`✅ DEBUG: Account summary:`, summary);
     res.json(summary);
   } catch (error) {
