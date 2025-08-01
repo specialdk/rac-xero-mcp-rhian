@@ -324,9 +324,13 @@
 
       .demo-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        grid-template-columns: 1fr 1fr; /* 2 equal columns */
         gap: 30px;
         margin-bottom: 40px;
+      }
+
+      .demo-card.financial-overview {
+        grid-column: 1 / -1; /* Span full width */
       }
 
       .demo-card {
@@ -1289,7 +1293,7 @@
 
         content.innerHTML = `
         <!-- Consolidated Financial Overview - MODIFIED WITH ACCOUNT LIST -->
-        <div class="demo-card">
+        <div class="demo-card financial-overview">
             <div class="card-header">
                 <h3>💰 Financial Overview</h3>
                 <p>Current RAC consolidated financial position</p>
@@ -1599,135 +1603,258 @@
             `;
       }
 
-      // Render ApprovalMax individual tenant view
-      function renderApprovalMaxTenantView(data) {
+      // Render consolidated view - MODIFIED with Company Breakdown
+      function renderConsolidatedView(data) {
         document.querySelector(".toggle-btn").parentElement.style.display =
-          "none";
+          "block";
         const content = document.getElementById("dashboard-content");
 
+        const avgInvoiceValue =
+          data.totalReceivables / Math.max(data.totalOutstandingInvoices, 1);
+        const totalPortfolio = data.totalCash + data.totalReceivables;
+
         content.innerHTML = `
-                <!-- Approval Summary -->
-                <div class="demo-card">
-                    <div class="card-header approvalmax">
-                        <h3>📋 Approval Summary</h3>
-                        <p>Current organization approval status</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="dashboard-mockup approvalmax">
-                            <div class="metric-row">
-                                <span class="metric-label">Pending Approvals</span>
-                                <span class="metric-value large approvalmax">${
-                                  data.summary.pendingApprovals
-                                }</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Total Documents</span>
-                                <span class="metric-value approvalmax">${
-                                  data.summary.totalDocuments
-                                }</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Approved Today</span>
-                                <span class="metric-value approvalmax">${
-                                  data.summary.approvedToday
-                                }</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Total Value</span>
-                                <span class="metric-value large approvalmax">${data.summary.totalValue.toLocaleString()}</span>
-                            </div>
-                        </div>
-                        <div class="success-box">
-                            ✅ All data from live ApprovalMax workflows
-                        </div>
-                    </div>
-                </div>
+        <!-- Consolidated Financial Overview - MODIFIED WITH COMPANY BREAKDOWN -->
+        <div class="demo-card">
+            <div class="card-header">
+                <h3>💰 Financial Overview</h3>
+                <p>Current RAC consolidated financial position</p>
+            </div>
+            <div class="card-content">
+                <div class="dashboard-mockup">
+                    <!-- Company-by-Company Bank Accounts -->
+                    <div style="margin-bottom: 15px;">
+                        <div style="font-weight: bold; margin-bottom: 8px; color: #13547a;">Bank Accounts by Company:</div>
+                        <div style="max-height: 250px; overflow-y: auto; border: 1px solid #eee; border-radius: 5px; padding: 10px; background: #f9f9f9;">
+                            ${
+                              data.tenantData && data.tenantData.length > 0
+                                ? data.tenantData
+                                    .map((tenant) => {
+                                      const companyTotal = tenant.bankAccounts
+                                        ? tenant.bankAccounts.reduce(
+                                            (sum, acc) =>
+                                              sum + (acc.balance || 0),
+                                            0
+                                          )
+                                        : 0;
 
-                <!-- Workflow Bottlenecks -->
-                <div class="demo-card">
-                    <div class="card-header approvalmax">
-                        <h3>⚠️ Workflow Bottlenecks</h3>
-                        <p>Approvers with pending documents</p>
-                    </div>
-                    <div class="card-content">
-                        ${
-                          data.bottlenecks && data.bottlenecks.length > 0
-                            ? `
-                            ${data.bottlenecks
-                              .slice(0, 3)
-                              .map(
-                                (bottleneck) => `
-                                <div class="dashboard-mockup approvalmax" style="margin-bottom: 15px;">
-                                    <div class="metric-row">
-                                        <span class="metric-label">Approver</span>
-                                        <span class="metric-value approvalmax">${
-                                          bottleneck.approver
-                                        }</span>
-                                    </div>
-                                    <div class="metric-row">
-                                        <span class="metric-label">Pending Count</span>
-                                        <span class="metric-value approvalmax">${
-                                          bottleneck.pendingCount
-                                        } documents</span>
-                                    </div>
-                                    <div class="metric-row">
-                                        <span class="metric-label">Total Value</span>
-                                        <span class="metric-value approvalmax">${bottleneck.totalValue.toLocaleString()}</span>
-                                    </div>
-                                </div>
-                            `
-                              )
-                              .join("")}
-                        `
-                            : `
-                            <div class="success-box">
-                                ✅ No workflow bottlenecks detected
-                            </div>
-                        `
-                        }
-                    </div>
-                </div>
-
-                <!-- Performance Metrics -->
-                <div class="demo-card">
-                    <div class="card-header approvalmax">
-                        <h3>📊 Performance Metrics</h3>
-                        <p>Approval workflow efficiency</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="dashboard-mockup approvalmax">
-                            <div class="metric-row">
-                                <span class="metric-label">Average Approval Time</span>
-                                <span class="metric-value approvalmax">${
-                                  data.summary.averageApprovalTime
-                                } hours</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Rejected Documents</span>
-                                <span class="metric-value approvalmax">${
-                                  data.summary.rejectedCount
-                                }</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Approval Rate</span>
-                                <span class="metric-value approvalmax">${(
-                                  ((data.summary.totalDocuments -
-                                    data.summary.rejectedCount) /
-                                    Math.max(data.summary.totalDocuments, 1)) *
-                                  100
-                                ).toFixed(1)}%</span>
-                            </div>
-                        </div>
-                        <div class="info-box">
-                            📈 Workflow insights: ${
-                              data.summary.averageApprovalTime < 24
-                                ? "Fast approval times"
-                                : "Consider workflow optimization"
+                                      return `
+                                        <div style="margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+                                            <div style="font-weight: bold; color: #13547a; margin-bottom: 5px; font-size: 0.95rem;">
+                                                📊 ${tenant.tenantName}
+                                            </div>
+                                            ${
+                                              tenant.bankAccounts &&
+                                              tenant.bankAccounts.length > 0
+                                                ? tenant.bankAccounts
+                                                    .map(
+                                                      (acc) => `
+                                                    <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 20px; font-size: 0.85rem;">
+                                                        <span style="color: #666;">${
+                                                          acc.name
+                                                        }</span>
+                                                        <span style="font-weight: bold; color: ${
+                                                          acc.balance > 0
+                                                            ? "#28a745"
+                                                            : "#6c757d"
+                                                        };">$${acc.balance.toLocaleString()}</span>
+                                                    </div>
+                                                `
+                                                    )
+                                                    .join("")
+                                                : '<div style="color: #999; font-style: italic; padding-left: 20px; font-size: 0.85rem;">No bank accounts loaded</div>'
+                                            }
+                                            <div style="display: flex; justify-content: space-between; padding: 5px 0 0 20px; font-size: 0.9rem; font-weight: bold; border-top: 1px solid #eee; margin-top: 5px;">
+                                                <span style="color: #13547a;">Company Total:</span>
+                                                <span style="color: #13547a;">$${companyTotal.toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                    })
+                                    .join("")
+                                : '<div style="color: #999; font-style: italic;">No companies connected</div>'
                             }
                         </div>
                     </div>
+                    
+                    <!-- Consolidated Summary Metrics -->
+                    <div style="border-top: 2px solid #13547a; padding-top: 15px; margin-top: 10px;">
+                        <div style="font-weight: bold; margin-bottom: 10px; color: #13547a;">📈 Consolidated Summary:</div>
+                        <div class="metric-row">
+                            <span class="metric-label">Total Cash Position</span>
+                            <span class="metric-value large" style="color: ${
+                              data.totalCash > 0 ? "#28a745" : "#6c757d"
+                            };">$${data.totalCash.toLocaleString()}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Outstanding Invoices</span>
+                            <span class="metric-value large">$${data.totalReceivables.toLocaleString()}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Invoice Count</span>
+                            <span class="metric-value">${
+                              data.totalOutstandingInvoices
+                            } outstanding</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Average Invoice Value</span>
+                            <span class="metric-value">$${avgInvoiceValue.toLocaleString()}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Connected Entities</span>
+                            <span class="metric-value">${
+                              data.tenantData.length
+                            } RAC companies</span>
+                        </div>
+                    </div>
                 </div>
-            `;
+                <div class="success-box">
+                    ✅ All figures shown in AUD from live Xero data across ${
+                      data.tenantData.length
+                    } RAC entities
+                </div>
+            </div>
+        </div>
+
+        <!-- Cash Flow Intelligence -->
+        <div class="demo-card">
+            <div class="card-header">
+                <h3>📈 Cash Flow Intelligence</h3>
+                <p>RAC portfolio analysis and insights</p>
+            </div>
+            <div class="card-content">
+                <div class="dashboard-mockup">
+                    <p><strong>Portfolio Insights:</strong></p>
+                    <div style="margin: 8px 0; font-size: 0.9rem;">
+                        • Total portfolio value: $${totalPortfolio.toLocaleString()}
+                    </div>
+                    <div style="margin: 8px 0; font-size: 0.9rem;">
+                        • Cash-to-receivables ratio: ${(
+                          (data.totalCash /
+                            Math.max(data.totalReceivables, 1)) *
+                          100
+                        ).toFixed(1)}%
+                    </div>
+                    <div style="margin: 8px 0; font-size: 0.9rem;">
+                        • Average invoice value: $${avgInvoiceValue.toLocaleString()}
+                    </div>
+                    <div style="margin: 8px 0; font-size: 0.9rem;">
+                        • Strongest performer: ${
+                          data.tenantData.length > 0
+                            ? data.tenantData.reduce((max, tenant) =>
+                                tenant.cashPosition > max.cashPosition
+                                  ? tenant
+                                  : max
+                              ).tenantName
+                            : "N/A"
+                        }
+                    </div>
+                    <div style="margin: 8px 0; font-size: 0.9rem;">
+                        • Companies with positive cash: ${
+                          data.tenantData.filter((t) => t.cashPosition > 0)
+                            .length
+                        }/${data.tenantData.length}
+                    </div>
+                </div>
+                <div class="alert-box">
+                    💡 ${
+                      data.totalReceivables > data.totalCash
+                        ? "Consider follow-up on high-value outstanding invoices"
+                        : "Strong cash position - good liquidity"
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Procurement & Approvals Overview -->
+        <div class="demo-card">
+            <div class="card-header approvalmax">
+                <h3>📋 Procurement & Approvals</h3>
+                <p>RAC approval workflow status and insights</p>
+            </div>
+            <div class="card-content">
+                <div class="dashboard-mockup approvalmax">
+                    <div class="metric-row">
+                        <span class="metric-label">Pending Approvals</span>
+                        <span class="metric-value large approvalmax">${
+                          data.totalPendingApprovals || 0
+                        }</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Total Approval Value</span>
+                        <span class="metric-value large approvalmax">$${(
+                          data.totalApprovalValue || 0
+                        ).toLocaleString()}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Connected Organizations</span>
+                        <span class="metric-value approvalmax">${
+                          data.approvalData ? data.approvalData.length : 0
+                        } ApprovalMax orgs</span>
+                    </div>
+                </div>
+                ${
+                  data.totalPendingApprovals > 0
+                    ? `
+                    <div class="alert-box">
+                        ⚠️ ${data.totalPendingApprovals} approvals pending - review workflow bottlenecks
+                    </div>
+                `
+                    : `
+                    <div class="success-box">
+                        ✅ No pending approvals - workflows running smoothly
+                    </div>
+                `
+                }
+            </div>
+        </div>
+
+        <!-- Integration Status -->
+        <div class="demo-card">
+            <div class="card-header">
+                <h3>🔗 Integration Status</h3>
+                <p>Connected RAC entities and system health</p>
+            </div>
+            <div class="card-content">
+                <div class="dashboard-mockup">
+                    <div class="metric-row">
+                        <span class="metric-label">Xero Entities</span>
+                        <span class="metric-value">${
+                          data.tenantData.length
+                        } connected</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">ApprovalMax Orgs</span>
+                        <span class="metric-value">${
+                          data.approvalData ? data.approvalData.length : 0
+                        } connected</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Data Accuracy</span>
+                        <span class="metric-value" style="color: green;">100% Live Data</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Last Sync</span>
+                        <span class="metric-value">Just now</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Total Bank Accounts</span>
+                        <span class="metric-value">${data.tenantData.reduce(
+                          (sum, tenant) =>
+                            sum +
+                            (tenant.bankAccounts
+                              ? tenant.bankAccounts.length
+                              : 0),
+                          0
+                        )} accounts monitored</span>
+                    </div>
+                </div>
+                <div class="success-box">
+                    ✅ Multi-system integration active - Xero financial data + ApprovalMax procurement workflows
+                </div>
+            </div>
+        </div>
+    `;
       }
 
       // Show error message
