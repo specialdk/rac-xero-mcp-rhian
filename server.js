@@ -1228,6 +1228,44 @@ app.get("/api/consolidated-trial-balance", async (req, res) => {
       .json({ error: "Failed to load consolidated trial balance" });
   }
 });
+
+// TESTING - NEW endpoint to test Balance Sheet approach
+app.get("/api/trial-balance-fixed/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    // Get accounts first
+    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
+    const allAccounts = response.body.accounts || [];
+
+    // Get Balance Sheet report to get actual balances
+    const today = new Date().toISOString().split("T")[0];
+    const balanceSheetResponse = await xero.accountingApi.getReportBalanceSheet(
+      req.params.tenantId,
+      today
+    );
+
+    console.log("✅ Got Balance Sheet report");
+
+    res.json({
+      message: "Testing Balance Sheet approach",
+      totalAccounts: allAccounts.length,
+      balanceSheetStructure:
+        balanceSheetResponse.body.reports?.[0]?.rows?.slice(0, 5),
+    });
+  } catch (error) {
+    console.error("❌ Error:", error);
+    res.status(500).json({ error: "Failed", details: error.message });
+  }
+});
+
 // ENHANCED DEBUG - Replace your /api/debug/accounts/:tenantId with this:
 app.get("/api/debug/accounts/:tenantId", async (req, res) => {
   try {
@@ -1347,34 +1385,41 @@ app.get("/api/debug/raw-accounts/:tenantId", async (req, res) => {
 });
 
 // ULTRA SIMPLE DEBUG - Add this to server.js
-app.get('/api/debug/simple/:tenantId', async (req, res) => {
+app.get("/api/debug/simple/:tenantId", async (req, res) => {
   try {
     const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
     if (!tokenData) {
-      return res.status(404).json({ error: "Tenant not found or token expired" });
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
     }
 
     await xero.setTokenSet(tokenData);
     const response = await xero.accountingApi.getAccounts(req.params.tenantId);
     const allAccounts = response.body.accounts || [];
-    
+
     // Just return the first 3 accounts EXACTLY as Xero sends them
     const firstThree = allAccounts.slice(0, 3);
-    
-    console.log('Raw Xero Response Structure:');
-    console.log('Total accounts:', allAccounts.length);
-    console.log('First account keys:', firstThree[0] ? Object.keys(firstThree[0]) : 'No accounts');
-    console.log('First account full:', firstThree[0]);
-    
+
+    console.log("Raw Xero Response Structure:");
+    console.log("Total accounts:", allAccounts.length);
+    console.log(
+      "First account keys:",
+      firstThree[0] ? Object.keys(firstThree[0]) : "No accounts"
+    );
+    console.log("First account full:", firstThree[0]);
+
     res.json({
-      message: 'Raw Xero account data',
+      message: "Raw Xero account data",
       totalAccounts: allAccounts.length,
       firstThreeAccounts: firstThree,
-      firstAccountKeys: firstThree[0] ? Object.keys(firstThree[0]) : []
+      firstAccountKeys: firstThree[0] ? Object.keys(firstThree[0]) : [],
     });
   } catch (error) {
     console.error("❌ Simple debug error:", error);
-    res.status(500).json({ error: "Simple debug failed", details: error.message });
+    res
+      .status(500)
+      .json({ error: "Simple debug failed", details: error.message });
   }
 });
 
