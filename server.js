@@ -1161,7 +1161,7 @@ async function loadDashboardData() {
 
   try {
     if (selectedTenant === "consolidated") {
-      await loadTrialBalanceData(); // Load trial balance instead of old consolidated data
+      await loadTrialBalanceData(); // ← CHANGE: Load trial balance instead of old consolidated data
     } else {
       await loadIndividualTenantData(selectedTenant);
     }
