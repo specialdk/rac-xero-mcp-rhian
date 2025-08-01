@@ -503,7 +503,7 @@ app.get("/api/cash-position/:tenantId", async (req, res) => {
 
     // FIXED: Use runningBalance instead of bankAccountNumber
     const totalCash = bankAccounts.reduce((sum, account) => {
-      return sum + (parseFloat(account.runningBalance) || 0);
+      return sum + (parseFloat(account.Balance) || 0);
     }, 0);
 
     res.json({
@@ -543,7 +543,7 @@ app.get("/api/receivables/:tenantId", async (req, res) => {
 
     // FIXED: Use runningBalance instead of bankAccountNumber
     const totalReceivables = receivableAccounts.reduce((sum, account) => {
-      return sum + (parseFloat(account.runningBalance) || 0);
+      return sum + (parseFloat(account.Balance) || 0);
     }, 0);
 
     res.json({ totalReceivables });
