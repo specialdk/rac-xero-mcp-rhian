@@ -866,77 +866,55 @@ app.get("/", (req, res) => {
 });
 
 // ==============================================================================
-// UPDATED TRIAL BALANCE API ENDPOINTS WITH DATE PARAMETERS
+// SIMPLIFIED TRIAL BALANCE ENDPOINTS - Fix API call errors
 // ==============================================================================
 
-// Individual Trial Balance endpoint - UPDATED with date parameters
+// Individual Trial Balance endpoint - SIMPLIFIED AND FIXED
 app.get("/api/trial-balance/:tenantId", async (req, res) => {
   try {
+    console.log(`🔍 Getting trial balance for tenant: ${req.params.tenantId}`);
+
     // Get token from database
     const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
     if (!tokenData) {
+      console.log(`❌ No token found for tenant: ${req.params.tenantId}`);
       return res
         .status(404)
         .json({ error: "Tenant not found or token expired" });
     }
 
+    console.log(`✅ Token found for: ${tokenData.tenantName}`);
+
     await xero.setTokenSet(tokenData);
 
-    // ADD DATE PARAMETERS - Default to current month if not specified
-    const fromDate =
-      req.query.fromDate ||
-      new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-        .toISOString()
-        .split("T")[0];
-    const toDate = req.query.toDate || new Date().toISOString().split("T")[0];
-
-    console.log(
-      `🔍 Getting trial balance for ${tokenData.tenantName} from ${fromDate} to ${toDate}`
-    );
-
-    // Get ALL accounts WITH date filtering
-    const response = await xero.accountingApi.getAccounts(
-      req.params.tenantId,
-      null, // ifModifiedSince
-      null, // where
-      null, // order
-      null, // includeArchived
-      {
-        // Add date context for account balances
-        fromDate: fromDate,
-        toDate: toDate,
-      }
-    );
+    // SIMPLIFIED: Get ALL accounts (remove problematic date parameters)
+    console.log(`🔄 Fetching accounts for: ${tokenData.tenantName}`);
+    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
     const allAccounts = response.body.accounts || [];
 
-    // ALSO get Balance Sheet and P&L reports for accurate balances
-    const [balanceSheetResponse, profitLossResponse] = await Promise.all([
-      xero.accountingApi.getReportBalanceSheet(
-        req.params.tenantId,
-        toDate,
-        null, // periods
-        null, // timeframe
-        null, // trackingCategoryID
-        null, // trackingCategoryID2
-        null, // standardLayout
-        null // paymentsOnly
-      ),
-      xero.accountingApi.getReportProfitAndLoss(
-        req.params.tenantId,
-        fromDate,
-        toDate,
-        null, // periods
-        null, // timeframe
-        null, // trackingCategoryID
-        null, // trackingCategoryID2
-        null, // standardLayout
-        null // paymentsOnly
-      ),
-    ]);
+    console.log(`📊 Received ${allAccounts.length} accounts`);
 
-    // Parse report data for accurate balances
-    const balanceSheetData = balanceSheetResponse.body.reports?.[0];
-    const profitLossData = profitLossResponse.body.reports?.[0];
+    // Get Balance Sheet report for current month
+    const today = new Date();
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    console.log(
+      `📅 Getting Balance Sheet for: ${endOfMonth.toISOString().split("T")[0]}`
+    );
+
+    let balanceSheetData = null;
+    try {
+      const balanceSheetResponse =
+        await xero.accountingApi.getReportBalanceSheet(
+          req.params.tenantId,
+          endOfMonth.toISOString().split("T")[0]
+        );
+      balanceSheetData = balanceSheetResponse.body.reports?.[0];
+      console.log(`✅ Balance Sheet retrieved`);
+    } catch (bsError) {
+      console.log(`⚠️ Balance Sheet error:`, bsError.message);
+    }
 
     // Group accounts by type and calculate trial balance
     const trialBalance = {
@@ -956,75 +934,20 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
       },
     };
 
-    // Helper function to extract balance from reports
-    function getAccountBalanceFromReports(accountCode, accountName) {
-      let balance = 0;
-
-      // Try to find in Balance Sheet first
-      if (balanceSheetData?.rows) {
-        const foundInBS = findAccountInReport(
-          balanceSheetData.rows,
-          accountCode,
-          accountName
-        );
-        if (foundInBS !== null) balance = foundInBS;
-      }
-
-      // Try to find in P&L if not found in Balance Sheet
-      if (balance === 0 && profitLossData?.rows) {
-        const foundInPL = findAccountInReport(
-          profitLossData.rows,
-          accountCode,
-          accountName
-        );
-        if (foundInPL !== null) balance = foundInPL;
-      }
-
-      return balance;
-    }
-
-    // Helper function to search for account in report rows
-    function findAccountInReport(rows, accountCode, accountName) {
-      for (const row of rows) {
-        if (row.rowType === "Row" && row.cells) {
-          const accountCell = row.cells[0]?.value;
-          const balanceCell = row.cells[row.cells.length - 1]?.value;
-
-          if (accountCell && balanceCell !== undefined) {
-            // Match by code or name
-            if (
-              accountCell.includes(accountCode) ||
-              accountCell.includes(accountName)
-            ) {
-              return parseFloat(balanceCell) || 0;
-            }
-          }
-        }
-
-        // Recursively search in nested rows
-        if (row.rows) {
-          const found = findAccountInReport(row.rows, accountCode, accountName);
-          if (found !== null) return found;
-        }
-      }
-      return null;
-    }
-
-    // Process each account with report-based balances
+    // Process each account
+    let processedAccounts = 0;
     allAccounts.forEach((account) => {
       if (account.Status !== "ACTIVE") return; // Skip archived accounts
 
-      // Get balance from reports (more accurate than account.CurrentBalance)
-      const reportBalance = getAccountBalanceFromReports(
-        account.Code,
-        account.Name
-      );
-      const balance =
-        reportBalance !== 0
-          ? reportBalance
-          : parseFloat(account.CurrentBalance) || 0;
+      const balance = parseFloat(account.CurrentBalance) || 0;
 
-      if (balance === 0) return; // Skip zero balance accounts for cleaner display
+      // Skip zero balance accounts for cleaner display
+      if (balance === 0) return;
+
+      processedAccounts++;
+      console.log(
+        `📈 Processing account: ${account.Code} - ${account.Name} = $${balance}`
+      );
 
       const accountInfo = {
         accountID: account.AccountID,
@@ -1061,7 +984,6 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
           break;
 
         case "REVENUE":
-          // Revenue should typically be credit balance
           accountInfo.credit = Math.abs(balance);
           accountInfo.debit = 0;
           trialBalance.revenue.push(accountInfo);
@@ -1069,7 +991,6 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
           break;
 
         case "EXPENSE":
-          // Expenses should typically be debit balance
           accountInfo.debit = Math.abs(balance);
           accountInfo.credit = 0;
           trialBalance.expenses.push(accountInfo);
@@ -1077,23 +998,20 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
           break;
 
         default:
-          // Handle accounts without class - categorize by type
-          if (balance >= 0) {
-            accountInfo.debit = Math.abs(balance);
-          } else {
-            accountInfo.credit = Math.abs(balance);
-          }
-
+          // Categorize by type if class is missing
           switch (account.Type) {
             case "BANK":
             case "CURRENT":
             case "FIXED":
             case "INVENTORY":
+              accountInfo.debit = balance >= 0 ? Math.abs(balance) : 0;
+              accountInfo.credit = balance < 0 ? Math.abs(balance) : 0;
               trialBalance.assets.push(accountInfo);
               trialBalance.totals.totalAssets += balance;
               break;
             case "REVENUE":
             case "OTHERINCOME":
+              accountInfo.credit = Math.abs(balance);
               trialBalance.revenue.push(accountInfo);
               trialBalance.totals.totalRevenue += Math.abs(balance);
               break;
@@ -1102,11 +1020,14 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
             case "OVERHEADS":
             case "DEPRECIATION":
             case "OTHEREXPENSE":
+              accountInfo.debit = Math.abs(balance);
               trialBalance.expenses.push(accountInfo);
               trialBalance.totals.totalExpenses += Math.abs(balance);
               break;
             default:
-              trialBalance.assets.push(accountInfo); // Default to assets
+              accountInfo.debit = balance >= 0 ? Math.abs(balance) : 0;
+              accountInfo.credit = balance < 0 ? Math.abs(balance) : 0;
+              trialBalance.assets.push(accountInfo);
               trialBalance.totals.totalAssets += balance;
           }
       }
@@ -1147,7 +1068,9 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
       },
     };
 
-    console.log(`✅ Trial balance generated for ${tokenData.tenantName}:`, {
+    console.log(`✅ Trial balance completed for ${tokenData.tenantName}:`, {
+      totalAccounts: allAccounts.length,
+      processedAccounts: processedAccounts,
       totalAssets: trialBalance.totals.totalAssets,
       totalLiabilities: trialBalance.totals.totalLiabilities,
       totalEquity: trialBalance.totals.totalEquity,
@@ -1159,144 +1082,72 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
     res.json({
       tenantId: req.params.tenantId,
       tenantName: tokenData.tenantName,
-      dateRange: { fromDate, toDate },
       trialBalance,
       balanceCheck,
       generatedAt: new Date().toISOString(),
       totalAccounts: allAccounts.length,
       activeAccounts: allAccounts.filter((acc) => acc.Status === "ACTIVE")
         .length,
-      nonZeroAccounts: Object.values(trialBalance)
-        .filter(Array.isArray)
-        .reduce((sum, arr) => sum + arr.length, 0),
+      nonZeroAccounts: processedAccounts,
     });
   } catch (error) {
     console.error("❌ Error getting trial balance:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to get trial balance", details: error.message });
+    res.status(500).json({
+      error: "Failed to get trial balance",
+      details: error.message,
+      tenantId: req.params.tenantId,
+    });
   }
 });
 
-// Consolidated Trial Balance endpoint - UPDATED with date parameters
-app.get("/api/consolidated-trial-balance", async (req, res) => {
+// ALSO ADD: Debug endpoint to test basic account retrieval
+app.get("/api/debug/accounts/:tenantId", async (req, res) => {
   try {
     console.log(
-      "🔄 Loading consolidated trial balance with date parameters..."
+      `🔍 DEBUG: Getting accounts for tenant: ${req.params.tenantId}`
     );
 
-    // ADD DATE PARAMETERS - Default to current month
-    const fromDate =
-      req.query.fromDate ||
-      new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-        .toISOString()
-        .split("T")[0];
-    const toDate = req.query.toDate || new Date().toISOString().split("T")[0];
-
-    console.log(`📅 Date range: ${fromDate} to ${toDate}`);
-
-    // Get all connected Xero entities
-    const xeroConnections = await tokenStorage.getAllXeroConnections();
-    const connectedXeroEntities = xeroConnections.filter(
-      (conn) => conn.connected
-    );
-
-    const consolidatedTrialBalance = {
-      entities: [],
-      consolidated: {
-        assets: [],
-        liabilities: [],
-        equity: [],
-        revenue: [],
-        expenses: [],
-        totals: {
-          totalDebits: 0,
-          totalCredits: 0,
-          totalAssets: 0,
-          totalLiabilities: 0,
-          totalEquity: 0,
-          totalRevenue: 0,
-          totalExpenses: 0,
-        },
-      },
-      balanceCheck: {
-        debitsEqualCredits: false,
-        difference: 0,
-        accountingEquation: {
-          assets: 0,
-          liabilitiesAndEquity: 0,
-          balanced: false,
-        },
-      },
-      dateRange: { fromDate, toDate },
-      generatedAt: new Date().toISOString(),
-    };
-
-    // Get trial balance for each entity WITH date parameters
-    for (const connection of connectedXeroEntities) {
-      try {
-        const trialBalanceResponse = await fetch(
-          `${req.protocol}://${req.get("host")}/api/trial-balance/${
-            connection.tenantId
-          }?fromDate=${fromDate}&toDate=${toDate}`
-        );
-
-        if (trialBalanceResponse.ok) {
-          const entityTrialBalance = await trialBalanceResponse.json();
-          consolidatedTrialBalance.entities.push(entityTrialBalance);
-
-          // Add to consolidated totals
-          const totals = consolidatedTrialBalance.consolidated.totals;
-          const entityTotals = entityTrialBalance.trialBalance.totals;
-
-          totals.totalDebits += entityTotals.totalDebits;
-          totals.totalCredits += entityTotals.totalCredits;
-          totals.totalAssets += entityTotals.totalAssets;
-          totals.totalLiabilities += entityTotals.totalLiabilities;
-          totals.totalEquity += entityTotals.totalEquity;
-          totals.totalRevenue += entityTotals.totalRevenue;
-          totals.totalExpenses += entityTotals.totalExpenses;
-        }
-      } catch (error) {
-        console.error(
-          `❌ Error loading trial balance for ${connection.tenantId}:`,
-          error
-        );
-      }
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
     }
 
-    // Calculate consolidated balance check
-    const totals = consolidatedTrialBalance.consolidated.totals;
-    consolidatedTrialBalance.balanceCheck = {
-      debitsEqualCredits:
-        Math.abs(totals.totalDebits - totals.totalCredits) < 0.01,
-      difference: totals.totalDebits - totals.totalCredits,
-      accountingEquation: {
-        assets: totals.totalAssets,
-        liabilitiesAndEquity: totals.totalLiabilities + totals.totalEquity,
-        balanced:
-          Math.abs(
-            totals.totalAssets - (totals.totalLiabilities + totals.totalEquity)
-          ) < 0.01,
-      },
+    console.log(
+      `✅ DEBUG: Token found for: ${tokenData.tenantName}, expires in: ${tokenData.expires_in} seconds`
+    );
+
+    await xero.setTokenSet(tokenData);
+
+    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
+    const accounts = response.body.accounts || [];
+
+    const summary = {
+      tenantName: tokenData.tenantName,
+      totalAccounts: accounts.length,
+      activeAccounts: accounts.filter((acc) => acc.Status === "ACTIVE").length,
+      accountsWithBalance: accounts.filter(
+        (acc) => parseFloat(acc.CurrentBalance || 0) !== 0
+      ).length,
+      sampleAccounts: accounts.slice(0, 5).map((acc) => ({
+        code: acc.Code,
+        name: acc.Name,
+        type: acc.Type,
+        class: acc.Class,
+        balance: acc.CurrentBalance,
+        status: acc.Status,
+      })),
     };
 
-    console.log("✅ Consolidated trial balance loaded:", {
-      entities: consolidatedTrialBalance.entities.length,
-      dateRange: `${fromDate} to ${toDate}`,
-      totalAssets: totals.totalAssets,
-      totalLiabilities: totals.totalLiabilities,
-      totalRevenue: totals.totalRevenue,
-      totalExpenses: totals.totalExpenses,
-      balanced: consolidatedTrialBalance.balanceCheck.debitsEqualCredits,
-    });
-
-    res.json(consolidatedTrialBalance);
+    console.log(`✅ DEBUG: Account summary:`, summary);
+    res.json(summary);
   } catch (error) {
-    console.error("❌ Error loading consolidated trial balance:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to load consolidated trial balance" });
+    console.error("❌ DEBUG: Error getting accounts:", error);
+    res.status(500).json({
+      error: "Failed to get accounts",
+      details: error.message,
+    });
   }
 });
 
