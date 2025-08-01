@@ -860,6 +860,43 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
+// DATABASE DEBUG endpoint - Add this to see what's stored
+app.get("/api/debug/database", async (req, res) => {
+  try {
+    console.log("🔍 DEBUG: Checking database contents...");
+
+    // Get all tokens from database
+    const result = await pool.query(
+      "SELECT tenant_id, tenant_name, provider, expires_at, last_seen FROM tokens ORDER BY last_seen DESC"
+    );
+
+    const now = Date.now();
+    const tokens = result.rows.map((row) => ({
+      tenant_id: row.tenant_id,
+      tenant_name: row.tenant_name,
+      provider: row.provider,
+      expired: now > row.expires_at,
+      expires_in_minutes: Math.floor((row.expires_at - now) / (1000 * 60)),
+      last_seen: row.last_seen,
+    }));
+
+    console.log("✅ DEBUG: Database tokens:", tokens);
+
+    res.json({
+      totalTokens: tokens.length,
+      tokens: tokens,
+      currentTime: new Date().toISOString(),
+      currentTimestamp: now,
+    });
+  } catch (error) {
+    console.error("❌ DEBUG: Database error:", error);
+    res.status(500).json({
+      error: "Database query failed",
+      details: error.message,
+    });
+  }
+});
+
 // Serve main dashboard
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
