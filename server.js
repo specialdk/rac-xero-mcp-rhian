@@ -778,6 +778,64 @@ app.get("/api/consolidated", async (req, res) => {
   }
 });
 
+// Add this endpoint temporarily to your server.js to force create tables
+
+// TEMPORARY: Force database table creation
+app.get("/api/fix-database", async (req, res) => {
+  try {
+    console.log("🔧 Forcing database table creation...");
+
+    // Drop existing tables if they exist (clean slate)
+    await pool.query("DROP TABLE IF EXISTS approvalmax_tokens CASCADE");
+    await pool.query("DROP TABLE IF EXISTS tokens CASCADE");
+
+    // Create tokens table with correct schema
+    await pool.query(`
+            CREATE TABLE tokens (
+                id SERIAL PRIMARY KEY,
+                tenant_id VARCHAR(255) UNIQUE NOT NULL,
+                tenant_name VARCHAR(255) NOT NULL,
+                provider VARCHAR(50) NOT NULL,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_at BIGINT NOT NULL,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+    // Create ApprovalMax tokens table with correct schema
+    await pool.query(`
+            CREATE TABLE approvalmax_tokens (
+                id SERIAL PRIMARY KEY,
+                integration_key VARCHAR(255) UNIQUE NOT NULL,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_at BIGINT NOT NULL,
+                organizations JSONB,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+    console.log("✅ Database tables created successfully");
+
+    res.json({
+      success: true,
+      message: "Database tables created successfully",
+      tables: ["tokens", "approvalmax_tokens"],
+    });
+  } catch (error) {
+    console.error("❌ Error creating database tables:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 // Health check endpoint
 app.get("/api/health", async (req, res) => {
   try {
