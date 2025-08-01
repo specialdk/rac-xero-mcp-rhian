@@ -711,6 +711,7 @@ app.get("/api/consolidated", async (req, res) => {
             cashPosition: cashData.totalCash || 0,
             receivables: receivablesData.totalReceivables || 0,
             outstandingInvoices: invoicesData.length || 0,
+            bankAccounts: cashData.bankAccounts || [], // ← ADD THIS LINE
           });
         }
       } catch (error) {
