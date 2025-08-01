@@ -1278,6 +1278,7 @@ app.get("/api/debug/accounts/:tenantId", async (req, res) => {
 });
 
 // TEMPORARY DEBUG - Add this to see raw account data
+// FIXED DEBUG - Replace the raw accounts endpoint with this
 app.get("/api/debug/raw-accounts/:tenantId", async (req, res) => {
   try {
     const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
@@ -1291,55 +1292,59 @@ app.get("/api/debug/raw-accounts/:tenantId", async (req, res) => {
     const response = await xero.accountingApi.getAccounts(req.params.tenantId);
     const allAccounts = response.body.accounts || [];
 
-    // Find the specific loan account
+    // Find the specific loan account - check multiple variations
     const loanAccount = allAccounts.find(
       (acc) =>
-        acc.Code === "13252" ||
-        acc.Name?.includes("Loan") ||
-        acc.Name?.includes("RPMS")
+        acc.code === "13252" ||
+        acc.name?.toLowerCase().includes("loan") ||
+        acc.name?.toLowerCase().includes("rpms") ||
+        acc.name?.toLowerCase().includes("rpmms")
     );
 
     console.log("🔍 Looking for loan account 13252...");
     console.log("Found loan account:", loanAccount);
 
-    // Show sample accounts with various statuses and balances
-    const sampleAccounts = allAccounts.slice(0, 10).map((acc) => ({
-      code: acc.Code,
-      name: acc.Name,
-      type: acc.Type,
-      class: acc.Class,
-      status: acc.Status,
-      currentBalance: acc.CurrentBalance,
-      currentBalanceType: typeof acc.CurrentBalance,
-      rawAccount: acc, // Full object for first 3
-    }));
+    // Show first 10 accounts with ALL their properties
+    const sampleAccounts = allAccounts.slice(0, 10).map((acc) => {
+      console.log(
+        `Account ${acc.code}: ${acc.name} = ${acc.currentBalance} (${acc.status})`
+      );
+      return {
+        // Use the correct property names from Xero API
+        code: acc.code,
+        name: acc.name,
+        type: acc.type,
+        class: acc.class,
+        status: acc.status,
+        currentBalance: acc.currentBalance,
+        accountID: acc.accountID,
+        // Show the full raw object structure
+        fullObject: acc,
+      };
+    });
+
+    // Count accounts with balances
+    const accountsWithBalance = allAccounts.filter((acc) => {
+      const balance = parseFloat(acc.currentBalance || 0);
+      return balance !== 0;
+    }).length;
 
     res.json({
       totalAccounts: allAccounts.length,
+      accountsWithBalance: accountsWithBalance,
       loanAccountFound: !!loanAccount,
       loanAccountDetails: loanAccount,
       sampleAccounts: sampleAccounts,
+      // Show the structure of the very first account
+      firstAccountStructure: allAccounts[0] ? Object.keys(allAccounts[0]) : [],
     });
   } catch (error) {
     console.error("❌ Error getting raw accounts:", error);
-    res.status(500).json({ error: "Failed to get raw accounts" });
+    res
+      .status(500)
+      .json({ error: "Failed to get raw accounts", details: error.message });
   }
 });
-// Update the main dashboard loading function
-async function loadDashboardData() {
-  const selectedTenant = document.getElementById("subsidiary-select").value;
-
-  try {
-    if (selectedTenant === "consolidated") {
-      await loadTrialBalanceData(); // ← CHANGE: Load trial balance instead of old consolidated data
-    } else {
-      await loadIndividualTenantData(selectedTenant);
-    }
-  } catch (error) {
-    console.error("Error loading dashboard data:", error);
-    showError("Failed to load financial data");
-  }
-}
 
 // Initialize database and start server
 async function startServer() {
