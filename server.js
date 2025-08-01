@@ -1262,7 +1262,7 @@ app.get("/api/trial-balance-fixed/:tenantId", async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error:", error);
-    res.status(500).json({ error: "Failed", details: error.message });
+    res.status(500).json({ error: "Failed", details: error.message || "No message" });
   }
 });
 
