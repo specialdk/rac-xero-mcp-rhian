@@ -906,7 +906,7 @@ app.get("/", (req, res) => {
 // SIMPLIFIED TRIAL BALANCE ENDPOINTS - Fix API call errors
 // ==============================================================================
 
-// Individual Trial Balance endpoint - SIMPLIFIED AND FIXED
+// Individual Trial Balance endpoint - ADD THIS
 app.get("/api/trial-balance/:tenantId", async (req, res) => {
   try {
     console.log(`🔍 Getting trial balance for tenant: ${req.params.tenantId}`);
@@ -924,34 +924,12 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
 
     await xero.setTokenSet(tokenData);
 
-    // SIMPLIFIED: Get ALL accounts (remove problematic date parameters)
+    // Get ALL accounts - include archived ones to see all data
     console.log(`🔄 Fetching accounts for: ${tokenData.tenantName}`);
     const response = await xero.accountingApi.getAccounts(req.params.tenantId);
     const allAccounts = response.body.accounts || [];
 
-    console.log(`📊 Received ${allAccounts.length} accounts`);
-
-    // Get Balance Sheet report for current month
-    const today = new Date();
-    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-    console.log(
-      `📅 Getting Balance Sheet for: ${endOfMonth.toISOString().split("T")[0]}`
-    );
-
-    let balanceSheetData = null;
-    try {
-      const balanceSheetResponse =
-        await xero.accountingApi.getReportBalanceSheet(
-          req.params.tenantId,
-          endOfMonth.toISOString().split("T")[0]
-        );
-      balanceSheetData = balanceSheetResponse.body.reports?.[0];
-      console.log(`✅ Balance Sheet retrieved`);
-    } catch (bsError) {
-      console.log(`⚠️ Balance Sheet error:`, bsError.message);
-    }
+    console.log(`📊 Received ${allAccounts.length} total accounts`);
 
     // Group accounts by type and calculate trial balance
     const trialBalance = {
@@ -971,19 +949,19 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
       },
     };
 
-    // Process each account
+    // Process each account (include BOTH active AND archived with balances)
     let processedAccounts = 0;
     allAccounts.forEach((account) => {
-      if (account.Status !== "ACTIVE") return; // Skip archived accounts
-
+      // Include accounts that are ACTIVE OR have a non-zero balance
       const balance = parseFloat(account.CurrentBalance) || 0;
+      const isActive = account.Status === "ACTIVE";
+      const hasBalance = balance !== 0;
 
-      // Skip zero balance accounts for cleaner display
-      if (balance === 0) return;
+      if (!isActive && !hasBalance) return; // Skip only if archived AND zero balance
 
       processedAccounts++;
       console.log(
-        `📈 Processing account: ${account.Code} - ${account.Name} = $${balance}`
+        `📈 Processing: ${account.Code} - ${account.Name} = $${balance} (${account.Status})`
       );
 
       const accountInfo = {
@@ -993,11 +971,12 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
         type: account.Type,
         class: account.Class,
         balance: balance,
+        status: account.Status,
         debit: 0,
         credit: 0,
       };
 
-      // Determine debit/credit based on account type and balance
+      // Determine debit/credit based on account class and balance
       switch (account.Class) {
         case "ASSET":
           accountInfo.debit = balance >= 0 ? Math.abs(balance) : 0;
@@ -1035,7 +1014,7 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
           break;
 
         default:
-          // Categorize by type if class is missing
+          // Handle accounts without class - categorize by type
           switch (account.Type) {
             case "BANK":
             case "CURRENT":
@@ -1137,6 +1116,118 @@ app.get("/api/trial-balance/:tenantId", async (req, res) => {
   }
 });
 
+// Consolidated Trial Balance endpoint - ADD THIS
+app.get("/api/consolidated-trial-balance", async (req, res) => {
+  try {
+    console.log("🔄 Loading consolidated trial balance...");
+
+    // Get all connected Xero entities
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
+    const connectedXeroEntities = xeroConnections.filter(
+      (conn) => conn.connected
+    );
+
+    console.log(`🏢 Found ${connectedXeroEntities.length} connected entities`);
+
+    const consolidatedTrialBalance = {
+      entities: [],
+      consolidated: {
+        totals: {
+          totalDebits: 0,
+          totalCredits: 0,
+          totalAssets: 0,
+          totalLiabilities: 0,
+          totalEquity: 0,
+          totalRevenue: 0,
+          totalExpenses: 0,
+        },
+      },
+      balanceCheck: {
+        debitsEqualCredits: false,
+        difference: 0,
+        accountingEquation: {
+          assets: 0,
+          liabilitiesAndEquity: 0,
+          balanced: false,
+        },
+      },
+      generatedAt: new Date().toISOString(),
+    };
+
+    // Get trial balance for each entity
+    for (const connection of connectedXeroEntities) {
+      try {
+        console.log(`🔄 Processing entity: ${connection.tenantName}`);
+
+        const trialBalanceResponse = await fetch(
+          `${req.protocol}://${req.get("host")}/api/trial-balance/${
+            connection.tenantId
+          }`
+        );
+
+        if (trialBalanceResponse.ok) {
+          const entityTrialBalance = await trialBalanceResponse.json();
+          consolidatedTrialBalance.entities.push(entityTrialBalance);
+
+          // Add to consolidated totals
+          const totals = consolidatedTrialBalance.consolidated.totals;
+          const entityTotals = entityTrialBalance.trialBalance.totals;
+
+          totals.totalDebits += entityTotals.totalDebits;
+          totals.totalCredits += entityTotals.totalCredits;
+          totals.totalAssets += entityTotals.totalAssets;
+          totals.totalLiabilities += entityTotals.totalLiabilities;
+          totals.totalEquity += entityTotals.totalEquity;
+          totals.totalRevenue += entityTotals.totalRevenue;
+          totals.totalExpenses += entityTotals.totalExpenses;
+
+          console.log(`✅ Added ${connection.tenantName} to consolidated data`);
+        } else {
+          console.log(
+            `⚠️ Failed to get trial balance for ${connection.tenantName}: ${trialBalanceResponse.status}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `❌ Error loading trial balance for ${connection.tenantId}:`,
+          error
+        );
+      }
+    }
+
+    // Calculate consolidated balance check
+    const totals = consolidatedTrialBalance.consolidated.totals;
+    consolidatedTrialBalance.balanceCheck = {
+      debitsEqualCredits:
+        Math.abs(totals.totalDebits - totals.totalCredits) < 0.01,
+      difference: totals.totalDebits - totals.totalCredits,
+      accountingEquation: {
+        assets: totals.totalAssets,
+        liabilitiesAndEquity: totals.totalLiabilities + totals.totalEquity,
+        balanced:
+          Math.abs(
+            totals.totalAssets - (totals.totalLiabilities + totals.totalEquity)
+          ) < 0.01,
+      },
+    };
+
+    console.log("✅ Consolidated trial balance completed:", {
+      entities: consolidatedTrialBalance.entities.length,
+      totalAssets: totals.totalAssets,
+      totalLiabilities: totals.totalLiabilities,
+      totalRevenue: totals.totalRevenue,
+      totalExpenses: totals.totalExpenses,
+      balanced: consolidatedTrialBalance.balanceCheck.debitsEqualCredits,
+    });
+
+    res.json(consolidatedTrialBalance);
+  } catch (error) {
+    console.error("❌ Error loading consolidated trial balance:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to load consolidated trial balance" });
+  }
+});
 // ENHANCED DEBUG - Replace your /api/debug/accounts/:tenantId with this:
 app.get("/api/debug/accounts/:tenantId", async (req, res) => {
   try {
