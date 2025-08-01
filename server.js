@@ -1277,6 +1277,54 @@ app.get("/api/debug/accounts/:tenantId", async (req, res) => {
   }
 });
 
+// TEMPORARY DEBUG - Add this to see raw account data
+app.get("/api/debug/raw-accounts/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
+    const allAccounts = response.body.accounts || [];
+
+    // Find the specific loan account
+    const loanAccount = allAccounts.find(
+      (acc) =>
+        acc.Code === "13252" ||
+        acc.Name?.includes("Loan") ||
+        acc.Name?.includes("RPMS")
+    );
+
+    console.log("🔍 Looking for loan account 13252...");
+    console.log("Found loan account:", loanAccount);
+
+    // Show sample accounts with various statuses and balances
+    const sampleAccounts = allAccounts.slice(0, 10).map((acc) => ({
+      code: acc.Code,
+      name: acc.Name,
+      type: acc.Type,
+      class: acc.Class,
+      status: acc.Status,
+      currentBalance: acc.CurrentBalance,
+      currentBalanceType: typeof acc.CurrentBalance,
+      rawAccount: acc, // Full object for first 3
+    }));
+
+    res.json({
+      totalAccounts: allAccounts.length,
+      loanAccountFound: !!loanAccount,
+      loanAccountDetails: loanAccount,
+      sampleAccounts: sampleAccounts,
+    });
+  } catch (error) {
+    console.error("❌ Error getting raw accounts:", error);
+    res.status(500).json({ error: "Failed to get raw accounts" });
+  }
+});
 // Update the main dashboard loading function
 async function loadDashboardData() {
   const selectedTenant = document.getElementById("subsidiary-select").value;
