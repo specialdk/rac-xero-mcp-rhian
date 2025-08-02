@@ -903,11 +903,12 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// ENHANCED HIERARCHICAL TRIAL BALANCE ENDPOINT
+// Replace your /api/consolidated-trial-balance endpoint with this
 
-// Consolidated Trial Balance endpoint - ADD THIS
 app.get("/api/consolidated-trial-balance", async (req, res) => {
   try {
-    console.log("🔄 Loading consolidated trial balance...");
+    console.log("🔄 Loading HIERARCHICAL consolidated trial balance...");
 
     // Get all connected Xero entities
     const xeroConnections = await tokenStorage.getAllXeroConnections();
@@ -917,8 +918,7 @@ app.get("/api/consolidated-trial-balance", async (req, res) => {
 
     console.log(`🏢 Found ${connectedXeroEntities.length} connected entities`);
 
-    const consolidatedTrialBalance = {
-      entities: [],
+    const hierarchicalTrialBalance = {
       consolidated: {
         totals: {
           totalDebits: 0,
@@ -929,20 +929,21 @@ app.get("/api/consolidated-trial-balance", async (req, res) => {
           totalRevenue: 0,
           totalExpenses: 0,
         },
-      },
-      balanceCheck: {
-        debitsEqualCredits: false,
-        difference: 0,
-        accountingEquation: {
-          assets: 0,
-          liabilitiesAndEquity: 0,
-          balanced: false,
+        balanceCheck: {
+          debitsEqualCredits: false,
+          difference: 0,
+          accountingEquation: {
+            assets: 0,
+            liabilitiesAndEquity: 0,
+            balanced: false,
+          },
         },
       },
+      companies: [], // Hierarchical structure: Company -> Sections -> Accounts
       generatedAt: new Date().toISOString(),
     };
 
-    // Get trial balance for each entity
+    // Process each entity and build hierarchical structure
     for (const connection of connectedXeroEntities) {
       try {
         console.log(`🔄 Processing entity: ${connection.tenantName}`);
@@ -955,10 +956,101 @@ app.get("/api/consolidated-trial-balance", async (req, res) => {
 
         if (trialBalanceResponse.ok) {
           const entityTrialBalance = await trialBalanceResponse.json();
-          consolidatedTrialBalance.entities.push(entityTrialBalance);
+
+          // Create hierarchical company structure
+          const companyData = {
+            tenantId: connection.tenantId,
+            tenantName: connection.tenantName,
+            balanceCheck: entityTrialBalance.balanceCheck,
+            totals: entityTrialBalance.trialBalance.totals,
+            sections: {
+              assets: {
+                title: "Assets",
+                total: entityTrialBalance.trialBalance.totals.totalAssets,
+                accounts: entityTrialBalance.trialBalance.assets.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Assets",
+                  })
+                ),
+              },
+              liabilities: {
+                title: "Liabilities",
+                total: entityTrialBalance.trialBalance.totals.totalLiabilities,
+                accounts: entityTrialBalance.trialBalance.liabilities.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Liabilities",
+                  })
+                ),
+              },
+              equity: {
+                title: "Equity",
+                total: entityTrialBalance.trialBalance.totals.totalEquity,
+                accounts: entityTrialBalance.trialBalance.equity.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Equity",
+                  })
+                ),
+              },
+              revenue: {
+                title: "Revenue",
+                total: entityTrialBalance.trialBalance.totals.totalRevenue,
+                accounts: entityTrialBalance.trialBalance.revenue.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Revenue",
+                  })
+                ),
+              },
+              expenses: {
+                title: "Expenses",
+                total: entityTrialBalance.trialBalance.totals.totalExpenses,
+                accounts: entityTrialBalance.trialBalance.expenses.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Expenses",
+                  })
+                ),
+              },
+            },
+            accountCounts: {
+              totalAccounts: Object.values({
+                assets: entityTrialBalance.trialBalance.assets,
+                liabilities: entityTrialBalance.trialBalance.liabilities,
+                equity: entityTrialBalance.trialBalance.equity,
+                revenue: entityTrialBalance.trialBalance.revenue,
+                expenses: entityTrialBalance.trialBalance.expenses,
+              }).reduce((sum, accounts) => sum + accounts.length, 0),
+              assetAccounts: entityTrialBalance.trialBalance.assets.length,
+              liabilityAccounts:
+                entityTrialBalance.trialBalance.liabilities.length,
+              equityAccounts: entityTrialBalance.trialBalance.equity.length,
+              revenueAccounts: entityTrialBalance.trialBalance.revenue.length,
+              expenseAccounts: entityTrialBalance.trialBalance.expenses.length,
+            },
+          };
+
+          hierarchicalTrialBalance.companies.push(companyData);
 
           // Add to consolidated totals
-          const totals = consolidatedTrialBalance.consolidated.totals;
+          const totals = hierarchicalTrialBalance.consolidated.totals;
           const entityTotals = entityTrialBalance.trialBalance.totals;
 
           totals.totalDebits += entityTotals.totalDebits;
@@ -969,7 +1061,9 @@ app.get("/api/consolidated-trial-balance", async (req, res) => {
           totals.totalRevenue += entityTotals.totalRevenue;
           totals.totalExpenses += entityTotals.totalExpenses;
 
-          console.log(`✅ Added ${connection.tenantName} to consolidated data`);
+          console.log(
+            `✅ Added ${connection.tenantName} to hierarchical structure`
+          );
         } else {
           console.log(
             `⚠️ Failed to get trial balance for ${connection.tenantName}: ${trialBalanceResponse.status}`
@@ -984,8 +1078,8 @@ app.get("/api/consolidated-trial-balance", async (req, res) => {
     }
 
     // Calculate consolidated balance check
-    const totals = consolidatedTrialBalance.consolidated.totals;
-    consolidatedTrialBalance.balanceCheck = {
+    const totals = hierarchicalTrialBalance.consolidated.totals;
+    hierarchicalTrialBalance.consolidated.balanceCheck = {
       debitsEqualCredits:
         Math.abs(totals.totalDebits - totals.totalCredits) < 0.01,
       difference: totals.totalDebits - totals.totalCredits,
@@ -999,21 +1093,50 @@ app.get("/api/consolidated-trial-balance", async (req, res) => {
       },
     };
 
-    console.log("✅ Consolidated trial balance completed:", {
-      entities: consolidatedTrialBalance.entities.length,
+    // Add summary statistics
+    hierarchicalTrialBalance.summary = {
+      totalCompanies: hierarchicalTrialBalance.companies.length,
+      totalAccounts: hierarchicalTrialBalance.companies.reduce(
+        (sum, company) => sum + company.accountCounts.totalAccounts,
+        0
+      ),
+      balancedCompanies: hierarchicalTrialBalance.companies.filter(
+        (company) => company.balanceCheck.debitsEqualCredits
+      ).length,
+      dataQuality: {
+        allConnected:
+          hierarchicalTrialBalance.companies.length ===
+          connectedXeroEntities.length,
+        allBalanced: hierarchicalTrialBalance.companies.every(
+          (company) => company.balanceCheck.debitsEqualCredits
+        ),
+        consolidatedBalanced:
+          hierarchicalTrialBalance.consolidated.balanceCheck.debitsEqualCredits,
+      },
+    };
+
+    console.log("✅ Hierarchical consolidated trial balance completed:", {
+      companies: hierarchicalTrialBalance.companies.length,
+      totalAccounts: hierarchicalTrialBalance.summary.totalAccounts,
       totalAssets: totals.totalAssets,
       totalLiabilities: totals.totalLiabilities,
       totalRevenue: totals.totalRevenue,
       totalExpenses: totals.totalExpenses,
-      balanced: consolidatedTrialBalance.balanceCheck.debitsEqualCredits,
+      consolidatedBalanced:
+        hierarchicalTrialBalance.consolidated.balanceCheck.debitsEqualCredits,
     });
 
-    res.json(consolidatedTrialBalance);
+    res.json(hierarchicalTrialBalance);
   } catch (error) {
-    console.error("❌ Error loading consolidated trial balance:", error);
+    console.error(
+      "❌ Error loading hierarchical consolidated trial balance:",
+      error
+    );
     res
       .status(500)
-      .json({ error: "Failed to load consolidated trial balance" });
+      .json({
+        error: "Failed to load hierarchical consolidated trial balance",
+      });
   }
 });
 
