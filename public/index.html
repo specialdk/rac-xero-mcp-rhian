@@ -1266,6 +1266,122 @@
         loadDashboardData();
       }
 
+      // Add these inside your existing <script> tag:
+
+      // Global variable to track selected date
+      let selectedReportDate = new Date().toISOString().split("T")[0];
+
+      // Enhanced Dashboard Controls with Date Picker
+      function updateDashboardControls() {
+        const dashboardControlsHTML = `
+    <div class="controls" id="dashboard-controls">
+        <h3>📊 Trial Balance Controls</h3>
+        <div class="subsidiary-selector">
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                <!-- Date Picker Section -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="report-date" style="font-weight: bold; color: #13547a;">
+                        📅 Report Date:
+                    </label>
+                    <input 
+                        type="date" 
+                        id="report-date" 
+                        value="${selectedReportDate}"
+                        onchange="updateReportDate(this.value)"
+                        style="padding: 8px 12px; border: 2px solid #13547a; border-radius: 6px; font-size: 1rem; background: white; color: #333; cursor: pointer;"
+                    />
+                </div>
+
+                <!-- Quick Date Buttons -->
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <span style="font-size: 0.9rem; color: #666;">Quick:</span>
+                    <button onclick="setQuickDate('today')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Today</button>
+                    <button onclick="setQuickDate('monthEnd')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Month End</button>
+                    <button onclick="setQuickDate('lastMonth')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Last Month End</button>
+                </div>
+
+                <!-- Keep your existing entity selector and view toggle -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="subsidiary-select" style="font-weight: bold; color: #13547a;">🏢 Entity:</label>
+                    <select id="subsidiary-select" onchange="loadDashboardData()">
+                        <option value="consolidated">🏢 Consolidated View (All Entities)</option>
+                    </select>
+                </div>
+
+                <div class="view-toggle">
+                    <button class="toggle-btn active" onclick="setView('overview')">Overview</button>
+                    <button class="toggle-btn" onclick="setView('detailed')">Detailed</button>
+                    <button class="toggle-btn" onclick="toggleConnectionManager()">Connection Status</button>
+                </div>
+            </div>
+
+            <!-- Date Information Display -->
+            <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #13547a;">
+                <div style="font-size: 0.9rem; color: #666;">
+                    <span style="font-weight: bold;">Viewing:</span> 
+                    Trial Balance as at <span style="font-weight: bold; color: #13547a;" id="display-date">${formatDisplayDate(
+                      selectedReportDate
+                    )}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+  `;
+
+        const existingControls = document.getElementById("dashboard-controls");
+        if (existingControls) {
+          existingControls.outerHTML = dashboardControlsHTML;
+        }
+      }
+
+      function updateReportDate(newDate) {
+        selectedReportDate = newDate;
+        document.getElementById("display-date").textContent =
+          formatDisplayDate(newDate);
+        loadDashboardData();
+      }
+
+      function setQuickDate(option) {
+        let newDate;
+        const today = new Date();
+
+        switch (option) {
+          case "today":
+            newDate = today;
+            break;
+          case "monthEnd":
+            newDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            break;
+          case "lastMonth":
+            newDate = new Date(today.getFullYear(), today.getMonth(), 0);
+            break;
+          default:
+            newDate = today;
+        }
+
+        const dateString = newDate.toISOString().split("T")[0];
+        selectedReportDate = dateString;
+        document.getElementById("report-date").value = dateString;
+        document.getElementById("display-date").textContent =
+          formatDisplayDate(dateString);
+        loadDashboardData();
+      }
+
+      function formatDisplayDate(dateString) {
+        const date = new Date(dateString + "T00:00:00");
+        const options = {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          weekday: "long",
+        };
+        return date.toLocaleDateString("en-AU", options);
+      }
+
+      // Call this when page loads
+      document.addEventListener("DOMContentLoaded", function () {
+        updateDashboardControls();
+      });
       // ENHANCED HIERARCHICAL TRIAL BALANCE FRONTEND
       // Replace your renderTrialBalanceView function in index.html with this
       // Load and render hierarchical trial balance data
