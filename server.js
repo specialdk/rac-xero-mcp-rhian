@@ -1259,7 +1259,7 @@ app.get("/api/trial-balance-fixed/:tenantId", async (req, res) => {
       message: "Testing Balance Sheet approach",
       totalAccounts: allAccounts.length,
       balanceSheetStructure:
-        balanceSheetResponse.body.reports?.[0]?.rows?.slice(0, 5),
+        balanceSheetResponse.body.reports?.[0]?.rows?.slice(0, 10), // ← Add slice back
     });
   } catch (error) {
     console.error("❌ Error:", error);
