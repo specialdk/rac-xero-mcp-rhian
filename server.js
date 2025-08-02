@@ -1230,9 +1230,13 @@ app.get("/api/consolidated-trial-balance", async (req, res) => {
   }
 });
 
-// TESTING - NEW endpoint to test Balance Sheet approach
-app.get("/api/trial-balance-fixed/:tenantId", async (req, res) => {
+// PROPER TRIAL BALANCE ENDPOINT - Replace your /api/trial-balance/:tenantId endpoint with this
+app.get("/api/trial-balance/:tenantId", async (req, res) => {
   try {
+    console.log(
+      `🔍 Getting PROPER trial balance for tenant: ${req.params.tenantId}`
+    );
+
     const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
     if (!tokenData) {
       return res
@@ -1242,77 +1246,232 @@ app.get("/api/trial-balance-fixed/:tenantId", async (req, res) => {
 
     await xero.setTokenSet(tokenData);
 
-    // Get accounts first
-    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
-    const allAccounts = response.body.accounts || [];
-
-    // Get Balance Sheet report to get actual balances
+    // Get Balance Sheet report (contains actual balances)
     const today = new Date().toISOString().split("T")[0];
     const balanceSheetResponse = await xero.accountingApi.getReportBalanceSheet(
       req.params.tenantId,
       today
     );
 
-    console.log("✅ Got Balance Sheet report");
-
-    res.json({
-      message: "Testing Balance Sheet approach",
-      totalAccounts: allAccounts.length,
-      balanceSheetStructure: balanceSheetResponse.body.reports?.[0]?.rows, // ← Remove the slice(0,5)
-    });
-  } catch (error) {
-    console.error("❌ Error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed", details: error.message || "No message" });
-  }
-});
-
-// ENHANCED DEBUG - Replace your /api/debug/accounts/:tenantId with this:
-app.get("/api/debug/accounts/:tenantId", async (req, res) => {
-  try {
+    const balanceSheetRows = balanceSheetResponse.body.reports?.[0]?.rows || [];
     console.log(
-      `🔍 DEBUG: Getting accounts for tenant: ${req.params.tenantId}`
+      `📊 Processing ${balanceSheetRows.length} Balance Sheet sections`
     );
 
-    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
-    if (!tokenData) {
-      return res
-        .status(404)
-        .json({ error: "Tenant not found or token expired" });
-    }
-
-    await xero.setTokenSet(tokenData);
-
-    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
-    const accounts = response.body.accounts || [];
-
-    const summary = {
-      tenantName: tokenData.tenantName,
-      totalAccounts: accounts.length,
-      activeAccounts: accounts.filter((acc) => acc.Status === "ACTIVE").length,
-      archivedAccounts: accounts.filter((acc) => acc.Status === "ARCHIVED")
-        .length,
-      accountsWithBalance: accounts.filter(
-        (acc) => parseFloat(acc.CurrentBalance || 0) !== 0
-      ).length,
-      // Show FIRST 3 COMPLETE account objects to see structure
-      firstThreeAccountsFull: accounts.slice(0, 3),
-      // Show accounts by status
-      accountsByStatus: {
-        ACTIVE: accounts.filter((acc) => acc.Status === "ACTIVE").length,
-        ARCHIVED: accounts.filter((acc) => acc.Status === "ARCHIVED").length,
-        DELETED: accounts.filter((acc) => acc.Status === "DELETED").length,
+    // Initialize trial balance structure
+    const trialBalance = {
+      assets: [],
+      liabilities: [],
+      equity: [],
+      revenue: [],
+      expenses: [],
+      totals: {
+        totalDebits: 0,
+        totalCredits: 0,
+        totalAssets: 0,
+        totalLiabilities: 0,
+        totalEquity: 0,
+        totalRevenue: 0,
+        totalExpenses: 0,
       },
     };
 
-    console.log(`✅ DEBUG: Enhanced account summary:`, summary);
-    res.json(summary);
+    let processedAccounts = 0;
+
+    // Process each Balance Sheet section
+    balanceSheetRows.forEach((section, sectionIndex) => {
+      if (section.rowType === "Section" && section.rows && section.title) {
+        const sectionTitle = section.title.toLowerCase();
+        console.log(
+          `🔄 Processing section: ${section.title} (${section.rows.length} rows)`
+        );
+
+        section.rows.forEach((row) => {
+          if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
+            const accountName = row.cells[0]?.value || "";
+            const currentBalance = parseFloat(row.cells[1]?.value || 0);
+
+            // Skip summary rows and zero balances
+            if (
+              accountName.toLowerCase().includes("total") ||
+              currentBalance === 0
+            ) {
+              return;
+            }
+
+            processedAccounts++;
+            console.log(
+              `📈 Processing: ${accountName} = $${currentBalance.toLocaleString()}`
+            );
+
+            const accountInfo = {
+              name: accountName,
+              balance: currentBalance,
+              debit: 0,
+              credit: 0,
+              section: section.title,
+            };
+
+            // Determine account category and debit/credit based on section
+            if (
+              sectionTitle.includes("bank") ||
+              sectionTitle.includes("asset")
+            ) {
+              // ASSETS: Normal balance is DEBIT
+              accountInfo.debit = currentBalance >= 0 ? currentBalance : 0;
+              accountInfo.credit =
+                currentBalance < 0 ? Math.abs(currentBalance) : 0;
+              trialBalance.assets.push(accountInfo);
+              trialBalance.totals.totalAssets += currentBalance;
+            } else if (sectionTitle.includes("liabilit")) {
+              // LIABILITIES: Normal balance is CREDIT
+              accountInfo.credit = currentBalance >= 0 ? currentBalance : 0;
+              accountInfo.debit =
+                currentBalance < 0 ? Math.abs(currentBalance) : 0;
+              trialBalance.liabilities.push(accountInfo);
+              trialBalance.totals.totalLiabilities += currentBalance;
+            } else if (sectionTitle.includes("equity")) {
+              // EQUITY: Normal balance is CREDIT
+              accountInfo.credit = currentBalance >= 0 ? currentBalance : 0;
+              accountInfo.debit =
+                currentBalance < 0 ? Math.abs(currentBalance) : 0;
+              trialBalance.equity.push(accountInfo);
+              trialBalance.totals.totalEquity += currentBalance;
+            }
+
+            // Add to total debits/credits
+            trialBalance.totals.totalDebits += accountInfo.debit;
+            trialBalance.totals.totalCredits += accountInfo.credit;
+          }
+        });
+      }
+    });
+
+    // Get P&L data for Revenue and Expenses (Balance Sheet doesn't include these)
+    try {
+      console.log("🔄 Fetching P&L report for Revenue/Expenses...");
+      const profitLossResponse =
+        await xero.accountingApi.getReportProfitAndLoss(
+          req.params.tenantId,
+          today,
+          today
+        );
+
+      const plRows = profitLossResponse.body.reports?.[0]?.rows || [];
+
+      plRows.forEach((section) => {
+        if (section.rowType === "Section" && section.rows && section.title) {
+          const sectionTitle = section.title.toLowerCase();
+
+          section.rows.forEach((row) => {
+            if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
+              const accountName = row.cells[0]?.value || "";
+              const currentAmount = parseFloat(row.cells[1]?.value || 0);
+
+              if (
+                accountName.toLowerCase().includes("total") ||
+                currentAmount === 0
+              ) {
+                return;
+              }
+
+              processedAccounts++;
+              const accountInfo = {
+                name: accountName,
+                balance: currentAmount,
+                debit: 0,
+                credit: 0,
+                section: section.title,
+              };
+
+              if (
+                sectionTitle.includes("income") ||
+                sectionTitle.includes("revenue")
+              ) {
+                // REVENUE: Normal balance is CREDIT
+                accountInfo.credit = Math.abs(currentAmount);
+                trialBalance.revenue.push(accountInfo);
+                trialBalance.totals.totalRevenue += Math.abs(currentAmount);
+              } else if (
+                sectionTitle.includes("expense") ||
+                sectionTitle.includes("cost")
+              ) {
+                // EXPENSES: Normal balance is DEBIT
+                accountInfo.debit = Math.abs(currentAmount);
+                trialBalance.expenses.push(accountInfo);
+                trialBalance.totals.totalExpenses += Math.abs(currentAmount);
+              }
+
+              trialBalance.totals.totalDebits += accountInfo.debit;
+              trialBalance.totals.totalCredits += accountInfo.credit;
+            }
+          });
+        }
+      });
+    } catch (plError) {
+      console.log("⚠️ Could not fetch P&L data:", plError.message);
+    }
+
+    // Sort each category by account name
+    ["assets", "liabilities", "equity", "revenue", "expenses"].forEach(
+      (category) => {
+        trialBalance[category].sort((a, b) => a.name.localeCompare(b.name));
+      }
+    );
+
+    // Calculate balance check
+    const balanceCheck = {
+      debitsEqualCredits:
+        Math.abs(
+          trialBalance.totals.totalDebits - trialBalance.totals.totalCredits
+        ) < 0.01,
+      difference:
+        trialBalance.totals.totalDebits - trialBalance.totals.totalCredits,
+      accountingEquation: {
+        assets: trialBalance.totals.totalAssets,
+        liabilitiesAndEquity:
+          trialBalance.totals.totalLiabilities +
+          trialBalance.totals.totalEquity,
+        balanced:
+          Math.abs(
+            trialBalance.totals.totalAssets -
+              (trialBalance.totals.totalLiabilities +
+                trialBalance.totals.totalEquity)
+          ) < 0.01,
+      },
+    };
+
+    console.log(
+      `✅ PROPER Trial balance completed for ${tokenData.tenantName}:`,
+      {
+        processedAccounts: processedAccounts,
+        totalAssets: trialBalance.totals.totalAssets,
+        totalLiabilities: trialBalance.totals.totalLiabilities,
+        totalEquity: trialBalance.totals.totalEquity,
+        totalRevenue: trialBalance.totals.totalRevenue,
+        totalExpenses: trialBalance.totals.totalExpenses,
+        totalDebits: trialBalance.totals.totalDebits,
+        totalCredits: trialBalance.totals.totalCredits,
+        balanced: balanceCheck.debitsEqualCredits,
+      }
+    );
+
+    res.json({
+      tenantId: req.params.tenantId,
+      tenantName: tokenData.tenantName,
+      trialBalance,
+      balanceCheck,
+      generatedAt: new Date().toISOString(),
+      reportDate: today,
+      processedAccounts: processedAccounts,
+      dataSource: "Balance Sheet + P&L Reports",
+    });
   } catch (error) {
-    console.error("❌ DEBUG: Error getting accounts:", error);
+    console.error("❌ Error getting PROPER trial balance:", error);
     res.status(500).json({
-      error: "Failed to get accounts",
+      error: "Failed to get trial balance",
       details: error.message,
+      tenantId: req.params.tenantId,
     });
   }
 });
