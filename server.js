@@ -776,6 +776,312 @@ app.get("/api/consolidated", async (req, res) => {
   }
 });
 
+// AUTO TOKEN REFRESH SYSTEM
+// Add these functions to your server.js
+
+// Enhanced token storage with refresh capability
+const enhancedTokenStorage = {
+  ...tokenStorage, // Keep all existing functions
+
+  // Refresh a specific Xero token
+  async refreshXeroToken(tenantId) {
+    try {
+      console.log(`🔄 Attempting to refresh token for tenant: ${tenantId}`);
+
+      // Get current token from database
+      const result = await pool.query(
+        "SELECT * FROM tokens WHERE tenant_id = $1 AND provider = $2",
+        [tenantId, "xero"]
+      );
+
+      if (result.rows.length === 0) {
+        console.log(`❌ No token found for tenant: ${tenantId}`);
+        return { success: false, error: "Token not found" };
+      }
+
+      const storedToken = result.rows[0];
+
+      if (!storedToken.refresh_token) {
+        console.log(`❌ No refresh token available for tenant: ${tenantId}`);
+        return { success: false, error: "No refresh token" };
+      }
+
+      // Use Xero SDK to refresh the token
+      const tokenSet = {
+        access_token: storedToken.access_token,
+        refresh_token: storedToken.refresh_token,
+        expires_in: Math.floor((storedToken.expires_at - Date.now()) / 1000),
+      };
+
+      await xero.setTokenSet(tokenSet);
+
+      // Refresh the token
+      const newTokenSet = await xero.refreshToken();
+      console.log(
+        `✅ Token refreshed successfully for: ${storedToken.tenant_name}`
+      );
+
+      // Store the new token in database
+      await pool.query(
+        `UPDATE tokens 
+         SET access_token = $1, 
+             refresh_token = $2, 
+             expires_at = $3, 
+             last_seen = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE tenant_id = $4 AND provider = $5`,
+        [
+          newTokenSet.access_token,
+          newTokenSet.refresh_token,
+          Date.now() + newTokenSet.expires_in * 1000,
+          tenantId,
+          "xero",
+        ]
+      );
+
+      return {
+        success: true,
+        newExpiresAt: Date.now() + newTokenSet.expires_in * 1000,
+        tenantName: storedToken.tenant_name,
+      };
+    } catch (error) {
+      console.error(`❌ Error refreshing token for ${tenantId}:`, error);
+      return {
+        success: false,
+        error: error.message,
+        requiresReauth:
+          error.message?.includes("invalid_grant") ||
+          error.message?.includes("unauthorized"),
+      };
+    }
+  },
+
+  // Refresh all Xero tokens that are close to expiring
+  async refreshAllExpiringTokens() {
+    try {
+      console.log("🔄 Checking for tokens that need refresh...");
+
+      // Get tokens that expire in the next 10 minutes
+      const tenMinutesFromNow = Date.now() + 10 * 60 * 1000;
+
+      const result = await pool.query(
+        `SELECT tenant_id, tenant_name, expires_at 
+         FROM tokens 
+         WHERE provider = $1 
+         AND expires_at < $2 
+         AND expires_at > $3`,
+        ["xero", tenMinutesFromNow, Date.now()]
+      );
+
+      if (result.rows.length === 0) {
+        console.log("✅ No tokens need refreshing");
+        return { refreshed: 0, failed: 0, results: [] };
+      }
+
+      console.log(`🔄 Found ${result.rows.length} tokens that need refreshing`);
+
+      const refreshResults = [];
+      let refreshed = 0;
+      let failed = 0;
+
+      // Refresh each token
+      for (const token of result.rows) {
+        const result = await this.refreshXeroToken(token.tenant_id);
+        refreshResults.push({
+          tenantId: token.tenant_id,
+          tenantName: token.tenant_name,
+          ...result,
+        });
+
+        if (result.success) {
+          refreshed++;
+          console.log(`✅ Refreshed: ${token.tenant_name}`);
+        } else {
+          failed++;
+          console.log(
+            `❌ Failed to refresh: ${token.tenant_name} - ${result.error}`
+          );
+        }
+      }
+
+      return { refreshed, failed, results: refreshResults };
+    } catch (error) {
+      console.error("❌ Error in refreshAllExpiringTokens:", error);
+      return { refreshed: 0, failed: 0, error: error.message };
+    }
+  },
+
+  // Get tokens that will expire soon (for frontend warning)
+  async getExpiringTokens(minutesAhead = 15) {
+    try {
+      const futureTime = Date.now() + minutesAhead * 60 * 1000;
+
+      const result = await pool.query(
+        `SELECT tenant_id, tenant_name, expires_at 
+         FROM tokens 
+         WHERE provider = $1 
+         AND expires_at < $2 
+         AND expires_at > $3
+         ORDER BY expires_at ASC`,
+        ["xero", futureTime, Date.now()]
+      );
+
+      return result.rows.map((row) => ({
+        tenantId: row.tenant_id,
+        tenantName: row.tenant_name,
+        expiresAt: row.expires_at,
+        minutesUntilExpiry: Math.floor(
+          (row.expires_at - Date.now()) / (1000 * 60)
+        ),
+      }));
+    } catch (error) {
+      console.error("❌ Error getting expiring tokens:", error);
+      return [];
+    }
+  },
+};
+
+// Auto-refresh scheduler - runs every 5 minutes
+let autoRefreshInterval;
+
+function startAutoRefresh() {
+  console.log("🚀 Starting auto token refresh system...");
+
+  // Run immediately
+  enhancedTokenStorage.refreshAllExpiringTokens();
+
+  // Then run every 5 minutes
+  autoRefreshInterval = setInterval(async () => {
+    const result = await enhancedTokenStorage.refreshAllExpiringTokens();
+
+    if (result.refreshed > 0) {
+      console.log(
+        `🔄 Auto-refresh completed: ${result.refreshed} tokens refreshed, ${result.failed} failed`
+      );
+    }
+  }, 5 * 60 * 1000); // Every 5 minutes
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+    console.log("⏹️ Auto token refresh stopped");
+  }
+}
+
+// API endpoint to manually trigger refresh
+app.post("/api/refresh-tokens", async (req, res) => {
+  try {
+    console.log("🔄 Manual token refresh requested");
+    const result = await enhancedTokenStorage.refreshAllExpiringTokens();
+
+    res.json({
+      success: true,
+      refreshed: result.refreshed,
+      failed: result.failed,
+      results: result.results,
+      message: `Refreshed ${result.refreshed} tokens, ${result.failed} failed`,
+    });
+  } catch (error) {
+    console.error("❌ Manual refresh error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// API endpoint to check token status and warnings
+app.get("/api/token-status", async (req, res) => {
+  try {
+    const [allConnections, expiringTokens] = await Promise.all([
+      enhancedTokenStorage.getAllXeroConnections(),
+      enhancedTokenStorage.getExpiringTokens(15), // Warn 15 minutes ahead
+    ]);
+
+    const tokenStatus = {
+      totalTokens: allConnections.length,
+      connectedTokens: allConnections.filter((conn) => conn.connected).length,
+      expiredTokens: allConnections.filter((conn) => !conn.connected).length,
+      expiringTokens: expiringTokens.length,
+      expiringDetails: expiringTokens,
+      needsAttention:
+        expiringTokens.length > 0 ||
+        allConnections.filter((conn) => !conn.connected).length > 0,
+    };
+
+    res.json(tokenStatus);
+  } catch (error) {
+    console.error("❌ Token status error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Enhanced connection status with auto-refresh info
+app.get("/api/connection-status-enhanced", async (req, res) => {
+  try {
+    const [connections, expiringTokens] = await Promise.all([
+      enhancedTokenStorage.getAllXeroConnections(),
+      enhancedTokenStorage.getExpiringTokens(30), // Check 30 minutes ahead
+    ]);
+
+    // Add expiry warnings to connection data
+    const enhancedConnections = connections.map((conn) => {
+      const expiring = expiringTokens.find(
+        (exp) => exp.tenantId === conn.tenantId
+      );
+      return {
+        ...conn,
+        minutesUntilExpiry: expiring ? expiring.minutesUntilExpiry : null,
+        needsRefresh: expiring ? expiring.minutesUntilExpiry < 15 : false,
+      };
+    });
+
+    // Add ApprovalMax connections (keep existing logic)
+    const approvalMaxToken = await enhancedTokenStorage.getApprovalMaxToken();
+    if (approvalMaxToken) {
+      enhancedConnections.push({
+        tenantId: "approvalmax_integration",
+        tenantName: "RAC ApprovalMax Integration",
+        provider: "approvalmax",
+        connected: true,
+        lastSeen: approvalMaxToken.lastSeen,
+        organizationCount: approvalMaxToken.organizations
+          ? approvalMaxToken.organizations.length
+          : 0,
+        error: null,
+        minutesUntilExpiry: null,
+        needsRefresh: false,
+      });
+    }
+
+    res.json(enhancedConnections);
+  } catch (error) {
+    console.error("❌ Error getting enhanced connection status:", error);
+    res.status(500).json({ error: "Failed to get enhanced connection status" });
+  }
+});
+
+// Start auto-refresh when server starts
+// Add this to your startServer() function, after initializeDatabase()
+async function initializeAutoRefresh() {
+  try {
+    await initializeDatabase();
+
+    // Start the auto-refresh system
+    startAutoRefresh();
+
+    console.log("✅ Auto token refresh system initialized");
+  } catch (error) {
+    console.error("❌ Failed to initialize auto-refresh:", error);
+  }
+}
+
+// Update your existing startServer function to call initializeAutoRefresh()
+// Replace: await initializeDatabase();
+// With: await initializeAutoRefresh();
+
 // Health check endpoint
 app.get("/api/health", async (req, res) => {
   try {
@@ -1311,11 +1617,9 @@ app.get("/api/consolidated-trial-balance", async (req, res) => {
       "❌ Error loading hierarchical consolidated trial balance:",
       error
     );
-    res
-      .status(500)
-      .json({
-        error: "Failed to load hierarchical consolidated trial balance",
-      });
+    res.status(500).json({
+      error: "Failed to load hierarchical consolidated trial balance",
+    });
   }
 });
 
@@ -1395,7 +1699,7 @@ app.get("/api/trial-balance-fixed/:tenantId", async (req, res) => {
 // Initialize database and start server
 async function startServer() {
   try {
-    await initializeDatabase();
+    await initializeAutoRefresh();
 
     app.listen(port, () => {
       console.log(`🚀 RAC Financial Dashboard running on port ${port}`);

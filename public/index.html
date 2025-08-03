@@ -1265,7 +1265,292 @@
         document.getElementById("dashboard-content").style.display = "grid";
         loadDashboardData();
       }
+      // FRONTEND TOKEN STATUS MONITOR
+      // Add these JavaScript functions to your index.html <script> section
 
+      // Global variables for token monitoring
+      let tokenStatusInterval;
+      let lastTokenCheck = null;
+
+      // Monitor token status and show warnings
+      async function monitorTokenStatus() {
+        try {
+          const response = await fetch("/api/token-status");
+          const tokenStatus = await response.json();
+
+          lastTokenCheck = tokenStatus;
+          updateTokenStatusDisplay(tokenStatus);
+
+          // Show warnings if needed
+          if (tokenStatus.needsAttention) {
+            showTokenWarnings(tokenStatus);
+          }
+        } catch (error) {
+          console.error("Error monitoring token status:", error);
+        }
+      }
+
+      // Update token status display in dashboard
+      function updateTokenStatusDisplay(tokenStatus) {
+        // Add token status to the dashboard header
+        let tokenStatusHtml = "";
+
+        if (tokenStatus.expiringTokens > 0) {
+          tokenStatusHtml = `
+      <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-left: 15px; font-size: 0.9rem;">
+        ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
+        <button onclick="manualRefreshTokens()" style="margin-left: 10px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
+          Refresh Now
+        </button>
+      </div>
+    `;
+        } else if (tokenStatus.connectedTokens > 0) {
+          tokenStatusHtml = `
+      <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-left: 15px; font-size: 0.9rem;">
+        ✅ ${tokenStatus.connectedTokens} connection(s) active
+      </div>
+    `;
+        }
+
+        // Add to header if not already there
+        const header = document.querySelector(".header");
+        let statusDiv = document.getElementById("token-status-display");
+
+        if (!statusDiv && tokenStatusHtml) {
+          statusDiv = document.createElement("div");
+          statusDiv.id = "token-status-display";
+          statusDiv.innerHTML = tokenStatusHtml;
+          header.appendChild(statusDiv);
+        } else if (statusDiv) {
+          statusDiv.innerHTML = tokenStatusHtml;
+        }
+      }
+
+      // Show detailed token warnings
+      function showTokenWarnings(tokenStatus) {
+        if (
+          tokenStatus.expiringDetails &&
+          tokenStatus.expiringDetails.length > 0
+        ) {
+          const warningMessages = tokenStatus.expiringDetails
+            .map(
+              (token) =>
+                `${token.tenantName}: ${token.minutesUntilExpiry} minutes remaining`
+            )
+            .join("\n");
+
+          // Show notification (you can enhance this with a proper notification system)
+          console.warn("⚠️ Tokens expiring soon:\n" + warningMessages);
+
+          // Optional: Show browser notification if user granted permission
+          if (
+            "Notification" in window &&
+            Notification.permission === "granted"
+          ) {
+            new Notification("RAC Dashboard: Tokens Expiring Soon", {
+              body: `${tokenStatus.expiringTokens} connection(s) will expire in the next 15 minutes`,
+              icon: "/favicon.ico",
+            });
+          }
+        }
+      }
+
+      // Manual token refresh function
+      async function manualRefreshTokens() {
+        try {
+          // Show loading state
+          const refreshBtn = event.target;
+          const originalText = refreshBtn.textContent;
+          refreshBtn.textContent = "Refreshing...";
+          refreshBtn.disabled = true;
+
+          const response = await fetch("/api/refresh-tokens", {
+            method: "POST",
+          });
+          const result = await response.json();
+
+          if (result.success) {
+            // Show success message
+            showRefreshResult(
+              `✅ Refreshed ${result.refreshed} tokens successfully!`
+            );
+
+            // Reload dashboard data with fresh tokens
+            await loadDashboardData();
+
+            // Update token status immediately
+            await monitorTokenStatus();
+          } else {
+            showRefreshResult(`❌ Refresh failed: ${result.error}`);
+          }
+
+          // Restore button
+          refreshBtn.textContent = originalText;
+          refreshBtn.disabled = false;
+        } catch (error) {
+          console.error("Manual refresh error:", error);
+          showRefreshResult(`❌ Refresh failed: ${error.message}`);
+        }
+      }
+
+      // Show refresh result message
+      function showRefreshResult(message) {
+        // Create temporary notification
+        const notification = document.createElement("div");
+        notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
+    border: 1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"};
+    color: ${message.includes("✅") ? "#155724" : "#721c24"};
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  `;
+        notification.textContent = message;
+
+        document.body.appendChild(notification);
+
+        // Remove after 5 seconds
+        setTimeout(() => {
+          document.body.removeChild(notification);
+        }, 5000);
+      }
+
+      // Start token monitoring when dashboard loads
+      function startTokenMonitoring() {
+        // Check token status immediately
+        monitorTokenStatus();
+
+        // Then check every 2 minutes
+        tokenStatusInterval = setInterval(monitorTokenStatus, 2 * 60 * 1000);
+
+        console.log("🔄 Token status monitoring started");
+      }
+
+      // Stop token monitoring
+      function stopTokenMonitoring() {
+        if (tokenStatusInterval) {
+          clearInterval(tokenStatusInterval);
+          tokenStatusInterval = null;
+          console.log("⏹️ Token status monitoring stopped");
+        }
+      }
+
+      // Enhanced loadDashboardData with token check
+      async function loadDashboardDataWithTokenCheck() {
+        try {
+          // Check token status before loading data
+          await monitorTokenStatus();
+
+          // If we have expiring tokens, warn user
+          if (lastTokenCheck && lastTokenCheck.expiringTokens > 0) {
+            console.warn(
+              `⚠️ ${lastTokenCheck.expiringTokens} token(s) expiring soon`
+            );
+          }
+
+          // Load dashboard data normally
+          await loadDashboardData();
+        } catch (error) {
+          console.error("Error loading dashboard with token check:", error);
+
+          // If it's a token error, suggest refresh
+          if (
+            error.message?.includes("401") ||
+            error.message?.includes("unauthorized")
+          ) {
+            showRefreshResult(
+              "⚠️ Authentication error - tokens may have expired. Try refreshing."
+            );
+          }
+        }
+      }
+
+      // Request notification permission when dashboard loads
+      function requestNotificationPermission() {
+        if ("Notification" in window && Notification.permission === "default") {
+          Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+              console.log("✅ Notification permission granted");
+            }
+          });
+        }
+      }
+
+      // Initialize token monitoring when page loads
+      document.addEventListener("DOMContentLoaded", function () {
+        // Request notification permission
+        requestNotificationPermission();
+
+        // Start token monitoring after a short delay
+        setTimeout(() => {
+          startTokenMonitoring();
+        }, 3000); // Wait 3 seconds for dashboard to load
+      });
+
+      // Cleanup when page unloads
+      window.addEventListener("beforeunload", function () {
+        stopTokenMonitoring();
+      });
+
+      // Enhanced connection status display with token expiry info
+      async function showEnhancedConnectionManager(connectionData) {
+        // Use the enhanced connection status endpoint
+        const response = await fetch("/api/connection-status-enhanced");
+        const enhancedConnections = await response.json();
+
+        // Rest of your existing showConnectionManager code, but add expiry warnings
+        const connectedCount = enhancedConnections.filter(
+          (conn) => conn.connected
+        ).length;
+        const expiringCount = enhancedConnections.filter(
+          (conn) => conn.needsRefresh
+        ).length;
+
+        // Add expiry warnings to each connection card
+        const connectionCards = enhancedConnections
+          .map((conn) => {
+            let expiryWarning = "";
+            if (
+              conn.minutesUntilExpiry !== null &&
+              conn.minutesUntilExpiry < 30
+            ) {
+              const warningColor =
+                conn.minutesUntilExpiry < 15 ? "#dc3545" : "#ffc107";
+              expiryWarning = `
+        <div style="color: ${warningColor}; font-size: 0.8rem; margin-top: 5px;">
+          ⏰ Expires in ${conn.minutesUntilExpiry} minutes
+        </div>
+      `;
+            }
+
+            return `
+      <div class="entity-connection-card ${
+        conn.connected ? "connected" : "disconnected"
+      } ${conn.provider}">
+        <!-- Your existing connection card HTML -->
+        <div class="entity-name">${conn.tenantName}</div>
+        <div class="connection-status">
+          <div class="status-indicator ${
+            conn.connected ? "connected" : "disconnected"
+          }"></div>
+          <span>${
+            conn.connected ? "Connected & Active" : "Not Connected"
+          }</span>
+        </div>
+        ${expiryWarning}
+        <!-- Rest of connection card -->
+      </div>
+    `;
+          })
+          .join("");
+
+        // Your existing connection manager display code with enhanced cards
+      }
       // Add these inside your existing <script> tag:
 
       // Global variable to track selected date
