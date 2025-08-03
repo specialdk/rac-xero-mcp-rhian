@@ -586,6 +586,14 @@
         </div>
       </div>
 
+      <!-- ADD THIS: Token refresh button -->
+        <button onclick="manualRefreshTokens()" style="margin-top: 10px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+          🔄 Refresh Tokens
+        </button>
+        <!-- ADD THIS: Token status display -->
+        <div id="token-status-display"></div>
+      </div>
+
       <!-- Connection Manager -->
       <div class="controls" id="connection-manager">
         <h3>🔗 RAC Entity Connection Manager</h3>
@@ -1847,6 +1855,49 @@
         }
       }
 
+      // NEW: Manual token refresh function
+async function manualRefreshTokens() {
+  try {
+    console.log("🔄 Manual token refresh triggered");
+    
+    // Show loading state
+    const refreshBtn = document.querySelector('button[onclick*="manualRefreshTokens"]');
+    const originalText = refreshBtn.textContent;
+    refreshBtn.textContent = "🔄 Refreshing...";
+    refreshBtn.disabled = true;
+
+    const response = await fetch("/api/refresh-tokens", {
+      method: "POST",
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(`✅ Refreshed ${result.refreshed} tokens successfully!`);
+      await loadDashboardData(); // Reload your working TB
+    } else {
+      alert(`❌ Refresh failed: ${result.error}`);
+    }
+
+    // Restore button
+    refreshBtn.textContent = originalText;
+    refreshBtn.disabled = false;
+    
+  } catch (error) {
+    console.error("❌ Manual refresh error:", error);
+    alert(`❌ Refresh failed: ${error.message}`);
+    
+    // Restore button on error
+    const refreshBtn = document.querySelector('button[onclick*="manualRefreshTokens"]');
+    refreshBtn.textContent = "🔄 Refresh Tokens";
+    refreshBtn.disabled = false;
+  }
+}
       // Render hierarchical trial balance view with expandable sections
       function renderHierarchicalTrialBalanceView(data) {
         document.querySelector(".toggle-btn").parentElement.style.display =
