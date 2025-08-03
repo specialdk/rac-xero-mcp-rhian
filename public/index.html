@@ -701,615 +701,614 @@
     </div>
 
     <script>
-      let currentView = "overview";
-      let currentSystemView = "all";
-      let dashboardData = {};
+            let currentView = "overview";
+            let currentSystemView = "all";
+            let dashboardData = {};
 
-      // Define all RAC entities
-      const racEntities = [
-        "Rirratjingu Aboriginal Corporation 8538",
-        "Rirratjingu Mining Pty Ltd 7168",
-        "Rirratjingu Property Management & Maintenance Services Pty Ltd",
-        "Rirratjingu Enterprises Pty Ltd",
-        "Rirratjingu Invest P/ L ATF Miliditjpi Trust",
-        "Ngarrkuwuy Developments Pty Ltd",
-        "Marrin Square Developments Pty Ltd",
-      ];
+            // Define all RAC entities
+            const racEntities = [
+              "Rirratjingu Aboriginal Corporation 8538",
+              "Rirratjingu Mining Pty Ltd 7168",
+              "Rirratjingu Property Management & Maintenance Services Pty Ltd",
+              "Rirratjingu Enterprises Pty Ltd",
+              "Rirratjingu Invest P/ L ATF Miliditjpi Trust",
+              "Ngarrkuwuy Developments Pty Ltd",
+              "Marrin Square Developments Pty Ltd",
+            ];
 
-      // Set system view (all, xero, approvalmax)
-      function setSystemView(view) {
-        currentSystemView = view;
+            // Set system view (all, xero, approvalmax)
+            function setSystemView(view) {
+              currentSystemView = view;
 
-        // Update tab states
-        document.querySelectorAll(".system-tab").forEach((tab) => {
-          tab.classList.remove("active");
-        });
-        event.target.classList.add("active");
+              // Update tab states
+              document.querySelectorAll(".system-tab").forEach((tab) => {
+                tab.classList.remove("active");
+              });
+              event.target.classList.add("active");
 
-        // Reload connection status with filter
-        loadConnectionStatus();
-      }
+              // Reload connection status with filter
+              loadConnectionStatus();
+            }
 
-      // Show connection manager
-      function showConnectionManager(connectionData) {
-        const connectionStatus = document.getElementById("connection-status");
+            // Show connection manager
+            function showConnectionManager(connectionData) {
+              const connectionStatus = document.getElementById("connection-status");
 
-        // Create comprehensive entity list for both systems
-        const entityConnections = createEntityConnectionList(connectionData);
+              // Create comprehensive entity list for both systems
+              const entityConnections = createEntityConnectionList(connectionData);
 
-        // Filter based on current system view
-        let filteredConnections = entityConnections;
-        if (currentSystemView === "xero") {
-          filteredConnections = entityConnections.filter(
-            (conn) => conn.provider === "xero"
-          );
-        } else if (currentSystemView === "approvalmax") {
-          filteredConnections = entityConnections.filter(
-            (conn) => conn.provider === "approvalmax"
-          );
-        }
+              // Filter based on current system view
+              let filteredConnections = entityConnections;
+              if (currentSystemView === "xero") {
+                filteredConnections = entityConnections.filter(
+                  (conn) => conn.provider === "xero"
+                );
+              } else if (currentSystemView === "approvalmax") {
+                filteredConnections = entityConnections.filter(
+                  (conn) => conn.provider === "approvalmax"
+                );
+              }
 
-        const connectedCount = filteredConnections.filter(
-          (conn) => conn.connected
-        ).length;
-        const totalCount = filteredConnections.length;
-        const progressPercent =
-          totalCount > 0 ? (connectedCount / totalCount) * 100 : 0;
+              const connectedCount = filteredConnections.filter(
+                (conn) => conn.connected
+              ).length;
+              const totalCount = filteredConnections.length;
+              const progressPercent =
+                totalCount > 0 ? (connectedCount / totalCount) * 100 : 0;
 
-        connectionStatus.innerHTML = `
-                <div style="margin-bottom: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <span><strong>Connection Progress:</strong></span>
-                        <span><strong>${connectedCount} of ${totalCount} connections active</strong></span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${progressPercent}%"></div>
-                    </div>
-                </div>
-                
-                <div class="connection-grid">
-                    ${filteredConnections
-                      .map((conn) => {
-                        return `
-                            <div class="entity-connection-card ${
-                              conn.connected ? "connected" : "disconnected"
-                            } ${conn.provider}">
-                                <div class="provider-badge ${
-                                  conn.provider
-                                }">${conn.provider.toUpperCase()}</div>
-                                <div class="entity-name">${
-                                  conn.tenantName
-                                }</div>
-                                <div class="connection-status">
-                                    <div class="status-indicator ${
-                                      conn.connected
-                                        ? "connected"
-                                        : "disconnected"
-                                    }"></div>
-                                    <span>${
-                                      conn.connected
-                                        ? "Connected & Active"
-                                        : "Not Connected"
-                                    }</span>
-                                </div>
-                                <div style="font-size: 0.8rem; color: #666; margin: 5px 0;">
-                                    ${
-                                      conn.provider === "approvalmax" &&
-                                      conn.organizationCount !== undefined
-                                        ? `Organizations: ${conn.organizationCount} connected`
-                                        : `Last seen: ${
-                                            conn.lastSeen || "Never"
-                                          }`
-                                    }
-                                </div>
-                                ${
-                                  !conn.connected
-                                    ? `
-                                    <button class="connect-btn ${
-                                      conn.provider
-                                    }" onclick="connectEntity('${
+              connectionStatus.innerHTML = `
+                      <div style="margin-bottom: 20px;">
+                          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                              <span><strong>Connection Progress:</strong></span>
+                              <span><strong>${connectedCount} of ${totalCount} connections active</strong></span>
+                          </div>
+                          <div class="progress-bar">
+                              <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                          </div>
+                      </div>
+
+                      <div class="connection-grid">
+                          ${filteredConnections
+                            .map((conn) => {
+                              return `
+                                  <div class="entity-connection-card ${
+                                    conn.connected ? "connected" : "disconnected"
+                                  } ${conn.provider}">
+                                      <div class="provider-badge ${
+                                        conn.provider
+                                      }">${conn.provider.toUpperCase()}</div>
+                                      <div class="entity-name">${
                                         conn.tenantName
-                                      }', '${conn.provider}')">
-                                        Connect ${
-                                          conn.provider === "xero"
-                                            ? "Xero"
-                                            : "ApprovalMax"
-                                        }
-                                    </button>
-                                `
-                                    : `
-                                    <div style="color: #4CAF50; font-size: 0.9rem; margin-top: 10px;">
-                                        ✅ Live data connection active
-                                    </div>
-                                    <button class="connect-btn ${conn.provider}" onclick="connectEntity('${conn.tenantName}', '${conn.provider}')" style="font-size: 0.8rem; padding: 6px 12px; margin-top: 5px;">
-                                        Reconnect
-                                    </button>
-                                `
-                                }
-                            </div>
-                        `;
-                      })
-                      .join("")}
-                </div>
-                
-                ${
-                  connectedCount > 0
-                    ? `
-                    <div class="success-box" style="margin-top: 20px;">
-                        🎉 <strong>${connectedCount} connections active!</strong> Your dashboard is receiving live data.
-                        <button class="connect-btn" onclick="showDashboard()" style="margin-left: 15px;">
-                            ${
-                              connectedCount === totalCount
-                                ? "Launch Full Dashboard"
-                                : "View Partial Dashboard"
-                            }
-                        </button>
-                    </div>
-                `
-                    : `
-                    <div class="info-box" style="margin-top: 20px;">
-                        💡 <strong>Connect your systems:</strong> Set up Xero and ApprovalMax connections to enable consolidated financial reporting.
-                    </div>
-                `
+                                      }</div>
+                                      <div class="connection-status">
+                                          <div class="status-indicator ${
+                                            conn.connected
+                                              ? "connected"
+                                              : "disconnected"
+                                          }"></div>
+                                          <span>${
+                                            conn.connected
+                                              ? "Connected & Active"
+                                              : "Not Connected"
+                                          }</span>
+                                      </div>
+                                      <div style="font-size: 0.8rem; color: #666; margin: 5px 0;">
+                                          ${
+                                            conn.provider === "approvalmax" &&
+                                            conn.organizationCount !== undefined
+                                              ? `Organizations: ${conn.organizationCount} connected`
+                                              : `Last seen: ${
+                                                  conn.lastSeen || "Never"
+                                                }`
+                                          }
+                                      </div>
+                                      ${
+                                        !conn.connected
+                                          ? `
+                                          <button class="connect-btn ${
+                                            conn.provider
+                                          }" onclick="connectEntity('${
+                                              conn.tenantName
+                                            }', '${conn.provider}')">
+                                              Connect ${
+                                                conn.provider === "xero"
+                                                  ? "Xero"
+                                                  : "ApprovalMax"
+                                              }
+                                          </button>
+                                      `
+                                          : `
+                                          <div style="color: #4CAF50; font-size: 0.9rem; margin-top: 10px;">
+                                              ✅ Live data connection active
+                                          </div>
+                                          <button class="connect-btn ${conn.provider}" onclick="connectEntity('${conn.tenantName}', '${conn.provider}')" style="font-size: 0.8rem; padding: 6px 12px; margin-top: 5px;">
+                                              Reconnect
+                                          </button>
+                                      `
+                                      }
+                                  </div>
+                              `;
+                            })
+                            .join("")}
+                      </div>
+
+                      ${
+                        connectedCount > 0
+                          ? `
+                          <div class="success-box" style="margin-top: 20px;">
+                              🎉 <strong>${connectedCount} connections active!</strong> Your dashboard is receiving live data.
+                              <button class="connect-btn" onclick="showDashboard()" style="margin-left: 15px;">
+                                  ${
+                                    connectedCount === totalCount
+                                      ? "Launch Full Dashboard"
+                                      : "View Partial Dashboard"
+                                  }
+                              </button>
+                          </div>
+                      `
+                          : `
+                          <div class="info-box" style="margin-top: 20px;">
+                              💡 <strong>Connect your systems:</strong> Set up Xero and ApprovalMax connections to enable consolidated financial reporting.
+                          </div>
+                      `
+                      }
+                  `;
+            }
+
+            // Create comprehensive entity connection list for both systems
+            function createEntityConnectionList(connectionData) {
+              const entityConnections = [];
+
+              // Add individual Xero connection entries for each RAC entity
+              racEntities.forEach((entityName) => {
+                const xeroConnection = connectionData.find(
+                  (conn) => conn.provider === "xero" && conn.tenantName === entityName
+                );
+
+                entityConnections.push({
+                  tenantId: xeroConnection ? xeroConnection.tenantId : null,
+                  tenantName: entityName,
+                  provider: "xero",
+                  connected: xeroConnection ? xeroConnection.connected : false,
+                  lastSeen: xeroConnection ? xeroConnection.lastSeen : null,
+                  error: xeroConnection ? xeroConnection.error : null,
+                });
+              });
+
+              // Add single ApprovalMax connection entry for all organizations
+              const approvalMaxConnections = connectionData.filter(
+                (conn) => conn.provider === "approvalmax"
+              );
+              const hasApprovalMaxConnection = approvalMaxConnections.length > 0;
+              const connectedOrgsCount = approvalMaxConnections.filter(
+                (conn) => conn.connected
+              ).length;
+
+              entityConnections.push({
+                tenantId: hasApprovalMaxConnection ? "approvalmax-integration" : null,
+                tenantName: "RAC ApprovalMax Integration",
+                provider: "approvalmax",
+                connected: connectedOrgsCount > 0,
+                lastSeen: hasApprovalMaxConnection
+                  ? approvalMaxConnections[0].lastSeen
+                  : null,
+                error: hasApprovalMaxConnection
+                  ? approvalMaxConnections[0].error
+                  : null,
+                organizationCount: connectedOrgsCount,
+                totalOrganizations: approvalMaxConnections.length,
+              });
+
+              return entityConnections;
+            }
+
+            // Connect to specific entity
+            function connectEntity(entityName, provider) {
+              localStorage.setItem("connecting_entity", entityName);
+              localStorage.setItem("connecting_provider", provider);
+
+              if (provider === "approvalmax") {
+                window.location.href = "/auth?provider=approvalmax";
+              } else {
+                window.location.href = "/auth";
+              }
+            }
+
+            // Toggle connection manager overlay
+            function toggleConnectionManager() {
+              document.getElementById("connection-overlay").style.display = "flex";
+              loadConnectionStatus();
+            }
+
+            // Close connection manager overlay
+            function closeConnectionManager() {
+              document.getElementById("connection-overlay").style.display = "none";
+            }
+
+            // Load connection status
+            async function loadConnectionStatus() {
+              try {
+                const response = await fetch("/api/connection-status");
+                const connectionStatus = await response.json();
+
+                if (
+                  document.getElementById("connection-overlay").style.display ===
+                  "flex"
+                ) {
+                  showOverlayConnectionManager(connectionStatus);
+                } else {
+                  showConnectionManager(connectionStatus);
                 }
-            `;
-      }
+              } catch (error) {
+                console.error("Error loading connection status:", error);
+                const targetElement =
+                  document.getElementById("connection-overlay").style.display ===
+                  "flex"
+                    ? document.getElementById("overlay-connection-status")
+                    : document.getElementById("connection-status");
 
-      // Create comprehensive entity connection list for both systems
-      function createEntityConnectionList(connectionData) {
-        const entityConnections = [];
+                targetElement.innerHTML = `
+                          <div class="error">❌ Failed to load connection status</div>
+                      `;
+              }
+            }
 
-        // Add individual Xero connection entries for each RAC entity
-        racEntities.forEach((entityName) => {
-          const xeroConnection = connectionData.find(
-            (conn) => conn.provider === "xero" && conn.tenantName === entityName
-          );
+            // Show connection manager in overlay
+            function showOverlayConnectionManager(connectionStatusArray) {
+              const connectionStatus = document.getElementById(
+                "overlay-connection-status"
+              );
 
-          entityConnections.push({
-            tenantId: xeroConnection ? xeroConnection.tenantId : null,
-            tenantName: entityName,
-            provider: "xero",
-            connected: xeroConnection ? xeroConnection.connected : false,
-            lastSeen: xeroConnection ? xeroConnection.lastSeen : null,
-            error: xeroConnection ? xeroConnection.error : null,
-          });
-        });
+              // Create comprehensive entity list for both systems
+              const entityConnections = createEntityConnectionList(
+                connectionStatusArray
+              );
 
-        // Add single ApprovalMax connection entry for all organizations
-        const approvalMaxConnections = connectionData.filter(
-          (conn) => conn.provider === "approvalmax"
-        );
-        const hasApprovalMaxConnection = approvalMaxConnections.length > 0;
-        const connectedOrgsCount = approvalMaxConnections.filter(
-          (conn) => conn.connected
-        ).length;
+              // Filter based on current system view
+              let filteredConnections = entityConnections;
+              if (currentSystemView === "xero") {
+                filteredConnections = entityConnections.filter(
+                  (conn) => conn.provider === "xero"
+                );
+              } else if (currentSystemView === "approvalmax") {
+                filteredConnections = entityConnections.filter(
+                  (conn) => conn.provider === "approvalmax"
+                );
+              }
 
-        entityConnections.push({
-          tenantId: hasApprovalMaxConnection ? "approvalmax-integration" : null,
-          tenantName: "RAC ApprovalMax Integration",
-          provider: "approvalmax",
-          connected: connectedOrgsCount > 0,
-          lastSeen: hasApprovalMaxConnection
-            ? approvalMaxConnections[0].lastSeen
-            : null,
-          error: hasApprovalMaxConnection
-            ? approvalMaxConnections[0].error
-            : null,
-          organizationCount: connectedOrgsCount,
-          totalOrganizations: approvalMaxConnections.length,
-        });
+              const connectedCount = filteredConnections.filter(
+                (conn) => conn.connected
+              ).length;
+              const totalCount = filteredConnections.length;
+              const progressPercent =
+                totalCount > 0 ? (connectedCount / totalCount) * 100 : 0;
 
-        return entityConnections;
-      }
+              const healthStatus = connectedCount > 0 ? "healthy" : "error";
+              const healthText =
+                connectedCount > 0 ? "Connections active" : "No connections";
 
-      // Connect to specific entity
-      function connectEntity(entityName, provider) {
-        localStorage.setItem("connecting_entity", entityName);
-        localStorage.setItem("connecting_provider", provider);
+              connectionStatus.innerHTML = `
+                      <div style="margin-bottom: 20px;">
+                          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                              <span><strong>RAC System Connections:</strong></span>
+                              <div class="connection-status-indicator ${healthStatus}">
+                                  <div class="status-indicator ${healthStatus}"></div>
+                                  ${healthText}
+                              </div>
+                          </div>
 
-        if (provider === "approvalmax") {
-          window.location.href = "/auth?provider=approvalmax";
-        } else {
-          window.location.href = "/auth";
-        }
-      }
+                          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                              <span><strong>Connection Progress:</strong></span>
+                              <span><strong>${connectedCount} of ${totalCount} connections active</strong></span>
+                          </div>
+                          <div class="progress-bar">
+                              <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                          </div>
+                      </div>
 
-      // Toggle connection manager overlay
-      function toggleConnectionManager() {
-        document.getElementById("connection-overlay").style.display = "flex";
-        loadConnectionStatus();
-      }
+                      <div class="connection-grid">
+                          ${filteredConnections
+                            .map((conn) => {
+                              const lastSeen = conn.lastSeen
+                                ? new Date(conn.lastSeen).toLocaleString()
+                                : "Never";
 
-      // Close connection manager overlay
-      function closeConnectionManager() {
-        document.getElementById("connection-overlay").style.display = "none";
-      }
-
-      // Load connection status
-      async function loadConnectionStatus() {
-        try {
-          const response = await fetch("/api/connection-status");
-          const connectionStatus = await response.json();
-
-          if (
-            document.getElementById("connection-overlay").style.display ===
-            "flex"
-          ) {
-            showOverlayConnectionManager(connectionStatus);
-          } else {
-            showConnectionManager(connectionStatus);
-          }
-        } catch (error) {
-          console.error("Error loading connection status:", error);
-          const targetElement =
-            document.getElementById("connection-overlay").style.display ===
-            "flex"
-              ? document.getElementById("overlay-connection-status")
-              : document.getElementById("connection-status");
-
-          targetElement.innerHTML = `
-                    <div class="error">❌ Failed to load connection status</div>
-                `;
-        }
-      }
-
-      // Show connection manager in overlay
-      function showOverlayConnectionManager(connectionStatusArray) {
-        const connectionStatus = document.getElementById(
-          "overlay-connection-status"
-        );
-
-        // Create comprehensive entity list for both systems
-        const entityConnections = createEntityConnectionList(
-          connectionStatusArray
-        );
-
-        // Filter based on current system view
-        let filteredConnections = entityConnections;
-        if (currentSystemView === "xero") {
-          filteredConnections = entityConnections.filter(
-            (conn) => conn.provider === "xero"
-          );
-        } else if (currentSystemView === "approvalmax") {
-          filteredConnections = entityConnections.filter(
-            (conn) => conn.provider === "approvalmax"
-          );
-        }
-
-        const connectedCount = filteredConnections.filter(
-          (conn) => conn.connected
-        ).length;
-        const totalCount = filteredConnections.length;
-        const progressPercent =
-          totalCount > 0 ? (connectedCount / totalCount) * 100 : 0;
-
-        const healthStatus = connectedCount > 0 ? "healthy" : "error";
-        const healthText =
-          connectedCount > 0 ? "Connections active" : "No connections";
-
-        connectionStatus.innerHTML = `
-                <div style="margin-bottom: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <span><strong>RAC System Connections:</strong></span>
-                        <div class="connection-status-indicator ${healthStatus}">
-                            <div class="status-indicator ${healthStatus}"></div>
-                            ${healthText}
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <span><strong>Connection Progress:</strong></span>
-                        <span><strong>${connectedCount} of ${totalCount} connections active</strong></span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${progressPercent}%"></div>
-                    </div>
-                </div>
-                
-                <div class="connection-grid">
-                    ${filteredConnections
-                      .map((conn) => {
-                        const lastSeen = conn.lastSeen
-                          ? new Date(conn.lastSeen).toLocaleString()
-                          : "Never";
-
-                        return `
-                            <div class="entity-connection-card ${
-                              conn.connected ? "connected" : "disconnected"
-                            } ${conn.provider}">
-                                <div class="provider-badge ${
-                                  conn.provider
-                                }">${conn.provider.toUpperCase()}</div>
-                                <div class="entity-name">${
-                                  conn.tenantName
-                                }</div>
-                                <div class="connection-status">
-                                    <div class="status-indicator ${
-                                      conn.connected
-                                        ? "connected"
-                                        : "disconnected"
-                                    }"></div>
-                                    <span>${
-                                      conn.connected
-                                        ? "Connected & Active"
-                                        : "Not Connected"
-                                    }</span>
-                                </div>
-                                <div style="font-size: 0.8rem; color: #666; margin: 5px 0;">
-                                    ${
-                                      conn.provider === "approvalmax" &&
-                                      conn.organizationCount !== undefined
-                                        ? `Organizations: ${conn.organizationCount} connected`
-                                        : `Last seen: ${lastSeen}`
-                                    }
-                                </div>
-                                ${
-                                  !conn.connected
-                                    ? `
-                                    <button class="connect-btn ${
-                                      conn.provider
-                                    }" onclick="connectEntity('${
+                              return `
+                                  <div class="entity-connection-card ${
+                                    conn.connected ? "connected" : "disconnected"
+                                  } ${conn.provider}">
+                                      <div class="provider-badge ${
+                                        conn.provider
+                                      }">${conn.provider.toUpperCase()}</div>
+                                      <div class="entity-name">${
                                         conn.tenantName
-                                      }', '${conn.provider}')">
-                                        Connect ${
-                                          conn.provider === "xero"
-                                            ? "Xero"
-                                            : "ApprovalMax"
-                                        }
-                                    </button>
-                                `
-                                    : `
-                                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                                        <button class="connect-btn ${conn.provider}" onclick="testConnection('${conn.tenantId}', '${conn.provider}')" style="font-size: 0.8rem; padding: 6px 12px;">
-                                            Test Connection
-                                        </button>
-                                        <button class="connect-btn ${conn.provider}" onclick="connectEntity('${conn.tenantName}', '${conn.provider}')" style="opacity: 0.7; font-size: 0.8rem; padding: 6px 12px;">
-                                            Reconnect
-                                        </button>
-                                    </div>
-                                `
-                                }
-                            </div>
-                        `;
-                      })
-                      .join("")}
-                </div>
-            `;
-      }
+                                      }</div>
+                                      <div class="connection-status">
+                                          <div class="status-indicator ${
+                                            conn.connected
+                                              ? "connected"
+                                              : "disconnected"
+                                          }"></div>
+                                          <span>${
+                                            conn.connected
+                                              ? "Connected & Active"
+                                              : "Not Connected"
+                                          }</span>
+                                      </div>
+                                      <div style="font-size: 0.8rem; color: #666; margin: 5px 0;">
+                                          ${
+                                            conn.provider === "approvalmax" &&
+                                            conn.organizationCount !== undefined
+                                              ? `Organizations: ${conn.organizationCount} connected`
+                                              : `Last seen: ${lastSeen}`
+                                          }
+                                      </div>
+                                      ${
+                                        !conn.connected
+                                          ? `
+                                          <button class="connect-btn ${
+                                            conn.provider
+                                          }" onclick="connectEntity('${
+                                              conn.tenantName
+                                            }', '${conn.provider}')">
+                                              Connect ${
+                                                conn.provider === "xero"
+                                                  ? "Xero"
+                                                  : "ApprovalMax"
+                                              }
+                                          </button>
+                                      `
+                                          : `
+                                          <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                              <button class="connect-btn ${conn.provider}" onclick="testConnection('${conn.tenantId}', '${conn.provider}')" style="font-size: 0.8rem; padding: 6px 12px;">
+                                                  Test Connection
+                                              </button>
+                                              <button class="connect-btn ${conn.provider}" onclick="connectEntity('${conn.tenantName}', '${conn.provider}')" style="opacity: 0.7; font-size: 0.8rem; padding: 6px 12px;">
+                                                  Reconnect
+                                              </button>
+                                          </div>
+                                      `
+                                      }
+                                  </div>
+                              `;
+                            })
+                            .join("")}
+                      </div>
+                  `;
+            }
 
-      // Test connection for specific entity
-      async function testConnection(tenantId, provider) {
-        try {
-          let response;
-          if (provider === "xero") {
-            response = await fetch(`/api/cash-position/${tenantId}`);
-          } else if (provider === "approvalmax") {
-            response = await fetch(
-              `/api/approvalmax/approval-summary/${tenantId}`
-            );
-          }
+            // Test connection for specific entity
+            async function testConnection(tenantId, provider) {
+              try {
+                let response;
+                if (provider === "xero") {
+                  response = await fetch(`/api/cash-position/${tenantId}`);
+                } else if (provider === "approvalmax") {
+                  response = await fetch(
+                    `/api/approvalmax/approval-summary/${tenantId}`
+                  );
+                }
 
-          if (response.ok) {
-            alert(
-              `✅ ${provider.toUpperCase()} connection is healthy and returning data`
-            );
-          } else {
-            alert(
-              `⚠️ ${provider.toUpperCase()} connection may have issues (${
-                response.status
-              })`
-            );
-          }
-        } catch (error) {
-          alert(
-            `❌ ${provider.toUpperCase()} connection test failed: ${
-              error.message
-            }`
-          );
-        }
-      }
+                if (response.ok) {
+                  alert(
+                    `✅ ${provider.toUpperCase()} connection is healthy and returning data`
+                  );
+                } else {
+                  alert(
+                    `⚠️ ${provider.toUpperCase()} connection may have issues (${
+                      response.status
+                    })`
+                  );
+                }
+              } catch (error) {
+                alert(
+                  `❌ ${provider.toUpperCase()} connection test failed: ${
+                    error.message
+                  }`
+                );
+              }
+            }
 
-      // Load available tenants and show appropriate interface
-      async function loadTenants() {
-        try {
-          const response = await fetch("/api/connection-status");
-          const connectionStatus = await response.json();
+            // Load available tenants and show appropriate interface
+            async function loadTenants() {
+              try {
+                const response = await fetch("/api/connection-status");
+                const connectionStatus = await response.json();
 
-          // Show connection manager with all systems
-          showConnectionManager(connectionStatus);
+                // Show connection manager with all systems
+                showConnectionManager(connectionStatus);
 
-          // Populate dashboard selector with connected entities
-          const connectedEntities = connectionStatus.filter(
-            (entity) => entity.connected
-          );
-          if (connectedEntities.length > 0) {
-            const select = document.getElementById("subsidiary-select");
+                // Populate dashboard selector with connected entities
+                const connectedEntities = connectionStatus.filter(
+                  (entity) => entity.connected
+                );
+                if (connectedEntities.length > 0) {
+                  const select = document.getElementById("subsidiary-select");
 
-            const consolidatedOption = select.querySelector(
-              'option[value="consolidated"]'
-            );
-            select.innerHTML = "";
-            select.appendChild(consolidatedOption);
+                  const consolidatedOption = select.querySelector(
+                    'option[value="consolidated"]'
+                  );
+                  select.innerHTML = "";
+                  select.appendChild(consolidatedOption);
 
-            connectedEntities.forEach((entity) => {
-              const option = document.createElement("option");
-              option.value = entity.tenantId;
-              option.textContent = `🏢 ${
-                entity.tenantName
-              } (${entity.provider.toUpperCase()})`;
-              select.appendChild(option);
-            });
-          }
+                  connectedEntities.forEach((entity) => {
+                    const option = document.createElement("option");
+                    option.value = entity.tenantId;
+                    option.textContent = `🏢 ${
+                      entity.tenantName
+                    } (${entity.provider.toUpperCase()})`;
+                    select.appendChild(option);
+                  });
+                }
 
-          // Auto-launch dashboard if we have connections
-          if (connectedEntities.length > 0) {
-            setTimeout(() => showDashboard(), 2000);
-          }
-        } catch (error) {
-          console.error("Error loading connection status:", error);
-          document.getElementById("connection-status").innerHTML = `
-                    <div class="error">❌ Failed to load connection status. 
-                    <button class="connect-btn" onclick="window.location.href='/auth'">Connect to Xero</button>
-                    <button class="connect-btn approvalmax" onclick="window.location.href='/auth?provider=approvalmax'">Connect to ApprovalMax</button></div>
-                `;
-        }
-      }
+                // Auto-launch dashboard if we have connections
+                if (connectedEntities.length > 0) {
+                  setTimeout(() => showDashboard(), 2000);
+                }
+              } catch (error) {
+                console.error("Error loading connection status:", error);
+                document.getElementById("connection-status").innerHTML = `
+                          <div class="error">❌ Failed to load connection status.
+                          <button class="connect-btn" onclick="window.location.href='/auth'">Connect to Xero</button>
+                          <button class="connect-btn approvalmax" onclick="window.location.href='/auth?provider=approvalmax'">Connect to ApprovalMax</button></div>
+                      `;
+              }
+            }
 
-      // Load dashboard data based on selected view
-      async function loadDashboardData() {
-        const selectedTenant =
-          document.getElementById("subsidiary-select").value;
+            // Load dashboard data based on selected view
+            async function loadDashboardData() {
+              const selectedTenant =
+                document.getElementById("subsidiary-select").value;
 
-        try {
-          if (selectedTenant === "consolidated") {
-            await loadTrialBalanceData(); // ← CHANGE: Load trial balance instead of old consolidated data
-          } else {
-            await loadIndividualTenantData(selectedTenant);
-          }
-        } catch (error) {
-          console.error("Error loading dashboard data:", error);
-          showError("Failed to load financial data");
-        }
-      }
+              try {
+                if (selectedTenant === "consolidated") {
+                  await loadTrialBalanceData(); // ← CHANGE: Load trial balance instead of old consolidated data
+                } else {
+                  await loadIndividualTenantData(selectedTenant);
+                }
+              } catch (error) {
+                console.error("Error loading dashboard data:", error);
+                showError("Failed to load financial data");
+              }
+            }
 
-      // Load individual tenant data
-      async function loadIndividualTenantData(tenantId) {
-        try {
-          // Determine if this is Xero or ApprovalMax based on tenant ID format
-          const connectionStatus = await fetch("/api/connection-status").then(
-            (r) => r.json()
-          );
-          const entityInfo = connectionStatus.find(
-            (conn) => conn.tenantId === tenantId
-          );
+            // Load individual tenant data
+            async function loadIndividualTenantData(tenantId) {
+              try {
+                // Determine if this is Xero or ApprovalMax based on tenant ID format
+                const connectionStatus = await fetch("/api/connection-status").then(
+                  (r) => r.json()
+                );
+                const entityInfo = connectionStatus.find(
+                  (conn) => conn.tenantId === tenantId
+                );
 
-          if (!entityInfo) {
-            throw new Error("Entity not found");
-          }
+                if (!entityInfo) {
+                  throw new Error("Entity not found");
+                }
 
-          if (entityInfo.provider === "xero") {
-            await loadXeroTenantData(tenantId);
-          } else if (entityInfo.provider === "approvalmax") {
-            await loadApprovalMaxTenantData(tenantId);
-          }
-        } catch (error) {
-          console.error("Error loading tenant data:", error);
-          showError("Failed to load entity data");
-        }
-      }
+                if (entityInfo.provider === "xero") {
+                  await loadXeroTenantData(tenantId);
+                } else if (entityInfo.provider === "approvalmax") {
+                  await loadApprovalMaxTenantData(tenantId);
+                }
+              } catch (error) {
+                console.error("Error loading tenant data:", error);
+                showError("Failed to load entity data");
+              }
+            }
 
-      // Load Xero tenant data
-      async function loadXeroTenantData(tenantId) {
-        const [
-          cashResponse,
-          receivablesResponse,
-          invoicesResponse,
-          contactsResponse,
-        ] = await Promise.all([
-          fetch(`/api/cash-position/${tenantId}`),
-          fetch(`/api/receivables/${tenantId}`),
-          fetch(`/api/outstanding-invoices/${tenantId}`),
-          fetch(`/api/contacts/${tenantId}`),
-        ]);
+            // Load Xero tenant data
+            async function loadXeroTenantData(tenantId) {
+              const [
+                cashResponse,
+                receivablesResponse,
+                invoicesResponse,
+                contactsResponse,
+              ] = await Promise.all([
+                fetch(`/api/cash-position/${tenantId}`),
+                fetch(`/api/receivables/${tenantId}`),
+                fetch(`/api/outstanding-invoices/${tenantId}`),
+                fetch(`/api/contacts/${tenantId}`),
+              ]);
 
-        const [cashData, receivablesData, invoicesData, contactsData] =
-          await Promise.all([
-            cashResponse.json(),
-            receivablesResponse.json(),
-            invoicesResponse.json(),
-            contactsResponse.json(),
-          ]);
+              const [cashData, receivablesData, invoicesData, contactsData] =
+                await Promise.all([
+                  cashResponse.json(),
+                  receivablesResponse.json(),
+                  invoicesResponse.json(),
+                  contactsResponse.json(),
+                ]);
 
-        const tenantData = {
-          provider: "xero",
-          cash: cashData,
-          receivables: receivablesData,
-          invoices: invoicesData,
-          contacts: contactsData,
-        };
+              const tenantData = {
+                provider: "xero",
+                cash: cashData,
+                receivables: receivablesData,
+                invoices: invoicesData,
+                contacts: contactsData,
+              };
 
-        dashboardData = tenantData;
-        renderXeroTenantView(tenantData);
-      }
+              dashboardData = tenantData;
+              renderXeroTenantView(tenantData);
+            }
 
-      // Load ApprovalMax tenant data
-      async function loadApprovalMaxTenantData(organizationId) {
-        const [pendingResponse, summaryResponse, bottlenecksResponse] =
-          await Promise.all([
-            fetch(`/api/approvalmax/pending-approvals/${organizationId}`),
-            fetch(`/api/approvalmax/approval-summary/${organizationId}`),
-            fetch(`/api/approvalmax/workflow-bottlenecks/${organizationId}`),
-          ]);
+            // Load ApprovalMax tenant data
+            async function loadApprovalMaxTenantData(organizationId) {
+              const [pendingResponse, summaryResponse, bottlenecksResponse] =
+                await Promise.all([
+                  fetch(`/api/approvalmax/pending-approvals/${organizationId}`),
+                  fetch(`/api/approvalmax/approval-summary/${organizationId}`),
+                  fetch(`/api/approvalmax/workflow-bottlenecks/${organizationId}`),
+                ]);
 
-        const [pendingData, summaryData, bottlenecksData] = await Promise.all([
-          pendingResponse.json(),
-          summaryResponse.json(),
-          bottlenecksResponse.json(),
-        ]);
+              const [pendingData, summaryData, bottlenecksData] = await Promise.all([
+                pendingResponse.json(),
+                summaryResponse.json(),
+                bottlenecksResponse.json(),
+              ]);
 
-        const organizationData = {
-          provider: "approvalmax",
-          pending: pendingData,
-          summary: summaryData,
-          bottlenecks: bottlenecksData,
-        };
+              const organizationData = {
+                provider: "approvalmax",
+                pending: pendingData,
+                summary: summaryData,
+                bottlenecks: bottlenecksData,
+              };
 
-        dashboardData = organizationData;
-        renderApprovalMaxTenantView(organizationData);
-      }
+              dashboardData = organizationData;
+              renderApprovalMaxTenantView(organizationData);
+            }
 
-      // Show main dashboard
-      function showDashboard() {
-        document.getElementById("connection-manager").style.display = "none";
-        document.getElementById("dashboard-controls").style.display = "block";
-        document.getElementById("dashboard-content").style.display = "grid";
-        loadDashboardData();
-      }
-      // FRONTEND TOKEN STATUS MONITOR
-      // Add these JavaScript functions to your index.html <script> section
+            // Show main dashboard
+            function showDashboard() {
+              document.getElementById("connection-manager").style.display = "none";
+              document.getElementById("dashboard-controls").style.display = "block";
+              document.getElementById("dashboard-content").style.display = "grid";
+              loadDashboardData();
+            }
+            // FRONTEND TOKEN STATUS MONITOR
+            // Add these JavaScript functions to your index.html <script> section
 
-      // Global variables for token monitoring
-      let tokenStatusInterval;
-      let lastTokenCheck = null;
+            // Global variables for token monitoring
+            let tokenStatusInterval;
+            let lastTokenCheck = null;
 
-      // Monitor token status and show warnings
-      async function monitorTokenStatus() {
-        try {
-          const response = await fetch("/api/token-status");
-          const tokenStatus = await response.json();
+            // Monitor token status and show warnings
+            async function monitorTokenStatus() {
+              try {
+                const response = await fetch("/api/token-status");
+                const tokenStatus = await response.json();
 
-          lastTokenCheck = tokenStatus;
-          updateTokenStatusDisplay(tokenStatus);
+                lastTokenCheck = tokenStatus;
+                updateTokenStatusDisplay(tokenStatus);
 
-          // Show warnings if needed
-          if (tokenStatus.needsAttention) {
-            showTokenWarnings(tokenStatus);
-          }
-        } catch (error) {
-          console.error("Error monitoring token status:", error);
-        }
-      }
+                // Show warnings if needed
+                if (tokenStatus.needsAttention) {
+                  showTokenWarnings(tokenStatus);
+                }
+              } catch (error) {
+                console.error("Error monitoring token status:", error);
+              }
+            }
 
-      // Update token status display in dashboard
+            // FIXED: Update the HTML generation to pass event properly
       function updateTokenStatusDisplay(tokenStatus) {
-        // Add token status to the dashboard header
         let tokenStatusHtml = "";
 
         if (tokenStatus.expiringTokens > 0) {
           tokenStatusHtml = `
-      <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-left: 15px; font-size: 0.9rem;">
-        ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
-        <button onclick="manualRefreshTokens()" style="margin-left: 10px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
-          Refresh Now
-        </button>
-      </div>
-    `;
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-left: 15px; font-size: 0.9rem;">
+              ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
+              <button onclick="manualRefreshTokens(event)" style="margin-left: 10px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
+                Refresh Now
+              </button>
+            </div>
+          `;
         } else if (tokenStatus.connectedTokens > 0) {
           tokenStatusHtml = `
-      <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-left: 15px; font-size: 0.9rem;">
-        ✅ ${tokenStatus.connectedTokens} connection(s) active
-      </div>
-    `;
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-left: 15px; font-size: 0.9rem;">
+              ✅ ${tokenStatus.connectedTokens} connection(s) active
+            </div>
+          `;
         }
 
         // Add to header if not already there
@@ -1326,48 +1325,65 @@
         }
       }
 
-      // Show detailed token warnings
-      function showTokenWarnings(tokenStatus) {
-        if (
-          tokenStatus.expiringDetails &&
-          tokenStatus.expiringDetails.length > 0
-        ) {
-          const warningMessages = tokenStatus.expiringDetails
-            .map(
-              (token) =>
-                `${token.tenantName}: ${token.minutesUntilExpiry} minutes remaining`
-            )
-            .join("\n");
+            // Show detailed token warnings
+            function showTokenWarnings(tokenStatus) {
+              if (
+                tokenStatus.expiringDetails &&
+                tokenStatus.expiringDetails.length > 0
+              ) {
+                const warningMessages = tokenStatus.expiringDetails
+                  .map(
+                    (token) =>
+                      `${token.tenantName}: ${token.minutesUntilExpiry} minutes remaining`
+                  )
+                  .join("\n");
 
-          // Show notification (you can enhance this with a proper notification system)
-          console.warn("⚠️ Tokens expiring soon:\n" + warningMessages);
+                // Show notification (you can enhance this with a proper notification system)
+                console.warn("⚠️ Tokens expiring soon:\n" + warningMessages);
 
-          // Optional: Show browser notification if user granted permission
-          if (
-            "Notification" in window &&
-            Notification.permission === "granted"
-          ) {
-            new Notification("RAC Dashboard: Tokens Expiring Soon", {
-              body: `${tokenStatus.expiringTokens} connection(s) will expire in the next 15 minutes`,
-              icon: "/favicon.ico",
-            });
-          }
-        }
-      }
+                // Optional: Show browser notification if user granted permission
+                if (
+                  "Notification" in window &&
+                  Notification.permission === "granted"
+                ) {
+                  new Notification("RAC Dashboard: Tokens Expiring Soon", {
+                    body: `${tokenStatus.expiringTokens} connection(s) will expire in the next 15 minutes`,
+                    icon: "/favicon.ico",
+                  });
+                }
+              }
+            }
 
-      // Manual token refresh function
-      async function manualRefreshTokens() {
+            // FIXED: Manual token refresh function with proper event handling
+      async function manualRefreshTokens(event) {
         try {
-          // Show loading state
-          const refreshBtn = event.target;
+          // Show loading state - fix the event.target reference
+          const refreshBtn = event ? event.target : document.querySelector('[onclick="manualRefreshTokens()"]');
+          if (!refreshBtn) {
+            console.error("❌ Could not find refresh button");
+            return;
+          }
+
           const originalText = refreshBtn.textContent;
           refreshBtn.textContent = "Refreshing...";
           refreshBtn.disabled = true;
+          refreshBtn.style.opacity = "0.6";
+
+          console.log("🔄 Manual token refresh triggered");
 
           const response = await fetch("/api/refresh-tokens", {
             method: "POST",
+            headers: {
+              'Content-Type': 'application/json'
+            }
           });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
           const result = await response.json();
+          console.log("✅ Refresh response:", result);
 
           if (result.success) {
             // Show success message
@@ -1381,709 +1397,844 @@
             // Update token status immediately
             await monitorTokenStatus();
           } else {
-            showRefreshResult(`❌ Refresh failed: ${result.error}`);
+            showRefreshResult(`❌ Refresh failed: ${result.error || 'Unknown error'}`);
           }
 
           // Restore button
           refreshBtn.textContent = originalText;
           refreshBtn.disabled = false;
+          refreshBtn.style.opacity = "1";
+
         } catch (error) {
-          console.error("Manual refresh error:", error);
+          console.error("❌ Manual refresh error:", error);
           showRefreshResult(`❌ Refresh failed: ${error.message}`);
+
+          // Restore button even on error
+          const refreshBtn = event ? event.target : document.querySelector('[onclick="manualRefreshTokens()"]');
+          if (refreshBtn) {
+            refreshBtn.textContent = "Refresh Now";
+            refreshBtn.disabled = false;
+            refreshBtn.style.opacity = "1";
+          }
         }
       }
 
-      // Show refresh result message
+      // FIXED: Update the HTML generation to pass event properly
+      function updateTokenStatusDisplay(tokenStatus) {
+        let tokenStatusHtml = "";
+
+        if (tokenStatus.expiringTokens > 0) {
+          tokenStatusHtml = `
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-left: 15px; font-size: 0.9rem;">
+              ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
+              <button onclick="manualRefreshTokens(event)" style="margin-left: 10px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
+                Refresh Now
+              </button>
+            </div>
+          `;
+        } else if (tokenStatus.connectedTokens > 0) {
+          tokenStatusHtml = `
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-left: 15px; font-size: 0.9rem;">
+              ✅ ${tokenStatus.connectedTokens} connection(s) active
+            </div>
+          `;
+        }
+
+        // Add to header if not already there
+        const header = document.querySelector(".header");
+        let statusDiv = document.getElementById("token-status-display");
+
+        if (!statusDiv && tokenStatusHtml) {
+          statusDiv = document.createElement("div");
+          statusDiv.id = "token-status-display";
+          statusDiv.innerHTML = tokenStatusHtml;
+          header.appendChild(statusDiv);
+        } else if (statusDiv) {
+          statusDiv.innerHTML = tokenStatusHtml;
+        }
+      }
+
+      // ENHANCED: Better error handling and debugging for refresh result display
       function showRefreshResult(message) {
+        console.log("📢 Showing refresh result:", message);
+
         // Create temporary notification
         const notification = document.createElement("div");
         notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
-    border: 1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"};
-    color: ${message.includes("✅") ? "#155724" : "#721c24"};
-    padding: 12px 20px;
-    border-radius: 6px;
-    font-weight: bold;
-    z-index: 9999;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  `;
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
+          border: 1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"};
+          color: ${message.includes("✅") ? "#155724" : "#721c24"};
+          padding: 12px 20px;
+          border-radius: 6px;
+          font-weight: bold;
+          z-index: 9999;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          max-width: 400px;
+          word-wrap: break-word;
+        `;
         notification.textContent = message;
 
         document.body.appendChild(notification);
+        console.log("✅ Notification added to DOM");
 
         // Remove after 5 seconds
         setTimeout(() => {
-          document.body.removeChild(notification);
+          if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+            console.log("🗑️ Notification removed from DOM");
+          }
         }, 5000);
       }
 
-      // Start token monitoring when dashboard loads
-      function startTokenMonitoring() {
-        // Check token status immediately
-        monitorTokenStatus();
-
-        // Then check every 2 minutes
-        tokenStatusInterval = setInterval(monitorTokenStatus, 2 * 60 * 1000);
-
-        console.log("🔄 Token status monitoring started");
-      }
-
-      // Stop token monitoring
-      function stopTokenMonitoring() {
-        if (tokenStatusInterval) {
-          clearInterval(tokenStatusInterval);
-          tokenStatusInterval = null;
-          console.log("⏹️ Token status monitoring stopped");
-        }
-      }
-
-      // Enhanced loadDashboardData with token check
-      async function loadDashboardDataWithTokenCheck() {
+      // DEBUGGING: Enhanced token monitoring with better logging
+      async function monitorTokenStatus() {
         try {
-          // Check token status before loading data
-          await monitorTokenStatus();
+          console.log("🔄 Checking token status...");
 
-          // If we have expiring tokens, warn user
-          if (lastTokenCheck && lastTokenCheck.expiringTokens > 0) {
-            console.warn(
-              `⚠️ ${lastTokenCheck.expiringTokens} token(s) expiring soon`
-            );
+          const response = await fetch("/api/token-status");
+          if (!response.ok) {
+            throw new Error(`Token status API returned ${response.status}`);
           }
 
-          // Load dashboard data normally
-          await loadDashboardData();
-        } catch (error) {
-          console.error("Error loading dashboard with token check:", error);
+          const tokenStatus = await response.json();
+          console.log("📊 Token status received:", tokenStatus);
 
-          // If it's a token error, suggest refresh
-          if (
-            error.message?.includes("401") ||
-            error.message?.includes("unauthorized")
-          ) {
-            showRefreshResult(
-              "⚠️ Authentication error - tokens may have expired. Try refreshing."
-            );
+          lastTokenCheck = tokenStatus;
+          updateTokenStatusDisplay(tokenStatus);
+
+          // Show warnings if needed
+          if (tokenStatus.needsAttention) {
+            console.log("⚠️ Tokens need attention:", tokenStatus.expiringTokens);
+            showTokenWarnings(tokenStatus);
+          }
+        } catch (error) {
+          console.error("❌ Error monitoring token status:", error);
+          showRefreshResult("❌ Failed to check token status");
+        }
+      }
+      / DEBUGGING: Add a test function you can call from browser console
+      function testRefreshButton() {
+        console.log("🧪 Testing refresh button...");
+
+        // Find the button
+        const button = document.querySelector('[onclick*="manualRefreshTokens"]');
+        if (button) {
+          console.log("✅ Found refresh button:", button);
+
+          // Create a fake event and call the function
+          const fakeEvent = { target: button };
+          manualRefreshTokens(fakeEvent);
+        } else {
+          console.log("❌ Refresh button not found");
+
+          // Check if token status is displayed
+          const statusDiv = document.getElementById("token-status-display");
+          console.log("Token status div:", statusDiv);
+
+          if (statusDiv) {
+            console.log("Token status HTML:", statusDiv.innerHTML);
           }
         }
       }
 
-      // Request notification permission when dashboard loads
-      function requestNotificationPermission() {
-        if ("Notification" in window && Notification.permission === "default") {
-          Notification.requestPermission().then((permission) => {
-            if (permission === "granted") {
-              console.log("✅ Notification permission granted");
-            }
-          });
-        }
-      }
+      // DEBUGGING: Add to window object so you can test from console
+      window.testRefreshButton = testRefreshButton;
+      window.manualRefreshTokens = manualRefreshTokens;
 
-      // Initialize token monitoring when page loads
-      document.addEventListener("DOMContentLoaded", function () {
-        // Request notification permission
-        requestNotificationPermission();
+            // Show refresh result message
+            function showRefreshResult(message) {
+              // Create temporary notification
+              const notification = document.createElement("div");
+              notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
+          border: 1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"};
+          color: ${message.includes("✅") ? "#155724" : "#721c24"};
+          padding: 12px 20px;
+          border-radius: 6px;
+          font-weight: bold;
+          z-index: 9999;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        `;
+              notification.textContent = message;
 
-        // Start token monitoring after a short delay
-        setTimeout(() => {
-          startTokenMonitoring();
-        }, 3000); // Wait 3 seconds for dashboard to load
-      });
+              document.body.appendChild(notification);
 
-      // Cleanup when page unloads
-      window.addEventListener("beforeunload", function () {
-        stopTokenMonitoring();
-      });
-
-      // Enhanced connection status display with token expiry info
-      async function showEnhancedConnectionManager(connectionData) {
-        // Use the enhanced connection status endpoint
-        const response = await fetch("/api/connection-status-enhanced");
-        const enhancedConnections = await response.json();
-
-        // Rest of your existing showConnectionManager code, but add expiry warnings
-        const connectedCount = enhancedConnections.filter(
-          (conn) => conn.connected
-        ).length;
-        const expiringCount = enhancedConnections.filter(
-          (conn) => conn.needsRefresh
-        ).length;
-
-        // Add expiry warnings to each connection card
-        const connectionCards = enhancedConnections
-          .map((conn) => {
-            let expiryWarning = "";
-            if (
-              conn.minutesUntilExpiry !== null &&
-              conn.minutesUntilExpiry < 30
-            ) {
-              const warningColor =
-                conn.minutesUntilExpiry < 15 ? "#dc3545" : "#ffc107";
-              expiryWarning = `
-        <div style="color: ${warningColor}; font-size: 0.8rem; margin-top: 5px;">
-          ⏰ Expires in ${conn.minutesUntilExpiry} minutes
-        </div>
-      `;
+              // Remove after 5 seconds
+              setTimeout(() => {
+                document.body.removeChild(notification);
+              }, 5000);
             }
 
-            return `
-      <div class="entity-connection-card ${
-        conn.connected ? "connected" : "disconnected"
-      } ${conn.provider}">
-        <!-- Your existing connection card HTML -->
-        <div class="entity-name">${conn.tenantName}</div>
-        <div class="connection-status">
-          <div class="status-indicator ${
-            conn.connected ? "connected" : "disconnected"
-          }"></div>
-          <span>${
-            conn.connected ? "Connected & Active" : "Not Connected"
-          }</span>
-        </div>
-        ${expiryWarning}
-        <!-- Rest of connection card -->
-      </div>
-    `;
-          })
-          .join("");
+            // Start token monitoring when dashboard loads
+            function startTokenMonitoring() {
+              // Check token status immediately
+              monitorTokenStatus();
 
-        // Your existing connection manager display code with enhanced cards
-      }
-      // Add these inside your existing <script> tag:
+              // Then check every 2 minutes
+              tokenStatusInterval = setInterval(monitorTokenStatus, 2 * 60 * 1000);
 
-      // Global variable to track selected date
-      let selectedReportDate = new Date().toISOString().split("T")[0];
+              console.log("🔄 Token status monitoring started");
+            }
 
-      // Enhanced Dashboard Controls with Date Picker
-      function updateDashboardControls() {
-        const dashboardControlsHTML = `
-    <div class="controls" id="dashboard-controls">
-        <h3>📊 Trial Balance Controls</h3>
-        <div class="subsidiary-selector">
-            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
-                <!-- Date Picker Section -->
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <label for="report-date" style="font-weight: bold; color: #13547a;">
-                        📅 Report Date:
-                    </label>
-                    <input 
-                        type="date" 
-                        id="report-date" 
-                        value="${selectedReportDate}"
-                        onchange="updateReportDate(this.value)"
-                        style="padding: 8px 12px; border: 2px solid #13547a; border-radius: 6px; font-size: 1rem; background: white; color: #333; cursor: pointer;"
-                    />
-                </div>
+            // Stop token monitoring
+            function stopTokenMonitoring() {
+              if (tokenStatusInterval) {
+                clearInterval(tokenStatusInterval);
+                tokenStatusInterval = null;
+                console.log("⏹️ Token status monitoring stopped");
+              }
+            }
 
-                <!-- Quick Date Buttons -->
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <span style="font-size: 0.9rem; color: #666;">Quick:</span>
-                    <button onclick="setQuickDate('today')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Today</button>
-                    <button onclick="setQuickDate('monthEnd')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Month End</button>
-                    <button onclick="setQuickDate('lastMonth')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Last Month End</button>
-                </div>
+            // Enhanced loadDashboardData with token check
+            async function loadDashboardDataWithTokenCheck() {
+              try {
+                // Check token status before loading data
+                await monitorTokenStatus();
 
-                <!-- Keep your existing entity selector and view toggle -->
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <label for="subsidiary-select" style="font-weight: bold; color: #13547a;">🏢 Entity:</label>
-                    <select id="subsidiary-select" onchange="loadDashboardData()">
-                        <option value="consolidated">🏢 Consolidated View (All Entities)</option>
-                    </select>
-                </div>
-
-                <div class="view-toggle">
-                    <button class="toggle-btn active" onclick="setView('overview')">Overview</button>
-                    <button class="toggle-btn" onclick="setView('detailed')">Detailed</button>
-                    <button class="toggle-btn" onclick="toggleConnectionManager()">Connection Status</button>
-                </div>
-            </div>
-
-            <!-- Date Information Display -->
-            <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #13547a;">
-                <div style="font-size: 0.9rem; color: #666;">
-                    <span style="font-weight: bold;">Viewing:</span> 
-                    Trial Balance as at <span style="font-weight: bold; color: #13547a;" id="display-date">${formatDisplayDate(
-                      selectedReportDate
-                    )}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-  `;
-
-        const existingControls = document.getElementById("dashboard-controls");
-        if (existingControls) {
-          existingControls.outerHTML = dashboardControlsHTML;
-        }
-      }
-
-      function updateReportDate(newDate) {
-        selectedReportDate = newDate;
-        document.getElementById("display-date").textContent =
-          formatDisplayDate(newDate);
-        loadDashboardData();
-      }
-
-      function setQuickDate(option) {
-        let newDate;
-        const today = new Date();
-
-        switch (option) {
-          case "today":
-            newDate = today;
-            break;
-          case "monthEnd":
-            newDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            break;
-          case "lastMonth":
-            newDate = new Date(today.getFullYear(), today.getMonth(), 0);
-            break;
-          default:
-            newDate = today;
-        }
-
-        const dateString = newDate.toISOString().split("T")[0];
-        selectedReportDate = dateString;
-        document.getElementById("report-date").value = dateString;
-        document.getElementById("display-date").textContent =
-          formatDisplayDate(dateString);
-        loadDashboardData();
-      }
-
-      function formatDisplayDate(dateString) {
-        const date = new Date(dateString + "T00:00:00");
-        const options = {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          weekday: "long",
-        };
-        return date.toLocaleDateString("en-AU", options);
-      }
-
-      // Call this when page loads
-      document.addEventListener("DOMContentLoaded", function () {
-        updateDashboardControls();
-      });
-      // ENHANCED HIERARCHICAL TRIAL BALANCE FRONTEND
-      // Replace your renderTrialBalanceView function in index.html with this
-      // Load and render hierarchical trial balance data
-      async function loadTrialBalanceData() {
-        try {
-          const response = await fetch("/api/consolidated-trial-balance");
-          const data = await response.json();
-
-          dashboardData = data;
-          renderHierarchicalTrialBalanceView(data);
-        } catch (error) {
-          console.error("Error loading hierarchical trial balance:", error);
-          showError("Failed to load hierarchical trial balance data");
-        }
-      }
-
-      // Render hierarchical trial balance view with expandable sections
-      function renderHierarchicalTrialBalanceView(data) {
-        document.querySelector(".toggle-btn").parentElement.style.display =
-          "block";
-        const content = document.getElementById("dashboard-content");
-
-        const totals = data.consolidated.totals;
-        const balanceCheck = data.consolidated.balanceCheck;
-        const summary = data.summary;
-
-        content.innerHTML = `
-    <!-- Consolidated Trial Balance Overview - FULL WIDTH -->
-    <div class="demo-card financial-overview">
-        <div class="card-header">
-            <h3>⚖️ RAC Consolidated Trial Balance</h3>
-            <p>Hierarchical financial position across ${
-              data.companies.length
-            } RAC entities</p>
-        </div>
-        <div class="card-content">
-            <div class="dashboard-mockup">
-                <!-- Consolidated Balance Check Status -->
-                <div style="margin-bottom: 20px; padding: 15px; border-radius: 8px; ${
-                  balanceCheck.debitsEqualCredits
-                    ? "background: #d4edda; border: 1px solid #c3e6cb; color: #155724;"
-                    : "background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;"
-                }">
-                    <div style="font-weight: bold; margin-bottom: 5px;">
-                        ${
-                          balanceCheck.debitsEqualCredits
-                            ? "✅ Consolidated Books are BALANCED"
-                            : "⚠️ Consolidated Books are OUT OF BALANCE"
-                        }
-                    </div>
-                    <div style="font-size: 0.9rem;">
-                        Debits: $${totals.totalDebits.toLocaleString()} | Credits: $${totals.totalCredits.toLocaleString()}
-                        ${
-                          !balanceCheck.debitsEqualCredits
-                            ? ` | Difference: $${Math.abs(
-                                balanceCheck.difference
-                              ).toLocaleString()}`
-                            : ""
-                        }
-                    </div>
-                    <div style="font-size: 0.9rem; margin-top: 5px;">
-                        Accounting Equation: Assets ($${totals.totalAssets.toLocaleString()}) = Liabilities + Equity ($${(
-          totals.totalLiabilities + totals.totalEquity
-        ).toLocaleString()})
-                        ${
-                          balanceCheck.accountingEquation.balanced
-                            ? " ✅"
-                            : " ⚠️"
-                        }
-                    </div>
-                </div>
-
-                <!-- Consolidated Summary Totals -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px;">
-                    <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                        <div style="font-size: 1.4rem; font-weight: bold; color: #28a745;">$${totals.totalAssets.toLocaleString()}</div>
-                        <div style="font-size: 1rem; color: #666;">Total Assets</div>
-                    </div>
-                    <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                        <div style="font-size: 1.4rem; font-weight: bold; color: #dc3545;">$${totals.totalLiabilities.toLocaleString()}</div>
-                        <div style="font-size: 1rem; color: #666;">Total Liabilities</div>
-                    </div>
-                    <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                        <div style="font-size: 1.4rem; font-weight: bold; color: #17a2b8;">$${totals.totalEquity.toLocaleString()}</div>
-                        <div style="font-size: 1rem; color: #666;">Total Equity</div>
-                    </div>
-                </div>
-
-                <!-- Entity Breakdown Header -->
-                <div style="border-bottom: 2px solid #13547a; padding-bottom: 10px; margin-bottom: 20px;">
-                    <div style="font-weight: bold; font-size: 1.1rem; color: #13547a;">📊 Entity Breakdown:</div>
-                    <div style="font-size: 0.9rem; color: #666;">
-                        ${summary.totalCompanies} companies • ${
-          summary.totalAccounts
-        } accounts • 
-                        ${summary.balancedCompanies}/${
-          summary.totalCompanies
-        } balanced
-                    </div>
-                </div>
-
-                <!-- Company-by-Company Hierarchical Breakdown -->
-                <div id="companies-breakdown">
-                    ${data.companies
-                      .map(
-                        (company, companyIndex) => `
-                        <div class="company-card" style="margin-bottom: 25px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
-                            <!-- Company Header (Clickable to expand/collapse) -->
-                            <div class="company-header" 
-                                 onclick="toggleCompany(${companyIndex})" 
-                                 style="
-                                    background: ${
-                                      company.balanceCheck.debitsEqualCredits
-                                        ? "#f8f9fa"
-                                        : "#fff3cd"
-                                    }; 
-                                    padding: 15px; 
-                                    cursor: pointer; 
-                                    border-bottom: 1px solid #ddd;
-                                    display: flex; 
-                                    justify-content: space-between; 
-                                    align-items: center;
-                                 ">
-                                <div>
-                                    <div style="font-weight: bold; color: #13547a; font-size: 1.1rem;">
-                                        <span id="company-toggle-${companyIndex}" style="margin-right: 8px;">▶</span>
-                                        🏢 ${company.tenantName}
-                                    </div>
-                                    <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
-                                        ${
-                                          company.accountCounts.totalAccounts
-                                        } accounts • 
-                                        ${
-                                          company.balanceCheck
-                                            .debitsEqualCredits
-                                            ? "✅ Balanced"
-                                            : "⚠️ Out of Balance"
-                                        }
-                                    </div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-size: 0.9rem; color: #666;">Assets: $${company.totals.totalAssets.toLocaleString()}</div>
-                                    <div style="font-size: 0.9rem; color: #666;">Liabilities: $${company.totals.totalLiabilities.toLocaleString()}</div>
-                                    <div style="font-size: 0.9rem; color: #666;">Equity: $${company.totals.totalEquity.toLocaleString()}</div>
-                                </div>
-                            </div>
-
-                            <!-- Company Sections (Initially Hidden) -->
-                            <div id="company-sections-${companyIndex}" class="company-sections" style="display: none;">
-                                ${Object.entries(company.sections)
-                                  .filter(
-                                    ([sectionKey, section]) =>
-                                      section.accounts.length > 0
-                                  )
-                                  .map(
-                                    ([sectionKey, section], sectionIndex) => `
-                                    <div class="section-card" style="margin: 10px; border: 1px solid #e9ecef; border-radius: 8px;">
-                                        <!-- Section Header (Clickable to expand/collapse accounts) -->
-                                        <div class="section-header" 
-                                             onclick="toggleSection(${companyIndex}, '${sectionKey}')"
-                                             style="
-                                                background: #f8f9fa; 
-                                                padding: 12px; 
-                                                cursor: pointer;
-                                                display: flex; 
-                                                justify-content: space-between; 
-                                                align-items: center;
-                                             ">
-                                            <div>
-                                                <span id="section-toggle-${companyIndex}-${sectionKey}" style="margin-right: 8px;">▶</span>
-                                                <strong>${
-                                                  section.title
-                                                }</strong>
-                                                <span style="color: #666; margin-left: 10px;">(${
-                                                  section.accounts.length
-                                                } accounts)</span>
-                                            </div>
-                                            <div style="font-weight: bold; color: ${
-                                              sectionKey === "assets"
-                                                ? "#28a745"
-                                                : sectionKey === "liabilities"
-                                                ? "#dc3545"
-                                                : sectionKey === "equity"
-                                                ? "#17a2b8"
-                                                : sectionKey === "revenue"
-                                                ? "#28a745"
-                                                : "#ffc107"
-                                            };">
-                                                $${section.total.toLocaleString()}
-                                            </div>
-                                        </div>
-
-                                        <!-- Account Details (Initially Hidden) -->
-                                        <div id="section-accounts-${companyIndex}-${sectionKey}" class="section-accounts" style="display: none;">
-                                            <div style="padding: 10px;">
-                                                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; background: #f1f3f4; padding: 8px; font-weight: bold; font-size: 0.9rem;">
-                                                    <div>Account Name</div>
-                                                    <div style="text-align: right;">Debit</div>
-                                                    <div style="text-align: right;">Credit</div>
-                                                </div>
-                                                ${section.accounts
-                                                  .map(
-                                                    (account) => `
-                                                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9rem;">
-                                                        <div>${
-                                                          account.name
-                                                        }</div>
-                                                        <div style="text-align: right; ${
-                                                          account.debit > 0
-                                                            ? "font-weight: bold;"
-                                                            : "color: #999;"
-                                                        }">
-                                                            ${
-                                                              account.debit > 0
-                                                                ? "$" +
-                                                                  account.debit.toLocaleString()
-                                                                : "-"
-                                                            }
-                                                        </div>
-                                                        <div style="text-align: right; ${
-                                                          account.credit > 0
-                                                            ? "font-weight: bold;"
-                                                            : "color: #999;"
-                                                        }">
-                                                            ${
-                                                              account.credit > 0
-                                                                ? "$" +
-                                                                  account.credit.toLocaleString()
-                                                                : "-"
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                `
-                                                  )
-                                                  .join("")}
-                                            </div>
-                                        </div>
-                                    </div>
-                                `
-                                  )
-                                  .join("")}
-                            </div>
-                        </div>
-                    `
-                      )
-                      .join("")}
-                </div>
-            </div>
-            
-            <div class="${
-              balanceCheck.debitsEqualCredits ? "success-box" : "alert-box"
-            }">
-                ${
-                  balanceCheck.debitsEqualCredits
-                    ? "✅ Consolidated Trial Balance is accurate across all RAC entities"
-                    : "⚠️ Trial Balance shows discrepancies - expand companies above to review individual entity balances"
+                // If we have expiring tokens, warn user
+                if (lastTokenCheck && lastTokenCheck.expiringTokens > 0) {
+                  console.warn(
+                    `⚠️ ${lastTokenCheck.expiringTokens} token(s) expiring soon`
+                  );
                 }
-            </div>
-        </div>
-    </div>
 
-    <!-- Quick Stats Cards -->
-    <div class="demo-card">
-        <div class="card-header">
-            <h3>📈 Portfolio Overview</h3>
-            <p>RAC financial portfolio at a glance</p>
-        </div>
-        <div class="card-content">
-            <div class="dashboard-mockup">
-                <div class="metric-row">
-                    <span class="metric-label">Total Portfolio Value</span>
-                    <span class="metric-value large">$${(
-                      totals.totalAssets - totals.totalLiabilities
-                    ).toLocaleString()}</span>
-                </div>
-                <div class="metric-row">
-                    <span class="metric-label">Largest Entity</span>
-                    <span class="metric-value">${
-                      data.companies.length > 0
-                        ? data.companies
-                            .reduce((max, company) =>
-                              company.totals.totalAssets >
-                              max.totals.totalAssets
-                                ? company
-                                : max
+                // Load dashboard data normally
+                await loadDashboardData();
+              } catch (error) {
+                console.error("Error loading dashboard with token check:", error);
+
+                // If it's a token error, suggest refresh
+                if (
+                  error.message?.includes("401") ||
+                  error.message?.includes("unauthorized")
+                ) {
+                  showRefreshResult(
+                    "⚠️ Authentication error - tokens may have expired. Try refreshing."
+                  );
+                }
+              }
+            }
+
+            // Request notification permission when dashboard loads
+            function requestNotificationPermission() {
+              if ("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission().then((permission) => {
+                  if (permission === "granted") {
+                    console.log("✅ Notification permission granted");
+                  }
+                });
+              }
+            }
+
+            // Initialize token monitoring when page loads
+            document.addEventListener("DOMContentLoaded", function () {
+              // Request notification permission
+              requestNotificationPermission();
+
+              // Start token monitoring after a short delay
+              setTimeout(() => {
+                startTokenMonitoring();
+              }, 3000); // Wait 3 seconds for dashboard to load
+            });
+
+            // Cleanup when page unloads
+            window.addEventListener("beforeunload", function () {
+              stopTokenMonitoring();
+            });
+
+            // Enhanced connection status display with token expiry info
+            async function showEnhancedConnectionManager(connectionData) {
+              // Use the enhanced connection status endpoint
+              const response = await fetch("/api/connection-status-enhanced");
+              const enhancedConnections = await response.json();
+
+              // Rest of your existing showConnectionManager code, but add expiry warnings
+              const connectedCount = enhancedConnections.filter(
+                (conn) => conn.connected
+              ).length;
+              const expiringCount = enhancedConnections.filter(
+                (conn) => conn.needsRefresh
+              ).length;
+
+              // Add expiry warnings to each connection card
+              const connectionCards = enhancedConnections
+                .map((conn) => {
+                  let expiryWarning = "";
+                  if (
+                    conn.minutesUntilExpiry !== null &&
+                    conn.minutesUntilExpiry < 30
+                  ) {
+                    const warningColor =
+                      conn.minutesUntilExpiry < 15 ? "#dc3545" : "#ffc107";
+                    expiryWarning = `
+              <div style="color: ${warningColor}; font-size: 0.8rem; margin-top: 5px;">
+                ⏰ Expires in ${conn.minutesUntilExpiry} minutes
+              </div>
+            `;
+                  }
+
+                  return `
+            <div class="entity-connection-card ${
+              conn.connected ? "connected" : "disconnected"
+            } ${conn.provider}">
+              <!-- Your existing connection card HTML -->
+              <div class="entity-name">${conn.tenantName}</div>
+              <div class="connection-status">
+                <div class="status-indicator ${
+                  conn.connected ? "connected" : "disconnected"
+                }"></div>
+                <span>${
+                  conn.connected ? "Connected & Active" : "Not Connected"
+                }</span>
+              </div>
+              ${expiryWarning}
+              <!-- Rest of connection card -->
+            </div>
+          `;
+                })
+                .join("");
+
+              // Your existing connection manager display code with enhanced cards
+            }
+
+
+            // Global variable to track selected date
+            let selectedReportDate = new Date().toISOString().split("T")[0];
+
+            // Enhanced Dashboard Controls with Date Picker
+            function updateDashboardControls() {
+              const dashboardControlsHTML = `
+          <div class="controls" id="dashboard-controls">
+              <h3>📊 Trial Balance Controls</h3>
+              <div class="subsidiary-selector">
+                  <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                      <!-- Date Picker Section -->
+                      <div style="display: flex; align-items: center; gap: 10px;">
+                          <label for="report-date" style="font-weight: bold; color: #13547a;">
+                              📅 Report Date:
+                          </label>
+                          <input
+                              type="date"
+                              id="report-date"
+                              value="${selectedReportDate}"
+                              onchange="updateReportDate(this.value)"
+                              style="padding: 8px 12px; border: 2px solid #13547a; border-radius: 6px; font-size: 1rem; background: white; color: #333; cursor: pointer;"
+                          />
+                      </div>
+
+                      <!-- Quick Date Buttons -->
+                      <div style="display: flex; gap: 8px; align-items: center;">
+                          <span style="font-size: 0.9rem; color: #666;">Quick:</span>
+                          <button onclick="setQuickDate('today')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Today</button>
+                          <button onclick="setQuickDate('monthEnd')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Month End</button>
+                          <button onclick="setQuickDate('lastMonth')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Last Month End</button>
+                      </div>
+
+                      <!-- Keep your existing entity selector and view toggle -->
+                      <div style="display: flex; align-items: center; gap: 10px;">
+                          <label for="subsidiary-select" style="font-weight: bold; color: #13547a;">🏢 Entity:</label>
+                          <select id="subsidiary-select" onchange="loadDashboardData()">
+                              <option value="consolidated">🏢 Consolidated View (All Entities)</option>
+                          </select>
+                      </div>
+
+                      <div class="view-toggle">
+                          <button class="toggle-btn active" onclick="setView('overview')">Overview</button>
+                          <button class="toggle-btn" onclick="setView('detailed')">Detailed</button>
+                          <button class="toggle-btn" onclick="toggleConnectionManager()">Connection Status</button>
+                      </div>
+                  </div>
+
+                  <!-- Date Information Display -->
+                  <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #13547a;">
+                      <div style="font-size: 0.9rem; color: #666;">
+                          <span style="font-weight: bold;">Viewing:</span>
+                          Trial Balance as at <span style="font-weight: bold; color: #13547a;" id="display-date">${formatDisplayDate(
+                            selectedReportDate
+                          )}</span>
+                      </div>
+                  </div>
+              </div>
+          </div>
+        `;
+
+              const existingControls = document.getElementById("dashboard-controls");
+              if (existingControls) {
+                existingControls.outerHTML = dashboardControlsHTML;
+              }
+            }
+
+            function updateReportDate(newDate) {
+              selectedReportDate = newDate;
+              document.getElementById("display-date").textContent =
+                formatDisplayDate(newDate);
+              loadDashboardData();
+            }
+
+            function setQuickDate(option) {
+              let newDate;
+              const today = new Date();
+
+              switch (option) {
+                case "today":
+                  newDate = today;
+                  break;
+                case "monthEnd":
+                  newDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                  break;
+                case "lastMonth":
+                  newDate = new Date(today.getFullYear(), today.getMonth(), 0);
+                  break;
+                default:
+                  newDate = today;
+              }
+
+              const dateString = newDate.toISOString().split("T")[0];
+              selectedReportDate = dateString;
+              document.getElementById("report-date").value = dateString;
+              document.getElementById("display-date").textContent =
+                formatDisplayDate(dateString);
+              loadDashboardData();
+            }
+
+            function formatDisplayDate(dateString) {
+              const date = new Date(dateString + "T00:00:00");
+              const options = {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                weekday: "long",
+              };
+              return date.toLocaleDateString("en-AU", options);
+            }
+
+            // Call this when page loads
+            document.addEventListener("DOMContentLoaded", function () {
+              updateDashboardControls();
+            });
+            // ENHANCED HIERARCHICAL TRIAL BALANCE FRONTEND
+            // Replace your renderTrialBalanceView function in index.html with this
+            // Load and render hierarchical trial balance data
+            async function loadTrialBalanceData() {
+              try {
+                const response = await fetch("/api/consolidated-trial-balance");
+                const data = await response.json();
+
+                dashboardData = data;
+                renderHierarchicalTrialBalanceView(data);
+              } catch (error) {
+                console.error("Error loading hierarchical trial balance:", error);
+                showError("Failed to load hierarchical trial balance data");
+              }
+            }
+
+            // Render hierarchical trial balance view with expandable sections
+            function renderHierarchicalTrialBalanceView(data) {
+              document.querySelector(".toggle-btn").parentElement.style.display =
+                "block";
+              const content = document.getElementById("dashboard-content");
+
+              const totals = data.consolidated.totals;
+              const balanceCheck = data.consolidated.balanceCheck;
+              const summary = data.summary;
+
+              content.innerHTML = `
+          <!-- Consolidated Trial Balance Overview - FULL WIDTH -->
+          <div class="demo-card financial-overview">
+              <div class="card-header">
+                  <h3>⚖️ RAC Consolidated Trial Balance</h3>
+                  <p>Hierarchical financial position across ${
+                    data.companies.length
+                  } RAC entities</p>
+              </div>
+              <div class="card-content">
+                  <div class="dashboard-mockup">
+                      <!-- Consolidated Balance Check Status -->
+                      <div style="margin-bottom: 20px; padding: 15px; border-radius: 8px; ${
+                        balanceCheck.debitsEqualCredits
+                          ? "background: #d4edda; border: 1px solid #c3e6cb; color: #155724;"
+                          : "background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;"
+                      }">
+                          <div style="font-weight: bold; margin-bottom: 5px;">
+                              ${
+                                balanceCheck.debitsEqualCredits
+                                  ? "✅ Consolidated Books are BALANCED"
+                                  : "⚠️ Consolidated Books are OUT OF BALANCE"
+                              }
+                          </div>
+                          <div style="font-size: 0.9rem;">
+                              Debits: $${totals.totalDebits.toLocaleString()} | Credits: $${totals.totalCredits.toLocaleString()}
+                              ${
+                                !balanceCheck.debitsEqualCredits
+                                  ? ` | Difference: $${Math.abs(
+                                      balanceCheck.difference
+                                    ).toLocaleString()}`
+                                  : ""
+                              }
+                          </div>
+                          <div style="font-size: 0.9rem; margin-top: 5px;">
+                              Accounting Equation: Assets ($${totals.totalAssets.toLocaleString()}) = Liabilities + Equity ($${(
+                totals.totalLiabilities + totals.totalEquity
+              ).toLocaleString()})
+                              ${
+                                balanceCheck.accountingEquation.balanced
+                                  ? " ✅"
+                                  : " ⚠️"
+                              }
+                          </div>
+                      </div>
+
+                      <!-- Consolidated Summary Totals -->
+                      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px;">
+                          <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                              <div style="font-size: 1.4rem; font-weight: bold; color: #28a745;">$${totals.totalAssets.toLocaleString()}</div>
+                              <div style="font-size: 1rem; color: #666;">Total Assets</div>
+                          </div>
+                          <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                              <div style="font-size: 1.4rem; font-weight: bold; color: #dc3545;">$${totals.totalLiabilities.toLocaleString()}</div>
+                              <div style="font-size: 1rem; color: #666;">Total Liabilities</div>
+                          </div>
+                          <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                              <div style="font-size: 1.4rem; font-weight: bold; color: #17a2b8;">$${totals.totalEquity.toLocaleString()}</div>
+                              <div style="font-size: 1rem; color: #666;">Total Equity</div>
+                          </div>
+                      </div>
+
+                      <!-- Entity Breakdown Header -->
+                      <div style="border-bottom: 2px solid #13547a; padding-bottom: 10px; margin-bottom: 20px;">
+                          <div style="font-weight: bold; font-size: 1.1rem; color: #13547a;">📊 Entity Breakdown:</div>
+                          <div style="font-size: 0.9rem; color: #666;">
+                              ${summary.totalCompanies} companies • ${
+                summary.totalAccounts
+              } accounts •
+                              ${summary.balancedCompanies}/${
+                summary.totalCompanies
+              } balanced
+                          </div>
+                      </div>
+
+                      <!-- Company-by-Company Hierarchical Breakdown -->
+                      <div id="companies-breakdown">
+                          ${data.companies
+                            .map(
+                              (company, companyIndex) => `
+                              <div class="company-card" style="margin-bottom: 25px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
+                                  <!-- Company Header (Clickable to expand/collapse) -->
+                                  <div class="company-header"
+                                       onclick="toggleCompany(${companyIndex})"
+                                       style="
+                                          background: ${
+                                            company.balanceCheck.debitsEqualCredits
+                                              ? "#f8f9fa"
+                                              : "#fff3cd"
+                                          };
+                                          padding: 15px;
+                                          cursor: pointer;
+                                          border-bottom: 1px solid #ddd;
+                                          display: flex;
+                                          justify-content: space-between;
+                                          align-items: center;
+                                       ">
+                                      <div>
+                                          <div style="font-weight: bold; color: #13547a; font-size: 1.1rem;">
+                                              <span id="company-toggle-${companyIndex}" style="margin-right: 8px;">▶</span>
+                                              🏢 ${company.tenantName}
+                                          </div>
+                                          <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
+                                              ${
+                                                company.accountCounts.totalAccounts
+                                              } accounts •
+                                              ${
+                                                company.balanceCheck
+                                                  .debitsEqualCredits
+                                                  ? "✅ Balanced"
+                                                  : "⚠️ Out of Balance"
+                                              }
+                                          </div>
+                                      </div>
+                                      <div style="text-align: right;">
+                                          <div style="font-size: 0.9rem; color: #666;">Assets: $${company.totals.totalAssets.toLocaleString()}</div>
+                                          <div style="font-size: 0.9rem; color: #666;">Liabilities: $${company.totals.totalLiabilities.toLocaleString()}</div>
+                                          <div style="font-size: 0.9rem; color: #666;">Equity: $${company.totals.totalEquity.toLocaleString()}</div>
+                                      </div>
+                                  </div>
+
+                                  <!-- Company Sections (Initially Hidden) -->
+                                  <div id="company-sections-${companyIndex}" class="company-sections" style="display: none;">
+                                      ${Object.entries(company.sections)
+                                        .filter(
+                                          ([sectionKey, section]) =>
+                                            section.accounts.length > 0
+                                        )
+                                        .map(
+                                          ([sectionKey, section], sectionIndex) => `
+                                          <div class="section-card" style="margin: 10px; border: 1px solid #e9ecef; border-radius: 8px;">
+                                              <!-- Section Header (Clickable to expand/collapse accounts) -->
+                                              <div class="section-header"
+                                                   onclick="toggleSection(${companyIndex}, '${sectionKey}')"
+                                                   style="
+                                                      background: #f8f9fa;
+                                                      padding: 12px;
+                                                      cursor: pointer;
+                                                      display: flex;
+                                                      justify-content: space-between;
+                                                      align-items: center;
+                                                   ">
+                                                  <div>
+                                                      <span id="section-toggle-${companyIndex}-${sectionKey}" style="margin-right: 8px;">▶</span>
+                                                      <strong>${
+                                                        section.title
+                                                      }</strong>
+                                                      <span style="color: #666; margin-left: 10px;">(${
+                                                        section.accounts.length
+                                                      } accounts)</span>
+                                                  </div>
+                                                  <div style="font-weight: bold; color: ${
+                                                    sectionKey === "assets"
+                                                      ? "#28a745"
+                                                      : sectionKey === "liabilities"
+                                                      ? "#dc3545"
+                                                      : sectionKey === "equity"
+                                                      ? "#17a2b8"
+                                                      : sectionKey === "revenue"
+                                                      ? "#28a745"
+                                                      : "#ffc107"
+                                                  };">
+                                                      $${section.total.toLocaleString()}
+                                                  </div>
+                                              </div>
+
+                                              <!-- Account Details (Initially Hidden) -->
+                                              <div id="section-accounts-${companyIndex}-${sectionKey}" class="section-accounts" style="display: none;">
+                                                  <div style="padding: 10px;">
+                                                      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; background: #f1f3f4; padding: 8px; font-weight: bold; font-size: 0.9rem;">
+                                                          <div>Account Name</div>
+                                                          <div style="text-align: right;">Debit</div>
+                                                          <div style="text-align: right;">Credit</div>
+                                                      </div>
+                                                      ${section.accounts
+                                                        .map(
+                                                          (account) => `
+                                                          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9rem;">
+                                                              <div>${
+                                                                account.name
+                                                              }</div>
+                                                              <div style="text-align: right; ${
+                                                                account.debit > 0
+                                                                  ? "font-weight: bold;"
+                                                                  : "color: #999;"
+                                                              }">
+                                                                  ${
+                                                                    account.debit > 0
+                                                                      ? "$" +
+                                                                        account.debit.toLocaleString()
+                                                                      : "-"
+                                                                  }
+                                                              </div>
+                                                              <div style="text-align: right; ${
+                                                                account.credit > 0
+                                                                  ? "font-weight: bold;"
+                                                                  : "color: #999;"
+                                                              }">
+                                                                  ${
+                                                                    account.credit > 0
+                                                                      ? "$" +
+                                                                        account.credit.toLocaleString()
+                                                                      : "-"
+                                                                  }
+                                                              </div>
+                                                          </div>
+                                                      `
+                                                        )
+                                                        .join("")}
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      `
+                                        )
+                                        .join("")}
+                                  </div>
+                              </div>
+                          `
                             )
-                            .tenantName.split(" ")
-                            .slice(0, 3)
-                            .join(" ")
-                        : "N/A"
-                    }</span>
-                </div>
-                <div class="metric-row">
-                    <span class="metric-label">Data Quality</span>
-                    <span class="metric-value" style="color: ${
-                      summary.dataQuality.allBalanced ? "green" : "orange"
-                    };">
-                        ${
-                          summary.dataQuality.allBalanced
-                            ? "100% Balanced"
-                            : "Review Required"
-                        }
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
+                            .join("")}
+                      </div>
+                  </div>
 
-    <!-- Integration Status -->
-    <div class="demo-card">
-        <div class="card-header">
-            <h3>🔗 Integration Status</h3>
-            <p>System connections and data flow</p>
-        </div>
-        <div class="card-content">
-            <div class="dashboard-mockup">
-                <div class="metric-row">
-                    <span class="metric-label">Connected Entities</span>
-                    <span class="metric-value">${
-                      summary.totalCompanies
-                    } RAC companies</span>
-                </div>
-                <div class="metric-row">
-                    <span class="metric-label">Total Accounts</span>
-                    <span class="metric-value">${
-                      summary.totalAccounts
-                    } active accounts</span>
-                </div>
-                <div class="metric-row">
-                    <span class="metric-label">Last Update</span>
-                    <span class="metric-value">Just now</span>
-                </div>
-            </div>
-            <div class="success-box">
-                ✅ Hierarchical Trial Balance system operational - Real-time drilling from consolidated to account level
-            </div>
-        </div>
-    </div>
-  `;
-      }
+                  <div class="${
+                    balanceCheck.debitsEqualCredits ? "success-box" : "alert-box"
+                  }">
+                      ${
+                        balanceCheck.debitsEqualCredits
+                          ? "✅ Consolidated Trial Balance is accurate across all RAC entities"
+                          : "⚠️ Trial Balance shows discrepancies - expand companies above to review individual entity balances"
+                      }
+                  </div>
+              </div>
+          </div>
 
-      // Toggle company expansion
-      function toggleCompany(companyIndex) {
-        const sectionsDiv = document.getElementById(
-          `company-sections-${companyIndex}`
-        );
-        const toggleIcon = document.getElementById(
-          `company-toggle-${companyIndex}`
-        );
+          <!-- Quick Stats Cards -->
+          <div class="demo-card">
+              <div class="card-header">
+                  <h3>📈 Portfolio Overview</h3>
+                  <p>RAC financial portfolio at a glance</p>
+              </div>
+              <div class="card-content">
+                  <div class="dashboard-mockup">
+                      <div class="metric-row">
+                          <span class="metric-label">Total Portfolio Value</span>
+                          <span class="metric-value large">$${(
+                            totals.totalAssets - totals.totalLiabilities
+                          ).toLocaleString()}</span>
+                      </div>
+                      <div class="metric-row">
+                          <span class="metric-label">Largest Entity</span>
+                          <span class="metric-value">${
+                            data.companies.length > 0
+                              ? data.companies
+                                  .reduce((max, company) =>
+                                    company.totals.totalAssets >
+                                    max.totals.totalAssets
+                                      ? company
+                                      : max
+                                  )
+                                  .tenantName.split(" ")
+                                  .slice(0, 3)
+                                  .join(" ")
+                              : "N/A"
+                          }</span>
+                      </div>
+                      <div class="metric-row">
+                          <span class="metric-label">Data Quality</span>
+                          <span class="metric-value" style="color: ${
+                            summary.dataQuality.allBalanced ? "green" : "orange"
+                          };">
+                              ${
+                                summary.dataQuality.allBalanced
+                                  ? "100% Balanced"
+                                  : "Review Required"
+                              }
+                          </span>
+                      </div>
+                  </div>
+              </div>
+          </div>
 
-        if (sectionsDiv.style.display === "none") {
-          sectionsDiv.style.display = "block";
-          toggleIcon.textContent = "▼";
-        } else {
-          sectionsDiv.style.display = "none";
-          toggleIcon.textContent = "▶";
-        }
-      }
+          <!-- Integration Status -->
+          <div class="demo-card">
+              <div class="card-header">
+                  <h3>🔗 Integration Status</h3>
+                  <p>System connections and data flow</p>
+              </div>
+              <div class="card-content">
+                  <div class="dashboard-mockup">
+                      <div class="metric-row">
+                          <span class="metric-label">Connected Entities</span>
+                          <span class="metric-value">${
+                            summary.totalCompanies
+                          } RAC companies</span>
+                      </div>
+                      <div class="metric-row">
+                          <span class="metric-label">Total Accounts</span>
+                          <span class="metric-value">${
+                            summary.totalAccounts
+                          } active accounts</span>
+                      </div>
+                      <div class="metric-row">
+                          <span class="metric-label">Last Update</span>
+                          <span class="metric-value">Just now</span>
+                      </div>
+                  </div>
+                  <div class="success-box">
+                      ✅ Hierarchical Trial Balance system operational - Real-time drilling from consolidated to account level
+                  </div>
+              </div>
+          </div>
+        `;
+            }
 
-      // Toggle section expansion
-      function toggleSection(companyIndex, sectionKey) {
-        const accountsDiv = document.getElementById(
-          `section-accounts-${companyIndex}-${sectionKey}`
-        );
-        const toggleIcon = document.getElementById(
-          `section-toggle-${companyIndex}-${sectionKey}`
-        );
+            // Toggle company expansion
+            function toggleCompany(companyIndex) {
+              const sectionsDiv = document.getElementById(
+                `company-sections-${companyIndex}`
+              );
+              const toggleIcon = document.getElementById(
+                `company-toggle-${companyIndex}`
+              );
 
-        if (accountsDiv.style.display === "none") {
-          accountsDiv.style.display = "block";
-          toggleIcon.textContent = "▼";
-        } else {
-          accountsDiv.style.display = "none";
-          toggleIcon.textContent = "▶";
-        }
-      }
+              if (sectionsDiv.style.display === "none") {
+                sectionsDiv.style.display = "block";
+                toggleIcon.textContent = "▼";
+              } else {
+                sectionsDiv.style.display = "none";
+                toggleIcon.textContent = "▶";
+              }
+            }
 
-      // Show error message
-      function showError(message) {
-        const content = document.getElementById("dashboard-content");
-        content.innerHTML = `<div class="error">❌ ${message}</div>`;
-      }
+            // Toggle section expansion
+            function toggleSection(companyIndex, sectionKey) {
+              const accountsDiv = document.getElementById(
+                `section-accounts-${companyIndex}-${sectionKey}`
+              );
+              const toggleIcon = document.getElementById(
+                `section-toggle-${companyIndex}-${sectionKey}`
+              );
 
-      // Set view type
-      function setView(viewType) {
-        currentView = viewType;
+              if (accountsDiv.style.display === "none") {
+                accountsDiv.style.display = "block";
+                toggleIcon.textContent = "▼";
+              } else {
+                accountsDiv.style.display = "none";
+                toggleIcon.textContent = "▶";
+              }
+            }
 
-        // Update button states
-        document.querySelectorAll(".toggle-btn").forEach((btn) => {
-          btn.classList.remove("active");
-        });
-        event.target.classList.add("active");
+            // Show error message
+            function showError(message) {
+              const content = document.getElementById("dashboard-content");
+              content.innerHTML = `<div class="error">❌ ${message}</div>`;
+            }
 
-        // Reload data with new view
-        loadDashboardData();
-      }
+            // Set view type
+            function setView(viewType) {
+              currentView = viewType;
 
-      // Event listeners
-      document
-        .getElementById("subsidiary-select")
-        .addEventListener("change", loadDashboardData);
+              // Update button states
+              document.querySelectorAll(".toggle-btn").forEach((btn) => {
+                btn.classList.remove("active");
+              });
+              event.target.classList.add("active");
 
-      // Auto-refresh data every 5 minutes
-      setInterval(loadDashboardData, 300000);
+              // Reload data with new view
+              loadDashboardData();
+            }
 
-      // Update timestamp
-      function updateTimestamp() {
-        document.getElementById("timestamp").textContent =
-          new Date().toLocaleString();
-      }
+            // Event listeners
+            document
+              .getElementById("subsidiary-select")
+              .addEventListener("change", loadDashboardData);
 
-      // Initialize dashboard
-      window.addEventListener("load", () => {
-        updateTimestamp();
-        setInterval(updateTimestamp, 30000);
-        loadTenants();
-      });
+            // Auto-refresh data every 5 minutes
+            setInterval(loadDashboardData, 300000);
+
+            // Update timestamp
+            function updateTimestamp() {
+              document.getElementById("timestamp").textContent =
+                new Date().toLocaleString();
+            }
+
+            // Initialize dashboard
+            window.addEventListener("load", () => {
+              updateTimestamp();
+              setInterval(updateTimestamp, 30000);
+              loadTenants();
+            });
     </script>
   </body>
 </html>
