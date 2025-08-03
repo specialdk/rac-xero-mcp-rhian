@@ -1,1354 +1,1732 @@
-// RAC Financial Dashboard - Complete JavaScript
-// Replace everything between <script> and </script> tags with this
+// RAC Financial Dashboard - Complete Server.js with Date Picker Support
+// Includes all functionality: Database Token Storage, Trial Balance with Date Support, Multi-entity Integration
 
-let currentView = "overview";
-let currentSystemView = "all";
-let dashboardData = {};
-let tokenStatusInterval;
-let lastTokenCheck = null;
-let selectedReportDate = new Date().toISOString().split("T")[0];
+const express = require("express");
+const path = require("path");
+const fetch = require("node-fetch");
+const { XeroAccessToken, XeroIdToken, XeroClient } = require("xero-node");
+const { Pool } = require("pg");
+const app = express();
+const port = process.env.PORT || 3000;
 
-// Define all RAC entities
-const racEntities = [
-  "Rirratjingu Aboriginal Corporation 8538",
-  "Rirratjingu Mining Pty Ltd 7168",
-  "Rirratjingu Property Management & Maintenance Services Pty Ltd",
-  "Rirratjingu Enterprises Pty Ltd",
-  "Rirratjingu Invest P/ L ATF Miliditjpi Trust",
-  "Ngarrkuwuy Developments Pty Ltd",
-  "Marrin Square Developments Pty Ltd",
-];
+// Environment variables
+const XERO_CLIENT_ID = process.env.XERO_CLIENT_ID;
+const XERO_CLIENT_SECRET = process.env.XERO_CLIENT_SECRET;
+const XERO_REDIRECT_URI = process.env.XERO_REDIRECT_URI;
 
-// Set system view (all, xero, approvalmax)
-function setSystemView(view) {
-  currentSystemView = view;
+const APPROVALMAX_CLIENT_ID = process.env.APPROVALMAX_CLIENT_ID;
+const APPROVALMAX_CLIENT_SECRET = process.env.APPROVALMAX_CLIENT_SECRET;
+const APPROVALMAX_REDIRECT_URI = process.env.APPROVALMAX_REDIRECT_URI;
 
-  // Update tab states
-  document.querySelectorAll(".system-tab").forEach((tab) => {
-    tab.classList.remove("active");
-  });
+// PostgreSQL connection (Railway provides DATABASE_URL automatically)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
+});
 
-  if (event && event.target) {
-    event.target.classList.add("active");
-  }
+// ApprovalMax configuration
+const APPROVALMAX_CONFIG = {
+  authUrl: "https://identity.approvalmax.com/connect/authorize",
+  tokenUrl: "https://identity.approvalmax.com/connect/token",
+  apiUrl: "https://public-api.approvalmax.com/api/v1",
+  scopes: [
+    "https://www.approvalmax.com/scopes/public_api/read",
+    "https://www.approvalmax.com/scopes/public_api/write",
+    "offline_access",
+  ],
+};
 
-  // Reload connection status with filter
-  loadConnectionStatus();
-}
-
-// Show connection manager
-function showConnectionManager(connectionData) {
-  const connectionStatus = document.getElementById("connection-status");
-
-  if (!connectionStatus) {
-    console.error("❌ connection-status element not found");
-    return;
-  }
-
-  // Create comprehensive entity list for both systems
-  const entityConnections = createEntityConnectionList(connectionData);
-
-  // Filter based on current system view
-  let filteredConnections = entityConnections;
-  if (currentSystemView === "xero") {
-    filteredConnections = entityConnections.filter(
-      (conn) => conn.provider === "xero"
-    );
-  } else if (currentSystemView === "approvalmax") {
-    filteredConnections = entityConnections.filter(
-      (conn) => conn.provider === "approvalmax"
-    );
-  }
-
-  const connectedCount = filteredConnections.filter(
-    (conn) => conn.connected
-  ).length;
-  const totalCount = filteredConnections.length;
-  const progressPercent =
-    totalCount > 0 ? (connectedCount / totalCount) * 100 : 0;
-
-  connectionStatus.innerHTML = `
-    <div style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <span><strong>Connection Progress:</strong></span>
-            <span><strong>${connectedCount} of ${totalCount} connections active</strong></span>
-        </div>
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: ${progressPercent}%"></div>
-        </div>
-    </div>
-    
-    <div class="connection-grid">
-        ${filteredConnections
-          .map((conn) => {
-            return `
-                <div class="entity-connection-card ${
-                  conn.connected ? "connected" : "disconnected"
-                } ${conn.provider}">
-                    <div class="provider-badge ${
-                      conn.provider
-                    }">${conn.provider.toUpperCase()}</div>
-                    <div class="entity-name">${conn.tenantName}</div>
-                    <div class="connection-status">
-                        <div class="status-indicator ${
-                          conn.connected ? "connected" : "disconnected"
-                        }"></div>
-                        <span>${
-                          conn.connected
-                            ? "Connected & Active"
-                            : "Not Connected"
-                        }</span>
-                    </div>
-                    <div style="font-size: 0.8rem; color: #666; margin: 5px 0;">
-                        ${
-                          conn.provider === "approvalmax" &&
-                          conn.organizationCount !== undefined
-                            ? `Organizations: ${conn.organizationCount} connected`
-                            : `Last seen: ${conn.lastSeen || "Never"}`
-                        }
-                    </div>
-                    ${
-                      !conn.connected
-                        ? `
-                        <button class="connect-btn ${
-                          conn.provider
-                        }" onclick="connectEntity('${conn.tenantName}', '${
-                            conn.provider
-                          }')">
-                            Connect ${
-                              conn.provider === "xero" ? "Xero" : "ApprovalMax"
-                            }
-                        </button>
-                    `
-                        : `
-                        <div style="color: #4CAF50; font-size: 0.9rem; margin-top: 10px;">
-                            ✅ Live data connection active
-                        </div>
-                        <button class="connect-btn ${conn.provider}" onclick="connectEntity('${conn.tenantName}', '${conn.provider}')" style="font-size: 0.8rem; padding: 6px 12px; margin-top: 5px;">
-                            Reconnect
-                        </button>
-                    `
-                    }
-                </div>
-            `;
-          })
-          .join("")}
-    </div>
-    
-    ${
-      connectedCount > 0
-        ? `
-        <div class="success-box" style="margin-top: 20px;">
-            🎉 <strong>${connectedCount} connections active!</strong> Your dashboard is receiving live data.
-            <button class="connect-btn" onclick="showDashboard()" style="margin-left: 15px;">
-                ${
-                  connectedCount === totalCount
-                    ? "Launch Full Dashboard"
-                    : "View Partial Dashboard"
-                }
-            </button>
-        </div>
-    `
-        : `
-        <div class="info-box" style="margin-top: 20px;">
-            💡 <strong>Connect your systems:</strong> Set up Xero and ApprovalMax connections to enable consolidated financial reporting.
-        </div>
-    `
-    }
-  `;
-}
-
-// Create comprehensive entity connection list for both systems
-function createEntityConnectionList(connectionData) {
-  const entityConnections = [];
-
-  // Add individual Xero connection entries for each RAC entity
-  racEntities.forEach((entityName) => {
-    const xeroConnection = connectionData.find(
-      (conn) => conn.provider === "xero" && conn.tenantName === entityName
-    );
-
-    entityConnections.push({
-      tenantId: xeroConnection ? xeroConnection.tenantId : null,
-      tenantName: entityName,
-      provider: "xero",
-      connected: xeroConnection ? xeroConnection.connected : false,
-      lastSeen: xeroConnection ? xeroConnection.lastSeen : null,
-      error: xeroConnection ? xeroConnection.error : null,
-    });
-  });
-
-  // Add single ApprovalMax connection entry for all organizations
-  const approvalMaxConnections = connectionData.filter(
-    (conn) => conn.provider === "approvalmax"
-  );
-  const hasApprovalMaxConnection = approvalMaxConnections.length > 0;
-  const connectedOrgsCount = approvalMaxConnections.filter(
-    (conn) => conn.connected
-  ).length;
-
-  entityConnections.push({
-    tenantId: hasApprovalMaxConnection ? "approvalmax-integration" : null,
-    tenantName: "RAC ApprovalMax Integration",
-    provider: "approvalmax",
-    connected: connectedOrgsCount > 0,
-    lastSeen: hasApprovalMaxConnection
-      ? approvalMaxConnections[0].lastSeen
-      : null,
-    error: hasApprovalMaxConnection ? approvalMaxConnections[0].error : null,
-    organizationCount: connectedOrgsCount,
-    totalOrganizations: approvalMaxConnections.length,
-  });
-
-  return entityConnections;
-}
-
-// Connect to specific entity
-function connectEntity(entityName, provider) {
-  console.log(`🔗 Connecting to ${provider} for entity: ${entityName}`);
-
-  localStorage.setItem("connecting_entity", entityName);
-  localStorage.setItem("connecting_provider", provider);
-
-  if (provider === "approvalmax") {
-    window.location.href = "/auth?provider=approvalmax";
-  } else {
-    window.location.href = "/auth";
-  }
-}
-
-// Toggle connection manager overlay
-function toggleConnectionManager() {
-  const connectionManager = document.getElementById("connection-manager");
-  const dashboardControls = document.getElementById("dashboard-controls");
-  const dashboardContent = document.getElementById("dashboard-content");
-
-  if (connectionManager.style.display === "none") {
-    // Show connection manager, hide dashboard
-    connectionManager.style.display = "block";
-    dashboardControls.style.display = "none";
-    dashboardContent.style.display = "none";
-  } else {
-    // Hide connection manager, show dashboard
-    connectionManager.style.display = "none";
-    dashboardControls.style.display = "block";
-    dashboardContent.style.display = "grid";
-  }
-
-  // Load connection status when showing connection manager
-  if (connectionManager.style.display === "block") {
-    loadConnectionStatus();
-  }
-}
-
-// Close connection manager overlay
-function closeConnectionManager() {
-  document.getElementById("connection-overlay").style.display = "none";
-}
-
-// Load connection status
-async function loadConnectionStatus() {
+// Initialize database tables
+async function initializeDatabase() {
   try {
-    console.log("🔄 Loading connection status...");
+    // Create tokens table if it doesn't exist
+    await pool.query(`
+            CREATE TABLE IF NOT EXISTS tokens (
+                id SERIAL PRIMARY KEY,
+                tenant_id VARCHAR(255) UNIQUE NOT NULL,
+                tenant_name VARCHAR(255) NOT NULL,
+                provider VARCHAR(50) NOT NULL,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_at BIGINT NOT NULL,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-    const response = await fetch("/api/connection-status");
-    if (!response.ok) {
-      throw new Error(`Connection status API returned ${response.status}`);
-    }
+    // Create ApprovalMax tokens table
+    await pool.query(`
+            CREATE TABLE IF NOT EXISTS approvalmax_tokens (
+                id SERIAL PRIMARY KEY,
+                integration_key VARCHAR(255) UNIQUE NOT NULL,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_at BIGINT NOT NULL,
+                organizations JSONB,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
-    const connectionStatus = await response.json();
-    console.log("📊 Connection status received:", connectionStatus);
-
-    if (
-      document.getElementById("connection-overlay").style.display === "flex"
-    ) {
-      showOverlayConnectionManager(connectionStatus);
-    } else {
-      showConnectionManager(connectionStatus);
-    }
+    console.log("✅ Database tables initialized successfully");
   } catch (error) {
-    console.error("❌ Error loading connection status:", error);
-    const targetElement =
-      document.getElementById("connection-overlay").style.display === "flex"
-        ? document.getElementById("overlay-connection-status")
-        : document.getElementById("connection-status");
-
-    if (targetElement) {
-      targetElement.innerHTML = `
-        <div class="error">❌ Failed to load connection status: ${error.message}</div>
-      `;
-    }
+    console.error("❌ Error initializing database:", error);
   }
 }
 
-// Show connection manager in overlay
-function showOverlayConnectionManager(connectionStatusArray) {
-  const connectionStatus = document.getElementById("overlay-connection-status");
-
-  if (!connectionStatus) {
-    console.error("❌ overlay-connection-status element not found");
-    return;
-  }
-
-  // Create comprehensive entity list for both systems
-  const entityConnections = createEntityConnectionList(connectionStatusArray);
-
-  // Filter based on current system view
-  let filteredConnections = entityConnections;
-  if (currentSystemView === "xero") {
-    filteredConnections = entityConnections.filter(
-      (conn) => conn.provider === "xero"
-    );
-  } else if (currentSystemView === "approvalmax") {
-    filteredConnections = entityConnections.filter(
-      (conn) => conn.provider === "approvalmax"
-    );
-  }
-
-  const connectedCount = filteredConnections.filter(
-    (conn) => conn.connected
-  ).length;
-  const totalCount = filteredConnections.length;
-  const progressPercent =
-    totalCount > 0 ? (connectedCount / totalCount) * 100 : 0;
-
-  const healthStatus = connectedCount > 0 ? "healthy" : "error";
-  const healthText =
-    connectedCount > 0 ? "Connections active" : "No connections";
-
-  connectionStatus.innerHTML = `
-    <div style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <span><strong>RAC System Connections:</strong></span>
-            <div class="connection-status-indicator ${healthStatus}">
-                <div class="status-indicator ${healthStatus}"></div>
-                ${healthText}
-            </div>
-        </div>
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <span><strong>Connection Progress:</strong></span>
-            <span><strong>${connectedCount} of ${totalCount} connections active</strong></span>
-        </div>
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: ${progressPercent}%"></div>
-        </div>
-    </div>
-    
-    <div class="connection-grid">
-        ${filteredConnections
-          .map((conn) => {
-            const lastSeen = conn.lastSeen
-              ? new Date(conn.lastSeen).toLocaleString()
-              : "Never";
-
-            return `
-                <div class="entity-connection-card ${
-                  conn.connected ? "connected" : "disconnected"
-                } ${conn.provider}">
-                    <div class="provider-badge ${
-                      conn.provider
-                    }">${conn.provider.toUpperCase()}</div>
-                    <div class="entity-name">${conn.tenantName}</div>
-                    <div class="connection-status">
-                        <div class="status-indicator ${
-                          conn.connected ? "connected" : "disconnected"
-                        }"></div>
-                        <span>${
-                          conn.connected
-                            ? "Connected & Active"
-                            : "Not Connected"
-                        }</span>
-                    </div>
-                    <div style="font-size: 0.8rem; color: #666; margin: 5px 0;">
-                        ${
-                          conn.provider === "approvalmax" &&
-                          conn.organizationCount !== undefined
-                            ? `Organizations: ${conn.organizationCount} connected`
-                            : `Last seen: ${lastSeen}`
-                        }
-                    </div>
-                    ${
-                      !conn.connected
-                        ? `
-                        <button class="connect-btn ${
-                          conn.provider
-                        }" onclick="connectEntity('${conn.tenantName}', '${
-                            conn.provider
-                          }')">
-                            Connect ${
-                              conn.provider === "xero" ? "Xero" : "ApprovalMax"
-                            }
-                        </button>
-                    `
-                        : `
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
-                            <button class="connect-btn ${conn.provider}" onclick="testConnection('${conn.tenantId}', '${conn.provider}')" style="font-size: 0.8rem; padding: 6px 12px;">
-                                Test Connection
-                            </button>
-                            <button class="connect-btn ${conn.provider}" onclick="connectEntity('${conn.tenantName}', '${conn.provider}')" style="opacity: 0.7; font-size: 0.8rem; padding: 6px 12px;">
-                                Reconnect
-                            </button>
-                        </div>
-                    `
-                    }
-                </div>
-            `;
-          })
-          .join("")}
-    </div>
-  `;
-}
-
-// Test connection for specific entity
-async function testConnection(tenantId, provider) {
-  try {
-    let response;
-    if (provider === "xero") {
-      response = await fetch(`/api/cash-position/${tenantId}`);
-    } else if (provider === "approvalmax") {
-      response = await fetch(`/api/approvalmax/approval-summary/${tenantId}`);
-    }
-
-    if (response.ok) {
-      alert(
-        `✅ ${provider.toUpperCase()} connection is healthy and returning data`
+// Database token storage functions
+const tokenStorage = {
+  // Store Xero token
+  async storeXeroToken(tenantId, tenantName, tokenData) {
+    try {
+      await pool.query(
+        `
+    INSERT INTO tokens (tenant_id, tenant_name, provider, access_token, refresh_token, expires_at, last_seen)
+    VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+    ON CONFLICT (tenant_id) 
+    DO UPDATE SET 
+        access_token = $4,
+        refresh_token = $5,
+        expires_at = $6,
+        last_seen = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+`,
+        [
+          tenantId,
+          tenantName,
+          "xero",
+          tokenData.access_token,
+          tokenData.refresh_token,
+          Date.now() + tokenData.expires_in * 1000,
+        ]
       );
-    } else {
-      alert(
-        `⚠️ ${provider.toUpperCase()} connection may have issues (${
-          response.status
-        })`
+      console.log(`✅ Stored Xero token for: ${tenantName}`);
+    } catch (error) {
+      console.error("❌ Error storing Xero token:", error);
+    }
+  },
+
+  // Get Xero token
+  async getXeroToken(tenantId) {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM tokens WHERE tenant_id = $1 AND provider = $2",
+        [tenantId, "xero"]
       );
-    }
-  } catch (error) {
-    alert(
-      `❌ ${provider.toUpperCase()} connection test failed: ${error.message}`
-    );
-  }
-}
 
-// Load available tenants and show appropriate interface
-async function loadTenants() {
-  try {
-    console.log("🔄 Loading tenants...");
-
-    const response = await fetch("/api/connection-status");
-    if (!response.ok) {
-      throw new Error(`Failed to load connection status: ${response.status}`);
-    }
-
-    const connectionStatus = await response.json();
-    console.log("📊 Connection status loaded:", connectionStatus);
-
-    // Show connection manager with all systems
-    showConnectionManager(connectionStatus);
-
-    // Populate dashboard selector with connected entities
-    const connectedEntities = connectionStatus.filter(
-      (entity) => entity.connected
-    );
-    if (connectedEntities.length > 0) {
-      const select = document.getElementById("subsidiary-select");
-      if (select) {
-        const consolidatedOption = select.querySelector(
-          'option[value="consolidated"]'
-        );
-        select.innerHTML = "";
-        if (consolidatedOption) {
-          select.appendChild(consolidatedOption);
-        }
-
-        connectedEntities.forEach((entity) => {
-          const option = document.createElement("option");
-          option.value = entity.tenantId;
-          option.textContent = `🏢 ${
-            entity.tenantName
-          } (${entity.provider.toUpperCase()})`;
-          select.appendChild(option);
-        });
+      if (result.rows.length === 0) {
+        return null;
       }
-    }
 
-    // Auto-launch dashboard if we have connections
-    if (connectedEntities.length > 0) {
-      setTimeout(() => showDashboard(), 2000);
+      const token = result.rows[0];
+
+      // Check if token is expired
+      if (Date.now() > token.expires_at) {
+        console.log(`⚠️ Token expired for tenant: ${tenantId}`);
+        return null;
+      }
+
+      return {
+        access_token: token.access_token,
+        refresh_token: token.refresh_token,
+        expires_in: Math.floor((token.expires_at - Date.now()) / 1000),
+        tenantId: token.tenant_id,
+        tenantName: token.tenant_name,
+      };
+    } catch (error) {
+      console.error("❌ Error getting Xero token:", error);
+      return null;
     }
-  } catch (error) {
-    console.error("❌ Error loading connection status:", error);
-    const connectionStatusEl = document.getElementById("connection-status");
-    if (connectionStatusEl) {
-      connectionStatusEl.innerHTML = `
-        <div class="error">❌ Failed to load connection status. 
-        <button class="connect-btn" onclick="window.location.href='/auth'">Connect to Xero</button>
-        <button class="connect-btn approvalmax" onclick="window.location.href='/auth?provider=approvalmax'">Connect to ApprovalMax</button></div>
-      `;
+  },
+
+  // Get all Xero connections
+  async getAllXeroConnections() {
+    try {
+      const result = await pool.query(
+        "SELECT tenant_id, tenant_name, provider, expires_at, last_seen FROM tokens WHERE provider = $1",
+        ["xero"]
+      );
+
+      return result.rows.map((row) => ({
+        tenantId: row.tenant_id,
+        tenantName: row.tenant_name,
+        provider: row.provider,
+        connected: Date.now() < row.expires_at,
+        lastSeen: row.last_seen.toISOString(),
+        error: Date.now() > row.expires_at ? "Token expired" : null,
+      }));
+    } catch (error) {
+      console.error("❌ Error getting Xero connections:", error);
+      return [];
     }
-  }
+  },
+
+  // Store ApprovalMax token
+  async storeApprovalMaxToken(tokenData, organizations) {
+    try {
+      await pool.query(
+        `
+                INSERT INTO approvalmax_tokens (integration_key, access_token, refresh_token, expires_at, organizations, last_seen)
+                VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+                ON CONFLICT (integration_key)
+                DO UPDATE SET 
+                    access_token = $2,
+                    refresh_token = $3,
+                    expires_at = $4,
+                    organizations = $5,
+                    last_seen = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+            `,
+        [
+          "approvalmax_integration",
+          tokenData.access_token,
+          tokenData.refresh_token,
+          Date.now() + tokenData.expires_in * 1000,
+          JSON.stringify(organizations),
+        ]
+      );
+      console.log(
+        `✅ Stored ApprovalMax token for ${organizations.length} organizations`
+      );
+    } catch (error) {
+      console.error("❌ Error storing ApprovalMax token:", error);
+    }
+  },
+
+  // Get ApprovalMax token
+  async getApprovalMaxToken() {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM approvalmax_tokens WHERE integration_key = $1",
+        ["approvalmax_integration"]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const token = result.rows[0];
+
+      // Check if token is expired
+      if (Date.now() > token.expires_at) {
+        console.log("⚠️ ApprovalMax token expired");
+        return null;
+      }
+
+      return {
+        accessToken: token.access_token,
+        refreshToken: token.refresh_token,
+        expiresAt: token.expires_at,
+        organizations: token.organizations,
+        lastSeen: token.last_seen.toISOString(),
+      };
+    } catch (error) {
+      console.error("❌ Error getting ApprovalMax token:", error);
+      return null;
+    }
+  },
+};
+
+// Middleware
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json());
+
+// Initialize Xero client with reports scope
+const xero = new XeroClient({
+  clientId: XERO_CLIENT_ID,
+  clientSecret: XERO_CLIENT_SECRET,
+  redirectUris: [XERO_REDIRECT_URI],
+  scopes: [
+    "accounting.transactions",
+    "accounting.contacts",
+    "accounting.settings",
+    "accounting.reports.read",
+  ],
+});
+
+// Utility functions
+function generateState() {
+  return (
+    Math.random().toString(36).substring(2, 15) +
+    Math.random().toString(36).substring(2, 15)
+  );
 }
 
-// Load dashboard data based on selected view
-async function loadDashboardData() {
-  const selectedTenant =
-    document.getElementById("subsidiary-select")?.value || "consolidated";
+// ============================================================================
+// XERO ROUTES (UPDATED WITH DATABASE STORAGE)
+// ============================================================================
 
+// Xero OAuth authorization
+app.get("/auth", async (req, res) => {
   try {
-    if (selectedTenant === "consolidated") {
-      await loadTrialBalanceData();
+    const provider = req.query.provider;
+
+    if (provider === "approvalmax") {
+      // Redirect to ApprovalMax OAuth
+      const state = generateState();
+      const authUrl = new URL(APPROVALMAX_CONFIG.authUrl);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("client_id", APPROVALMAX_CLIENT_ID);
+      authUrl.searchParams.set("scope", APPROVALMAX_CONFIG.scopes.join(" "));
+      authUrl.searchParams.set("redirect_uri", APPROVALMAX_REDIRECT_URI);
+      authUrl.searchParams.set("state", state);
+
+      console.log("🎯 Redirecting to ApprovalMax OAuth:", authUrl.toString());
+      res.redirect(authUrl.toString());
     } else {
-      await loadIndividualTenantData(selectedTenant);
+      // Existing Xero OAuth
+      const consentUrl = await xero.buildConsentUrl();
+      console.log("🎯 Redirecting to Xero OAuth:", consentUrl);
+      res.redirect(consentUrl);
     }
   } catch (error) {
-    console.error("❌ Error loading dashboard data:", error);
-    showError("Failed to load financial data");
+    console.error("❌ Error in /auth:", error);
+    res
+      .status(500)
+      .json({ error: "Authorization failed", details: error.message });
   }
-}
+});
 
-// Load individual tenant data
-async function loadIndividualTenantData(tenantId) {
+// Xero OAuth callback - UPDATED WITH DATABASE STORAGE
+app.get("/callback", async (req, res) => {
   try {
-    // Determine if this is Xero or ApprovalMax based on tenant ID format
-    const connectionStatus = await fetch("/api/connection-status").then((r) =>
-      r.json()
+    const { code, state, error } = req.query;
+
+    if (error) {
+      console.error("❌ OAuth error:", error);
+      return res.redirect("/?error=oauth_failed");
+    }
+
+    if (!code) {
+      console.error("❌ No authorization code received");
+      return res.redirect("/?error=no_code");
+    }
+
+    console.log("🔄 Processing Xero callback...");
+    const tokenSet = await xero.apiCallback(req.url);
+
+    if (!tokenSet || !tokenSet.access_token) {
+      console.error("❌ No access token received from Xero");
+      return res.redirect("/?error=no_token");
+    }
+
+    // Get tenant information
+    const tenants = await xero.updateTenants(false, tokenSet);
+    console.log("✅ Xero tenants received:", tenants.length);
+
+    // Store tokens in database (instead of memory)
+    for (const tenant of tenants) {
+      await tokenStorage.storeXeroToken(
+        tenant.tenantId,
+        tenant.tenantName,
+        tokenSet
+      );
+    }
+
+    console.log(
+      "✅ Xero tokens stored in database for",
+      tenants.length,
+      "tenants"
     );
-    const entityInfo = connectionStatus.find(
-      (conn) => conn.tenantId === tenantId
-    );
-
-    if (!entityInfo) {
-      throw new Error("Entity not found");
-    }
-
-    if (entityInfo.provider === "xero") {
-      await loadXeroTenantData(tenantId);
-    } else if (entityInfo.provider === "approvalmax") {
-      await loadApprovalMaxTenantData(tenantId);
-    }
+    res.redirect("/?success=xero_connected");
   } catch (error) {
-    console.error("❌ Error loading tenant data:", error);
-    showError("Failed to load entity data");
+    console.error("❌ Error in Xero callback:", error);
+    res.redirect("/?error=callback_failed");
   }
-}
+});
 
-// Load Xero tenant data
-async function loadXeroTenantData(tenantId) {
-  const [
-    cashResponse,
-    receivablesResponse,
-    invoicesResponse,
-    contactsResponse,
-  ] = await Promise.all([
-    fetch(`/api/cash-position/${tenantId}`),
-    fetch(`/api/receivables/${tenantId}`),
-    fetch(`/api/outstanding-invoices/${tenantId}`),
-    fetch(`/api/contacts/${tenantId}`),
-  ]);
+// ============================================================================
+// APPROVALMAX ROUTES (UPDATED WITH DATABASE STORAGE)
+// ============================================================================
 
-  const [cashData, receivablesData, invoicesData, contactsData] =
-    await Promise.all([
-      cashResponse.json(),
-      receivablesResponse.json(),
-      invoicesResponse.json(),
-      contactsResponse.json(),
-    ]);
-
-  const tenantData = {
-    provider: "xero",
-    cash: cashData,
-    receivables: receivablesData,
-    invoices: invoicesData,
-    contacts: contactsData,
-  };
-
-  dashboardData = tenantData;
-  renderXeroTenantView(tenantData);
-}
-
-// Load ApprovalMax tenant data
-async function loadApprovalMaxTenantData(organizationId) {
-  const [pendingResponse, summaryResponse, bottlenecksResponse] =
-    await Promise.all([
-      fetch(`/api/approvalmax/pending-approvals/${organizationId}`),
-      fetch(`/api/approvalmax/approval-summary/${organizationId}`),
-      fetch(`/api/approvalmax/workflow-bottlenecks/${organizationId}`),
-    ]);
-
-  const [pendingData, summaryData, bottlenecksData] = await Promise.all([
-    pendingResponse.json(),
-    summaryResponse.json(),
-    bottlenecksResponse.json(),
-  ]);
-
-  const organizationData = {
-    provider: "approvalmax",
-    pending: pendingData,
-    summary: summaryData,
-    bottlenecks: bottlenecksData,
-  };
-
-  dashboardData = organizationData;
-  renderApprovalMaxTenantView(organizationData);
-}
-
-// Show main dashboard
-function showDashboard() {
-  document.getElementById("connection-manager").style.display = "none";
-  document.getElementById("dashboard-controls").style.display = "block";
-  document.getElementById("dashboard-content").style.display = "grid";
-  loadDashboardData();
-}
-
-// TOKEN STATUS MONITORING
-async function monitorTokenStatus() {
+// ApprovalMax OAuth callback - UPDATED WITH DATABASE STORAGE
+app.get("/callback/approvalmax", async (req, res) => {
   try {
-    console.log("🔄 Checking token status...");
+    const { code, state, error } = req.query;
 
-    const response = await fetch("/api/token-status");
-    if (!response.ok) {
-      throw new Error(`Token status API returned ${response.status}`);
+    console.log("🎯 ApprovalMax callback received:", {
+      code: code?.substring(0, 20) + "...",
+      state,
+      error,
+    });
+
+    if (error) {
+      console.error("❌ ApprovalMax OAuth error:", error);
+      return res.redirect("/?error=approvalmax_oauth_failed");
     }
 
-    const tokenStatus = await response.json();
-    console.log("📊 Token status received:", tokenStatus);
-
-    lastTokenCheck = tokenStatus;
-    updateTokenStatusDisplay(tokenStatus);
-
-    // Show warnings if needed
-    if (tokenStatus.needsAttention) {
-      console.log("⚠️ Tokens need attention:", tokenStatus.expiringTokens);
-      showTokenWarnings(tokenStatus);
-    }
-  } catch (error) {
-    console.error("❌ Error monitoring token status:", error);
-  }
-}
-
-// Update token status display in dashboard
-function updateTokenStatusDisplay(tokenStatus) {
-  let tokenStatusHtml = "";
-
-  if (tokenStatus.expiringTokens > 0) {
-    tokenStatusHtml = `
-      <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-left: 15px; font-size: 0.9rem;">
-        ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
-        <button onclick="manualRefreshTokens(event)" style="margin-left: 10px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
-          Refresh Now
-        </button>
-      </div>
-    `;
-  } else if (tokenStatus.connectedTokens > 0) {
-    tokenStatusHtml = `
-      <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-left: 15px; font-size: 0.9rem;">
-        ✅ ${tokenStatus.connectedTokens} connection(s) active
-      </div>
-    `;
-  }
-
-  // Add to header if not already there
-  const header = document.querySelector(".header");
-  let statusDiv = document.getElementById("token-status-display");
-
-  if (!statusDiv && tokenStatusHtml) {
-    statusDiv = document.createElement("div");
-    statusDiv.id = "token-status-display";
-    statusDiv.innerHTML = tokenStatusHtml;
-    header.appendChild(statusDiv);
-  } else if (statusDiv) {
-    statusDiv.innerHTML = tokenStatusHtml;
-  }
-}
-
-// Show detailed token warnings
-function showTokenWarnings(tokenStatus) {
-  if (tokenStatus.expiringDetails && tokenStatus.expiringDetails.length > 0) {
-    const warningMessages = tokenStatus.expiringDetails
-      .map(
-        (token) =>
-          `${token.tenantName}: ${token.minutesUntilExpiry} minutes remaining`
-      )
-      .join("\n");
-
-    console.warn("⚠️ Tokens expiring soon:\n" + warningMessages);
-
-    // Optional: Show browser notification if user granted permission
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification("RAC Dashboard: Tokens Expiring Soon", {
-        body: `${tokenStatus.expiringTokens} connection(s) will expire in the next 15 minutes`,
-        icon: "/favicon.ico",
-      });
-    }
-  }
-}
-
-// Manual token refresh function
-async function manualRefreshTokens(event) {
-  try {
-    console.log("🔄 Manual token refresh triggered");
-
-    // Show loading state
-    const refreshBtn = event
-      ? event.target
-      : document.querySelector('button[onclick*="manualRefreshTokens"]');
-    if (!refreshBtn) {
-      console.error("❌ Could not find refresh button");
-      return;
+    if (!code) {
+      console.error("❌ No authorization code received from ApprovalMax");
+      return res.redirect("/?error=approvalmax_no_code");
     }
 
-    const originalText = refreshBtn.textContent;
-    refreshBtn.textContent = "Refreshing...";
-    refreshBtn.disabled = true;
-    refreshBtn.style.opacity = "0.6";
+    console.log("🔄 Exchanging ApprovalMax authorization code for tokens...");
 
-    const response = await fetch("/api/refresh-tokens", {
+    const redirectUri =
+      APPROVALMAX_REDIRECT_URI ||
+      "https://rac-financial-dashboard-production.up.railway.app/callback/approvalmax";
+
+    const tokenRequestBody = {
+      grant_type: "authorization_code",
+      client_id: APPROVALMAX_CLIENT_ID,
+      client_secret: APPROVALMAX_CLIENT_SECRET,
+      redirect_uri: redirectUri,
+      code: code,
+    };
+
+    const tokenResponse = await fetch(APPROVALMAX_CONFIG.tokenUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: new URLSearchParams(tokenRequestBody),
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      console.error("❌ ApprovalMax token exchange failed:", {
+        status: tokenResponse.status,
+        error: tokenData.error,
+        description: tokenData.error_description,
+      });
+      return res.redirect(
+        `/?error=approvalmax_token_failed&details=${encodeURIComponent(
+          tokenData.error || "Unknown error"
+        )}`
+      );
+    }
+
+    console.log("✅ ApprovalMax tokens received successfully");
+
+    // Get organization information
+    console.log("🔄 Fetching ApprovalMax organizations...");
+    const orgsResponse = await fetch(`${APPROVALMAX_CONFIG.apiUrl}/companies`, {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+        Accept: "application/json",
+      },
+    });
+
+    let organizations = [];
+    if (orgsResponse.ok) {
+      organizations = await orgsResponse.json();
+      console.log(
+        "✅ ApprovalMax organizations received:",
+        organizations.length
+      );
+    } else {
+      console.warn("⚠️ Failed to fetch organizations:", orgsResponse.status);
+    }
+
+    // Store tokens in database (instead of memory)
+    await tokenStorage.storeApprovalMaxToken(tokenData, organizations);
+
+    console.log(
+      "✅ ApprovalMax tokens stored in database for",
+      organizations.length,
+      "organizations"
+    );
+    res.redirect("/?success=approvalmax_connected");
+  } catch (error) {
+    console.error("❌ Error in ApprovalMax callback:", error);
+    res.redirect("/?error=approvalmax_callback_failed");
+  }
+});
+
+// ============================================================================
+// API ROUTES (UPDATED WITH DATABASE TOKEN RETRIEVAL)
+// ============================================================================
+
+// Connection status endpoint - UPDATED WITH DATABASE
+app.get("/api/connection-status", async (req, res) => {
+  try {
+    const connections = [];
+
+    // Get Xero connections from database
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
+    connections.push(...xeroConnections);
+
+    // Get ApprovalMax connections from database
+    const approvalMaxToken = await tokenStorage.getApprovalMaxToken();
+    if (approvalMaxToken) {
+      connections.push({
+        tenantId: "approvalmax_integration",
+        tenantName: "RAC ApprovalMax Integration",
+        provider: "approvalmax",
+        connected: true,
+        lastSeen: approvalMaxToken.lastSeen,
+        organizationCount: approvalMaxToken.organizations
+          ? approvalMaxToken.organizations.length
+          : 0,
+        error: null,
+      });
+    }
+
+    console.log(
+      "📊 Connection status from database:",
+      connections.length,
+      "total connections"
+    );
+    res.json(connections);
+  } catch (error) {
+    console.error("❌ Error getting connection status:", error);
+    res.status(500).json({ error: "Failed to get connection status" });
+  }
+});
+
+// FIXED: Cash position endpoint with DATABASE token retrieval
+app.get("/api/cash-position/:tenantId", async (req, res) => {
+  try {
+    // Get token from database instead of memory
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    const response = await xero.accountingApi.getAccounts(
+      req.params.tenantId,
+      null,
+      'Type=="BANK"'
+    );
+    const bankAccounts = response.body.accounts || [];
+
+    // FIXED: Use CurrentBalance instead of runningBalance
+    const totalCash = bankAccounts.reduce((sum, account) => {
+      return sum + (parseFloat(account.CurrentBalance) || 0);
+    }, 0);
+
+    res.json({
+      totalCash,
+      bankAccounts: bankAccounts.map((acc) => ({
+        name: acc.name,
+        balance: parseFloat(acc.CurrentBalance) || 0,
+        code: acc.code,
+      })),
+    });
+  } catch (error) {
+    console.error("❌ Error getting cash position:", error);
+    res.status(500).json({ error: "Failed to get cash position" });
+  }
+});
+
+// FIXED: Receivables endpoint with DATABASE token retrieval
+app.get("/api/receivables/:tenantId", async (req, res) => {
+  try {
+    // Get token from database instead of memory
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    const response = await xero.accountingApi.getAccounts(
+      req.params.tenantId,
+      null,
+      'Type=="RECEIVABLE"'
+    );
+    const receivableAccounts = response.body.accounts || [];
+
+    // FIXED: Use CurrentBalance instead of runningBalance
+    const totalReceivables = receivableAccounts.reduce((sum, account) => {
+      return sum + (parseFloat(account.CurrentBalance) || 0);
+    }, 0);
+
+    res.json({ totalReceivables });
+  } catch (error) {
+    console.error("❌ Error getting receivables:", error);
+    res.status(500).json({ error: "Failed to get receivables" });
+  }
+});
+
+// Outstanding invoices endpoint - UPDATED WITH DATABASE
+app.get("/api/outstanding-invoices/:tenantId", async (req, res) => {
+  try {
+    // Get token from database instead of memory
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    const response = await xero.accountingApi.getInvoices(
+      req.params.tenantId,
+      null,
+      null,
+      'Status=="AUTHORISED"'
+    );
+    const invoices = response.body.invoices || [];
+
+    const outstandingInvoices = invoices.filter(
+      (inv) => inv.status === "AUTHORISED" && parseFloat(inv.amountDue) > 0
+    );
+
+    res.json(
+      outstandingInvoices.map((inv) => ({
+        invoiceID: inv.invoiceID,
+        invoiceNumber: inv.invoiceNumber,
+        contact: inv.contact?.name,
+        amountDue: parseFloat(inv.amountDue),
+        total: parseFloat(inv.total),
+        date: inv.date,
+        dueDate: inv.dueDate,
+      }))
+    );
+  } catch (error) {
+    console.error("❌ Error getting outstanding invoices:", error);
+    res.status(500).json({ error: "Failed to get outstanding invoices" });
+  }
+});
+
+// Contacts endpoint - UPDATED WITH DATABASE
+app.get("/api/contacts/:tenantId", async (req, res) => {
+  try {
+    // Get token from database instead of memory
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    const response = await xero.accountingApi.getContacts(req.params.tenantId);
+    const contacts = response.body.contacts || [];
+
+    res.json(
+      contacts.map((contact) => ({
+        contactID: contact.contactID,
+        name: contact.name,
+        isCustomer: contact.isCustomer,
+        isSupplier: contact.isSupplier,
+        emailAddress: contact.emailAddress,
+      }))
+    );
+  } catch (error) {
+    console.error("❌ Error getting contacts:", error);
+    res.status(500).json({ error: "Failed to get contacts" });
+  }
+});
+
+// ApprovalMax companies endpoint - UPDATED WITH DATABASE
+app.get("/api/approvalmax/companies", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getApprovalMaxToken();
+    if (!tokenData) {
+      return res.status(404).json({ error: "ApprovalMax not connected" });
+    }
+
+    const response = await fetch(`${APPROVALMAX_CONFIG.apiUrl}/companies`, {
+      headers: {
+        Authorization: `Bearer ${tokenData.accessToken}`,
+        Accept: "application/json",
       },
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`ApprovalMax API error: ${response.status}`);
     }
 
-    const result = await response.json();
-    console.log("✅ Refresh response:", result);
+    const companies = await response.json();
+    res.json(companies);
+  } catch (error) {
+    console.error("❌ Error getting ApprovalMax companies:", error);
+    res.status(500).json({ error: "Failed to get companies" });
+  }
+});
 
-    if (result.success) {
-      // Show success message
-      showRefreshResult(
-        `✅ Refreshed ${result.refreshed} tokens successfully!`
-      );
+// Consolidated data endpoint - UPDATED WITH DATABASE
+app.get("/api/consolidated", async (req, res) => {
+  try {
+    console.log("🔄 Loading consolidated data from database...");
 
-      // Reload dashboard data with fresh tokens
-      await loadDashboardData();
+    let totalCash = 0;
+    let totalReceivables = 0;
+    let totalOutstandingInvoices = 0;
+    let tenantData = [];
 
-      // Update token status immediately
-      await monitorTokenStatus();
-    } else {
-      showRefreshResult(
-        `❌ Refresh failed: ${result.error || "Unknown error"}`
-      );
+    // Get all Xero connections from database
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
+    const connectedXeroEntities = xeroConnections.filter(
+      (conn) => conn.connected
+    );
+
+    // Aggregate Xero data
+    for (const connection of connectedXeroEntities) {
+      try {
+        const [cashResponse, receivablesResponse, invoicesResponse] =
+          await Promise.all([
+            fetch(
+              `${req.protocol}://${req.get("host")}/api/cash-position/${
+                connection.tenantId
+              }`
+            ),
+            fetch(
+              `${req.protocol}://${req.get("host")}/api/receivables/${
+                connection.tenantId
+              }`
+            ),
+            fetch(
+              `${req.protocol}://${req.get("host")}/api/outstanding-invoices/${
+                connection.tenantId
+              }`
+            ),
+          ]);
+
+        if (cashResponse.ok && receivablesResponse.ok && invoicesResponse.ok) {
+          const [cashData, receivablesData, invoicesData] = await Promise.all([
+            cashResponse.json(),
+            receivablesResponse.json(),
+            invoicesResponse.json(),
+          ]);
+
+          totalCash += cashData.totalCash || 0;
+          totalReceivables += receivablesData.totalReceivables || 0;
+          totalOutstandingInvoices += invoicesData.length || 0;
+
+          tenantData.push({
+            tenantId: connection.tenantId,
+            tenantName: connection.tenantName,
+            provider: "xero",
+            cashPosition: cashData.totalCash || 0,
+            receivables: receivablesData.totalReceivables || 0,
+            outstandingInvoices: invoicesData.length || 0,
+            bankAccounts: cashData.bankAccounts || [],
+          });
+        }
+      } catch (error) {
+        console.error(
+          `❌ Error loading data for tenant ${connection.tenantId}:`,
+          error
+        );
+      }
     }
 
-    // Restore button
-    refreshBtn.textContent = originalText;
-    refreshBtn.disabled = false;
-    refreshBtn.style.opacity = "1";
+    // Add ApprovalMax data
+    let totalPendingApprovals = 0;
+    let totalApprovalValue = 0;
+    let approvalData = [];
+
+    const amTokenData = await tokenStorage.getApprovalMaxToken();
+    if (amTokenData) {
+      try {
+        const summaryResponse = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/approvalmax/approval-summary/integration`
+        );
+        if (summaryResponse.ok) {
+          const summaryData = await summaryResponse.json();
+          totalPendingApprovals = summaryData.pendingApprovals || 0;
+          totalApprovalValue = summaryData.totalValue || 0;
+
+          approvalData.push({
+            organizationId: "integration",
+            organizationName: "RAC ApprovalMax Integration",
+            provider: "approvalmax",
+            pendingApprovals: summaryData.pendingApprovals || 0,
+            totalValue: summaryData.totalValue || 0,
+            organizationCount: summaryData.organizationCount || 0,
+          });
+        }
+      } catch (error) {
+        console.error("❌ Error loading ApprovalMax data:", error);
+      }
+    }
+
+    const consolidatedData = {
+      totalCash,
+      totalReceivables,
+      totalOutstandingInvoices,
+      totalPendingApprovals,
+      totalApprovalValue,
+      tenantData,
+      approvalData,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    console.log("✅ Consolidated data loaded from database:", {
+      xeroEntities: tenantData.length,
+      approvalMaxOrgs: approvalData.length,
+      totalCash,
+      totalReceivables,
+    });
+
+    res.json(consolidatedData);
+  } catch (error) {
+    console.error("❌ Error loading consolidated data:", error);
+    res.status(500).json({ error: "Failed to load consolidated data" });
+  }
+});
+
+// AUTO TOKEN REFRESH SYSTEM
+// Add these functions to your server.js
+
+// Enhanced token storage with refresh capability
+const enhancedTokenStorage = {
+  ...tokenStorage, // Keep all existing functions
+
+  // Refresh a specific Xero token
+  async refreshXeroToken(tenantId) {
+    try {
+      console.log(`🔄 Attempting to refresh token for tenant: ${tenantId}`);
+
+      // Get current token from database
+      const result = await pool.query(
+        "SELECT * FROM tokens WHERE tenant_id = $1 AND provider = $2",
+        [tenantId, "xero"]
+      );
+
+      if (result.rows.length === 0) {
+        console.log(`❌ No token found for tenant: ${tenantId}`);
+        return { success: false, error: "Token not found" };
+      }
+
+      const storedToken = result.rows[0];
+
+      if (!storedToken.refresh_token) {
+        console.log(`❌ No refresh token available for tenant: ${tenantId}`);
+        return { success: false, error: "No refresh token" };
+      }
+
+      // Use Xero SDK to refresh the token
+      const tokenSet = {
+        access_token: storedToken.access_token,
+        refresh_token: storedToken.refresh_token,
+        expires_in: Math.floor((storedToken.expires_at - Date.now()) / 1000),
+      };
+
+      await xero.setTokenSet(tokenSet);
+
+      // Refresh the token
+      const newTokenSet = await xero.refreshToken();
+      console.log(
+        `✅ Token refreshed successfully for: ${storedToken.tenant_name}`
+      );
+
+      // Store the new token in database
+      await pool.query(
+        `UPDATE tokens 
+         SET access_token = $1, 
+             refresh_token = $2, 
+             expires_at = $3, 
+             last_seen = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE tenant_id = $4 AND provider = $5`,
+        [
+          newTokenSet.access_token,
+          newTokenSet.refresh_token,
+          Date.now() + newTokenSet.expires_in * 1000,
+          tenantId,
+          "xero",
+        ]
+      );
+
+      return {
+        success: true,
+        newExpiresAt: Date.now() + newTokenSet.expires_in * 1000,
+        tenantName: storedToken.tenant_name,
+      };
+    } catch (error) {
+      console.error(`❌ Error refreshing token for ${tenantId}:`, error);
+      return {
+        success: false,
+        error: error.message,
+        requiresReauth:
+          error.message?.includes("invalid_grant") ||
+          error.message?.includes("unauthorized"),
+      };
+    }
+  },
+
+  // Refresh all Xero tokens that are close to expiring
+  async refreshAllExpiringTokens() {
+    try {
+      console.log("🔄 Checking for tokens that need refresh...");
+
+      // Get tokens that expire in the next 10 minutes
+      const tenMinutesFromNow = Date.now() + 10 * 60 * 1000;
+
+      const result = await pool.query(
+        `SELECT tenant_id, tenant_name, expires_at 
+         FROM tokens 
+         WHERE provider = $1 
+         AND expires_at < $2 
+         AND expires_at > $3`,
+        ["xero", tenMinutesFromNow, Date.now()]
+      );
+
+      if (result.rows.length === 0) {
+        console.log("✅ No tokens need refreshing");
+        return { refreshed: 0, failed: 0, results: [] };
+      }
+
+      console.log(`🔄 Found ${result.rows.length} tokens that need refreshing`);
+
+      const refreshResults = [];
+      let refreshed = 0;
+      let failed = 0;
+
+      // Refresh each token
+      for (const token of result.rows) {
+        const result = await this.refreshXeroToken(token.tenant_id);
+        refreshResults.push({
+          tenantId: token.tenant_id,
+          tenantName: token.tenant_name,
+          ...result,
+        });
+
+        if (result.success) {
+          refreshed++;
+          console.log(`✅ Refreshed: ${token.tenant_name}`);
+        } else {
+          failed++;
+          console.log(
+            `❌ Failed to refresh: ${token.tenant_name} - ${result.error}`
+          );
+        }
+      }
+
+      return { refreshed, failed, results: refreshResults };
+    } catch (error) {
+      console.error("❌ Error in refreshAllExpiringTokens:", error);
+      return { refreshed: 0, failed: 0, error: error.message };
+    }
+  },
+
+  // Get tokens that will expire soon (for frontend warning)
+  async getExpiringTokens(minutesAhead = 15) {
+    try {
+      const futureTime = Date.now() + minutesAhead * 60 * 1000;
+
+      const result = await pool.query(
+        `SELECT tenant_id, tenant_name, expires_at 
+         FROM tokens 
+         WHERE provider = $1 
+         AND expires_at < $2 
+         AND expires_at > $3
+         ORDER BY expires_at ASC`,
+        ["xero", futureTime, Date.now()]
+      );
+
+      return result.rows.map((row) => ({
+        tenantId: row.tenant_id,
+        tenantName: row.tenant_name,
+        expiresAt: row.expires_at,
+        minutesUntilExpiry: Math.floor(
+          (row.expires_at - Date.now()) / (1000 * 60)
+        ),
+      }));
+    } catch (error) {
+      console.error("❌ Error getting expiring tokens:", error);
+      return [];
+    }
+  },
+};
+
+// Auto-refresh scheduler - runs every 5 minutes
+let autoRefreshInterval;
+
+function startAutoRefresh() {
+  console.log("🚀 Starting auto token refresh system...");
+
+  // Run immediately
+  enhancedTokenStorage.refreshAllExpiringTokens();
+
+  // Then run every 5 minutes
+  autoRefreshInterval = setInterval(async () => {
+    const result = await enhancedTokenStorage.refreshAllExpiringTokens();
+
+    if (result.refreshed > 0) {
+      console.log(
+        `🔄 Auto-refresh completed: ${result.refreshed} tokens refreshed, ${result.failed} failed`
+      );
+    }
+  }, 5 * 60 * 1000); // Every 5 minutes
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+    console.log("⏹️ Auto token refresh stopped");
+  }
+}
+
+// API endpoint to manually trigger refresh
+app.post("/api/refresh-tokens", async (req, res) => {
+  try {
+    console.log("🔄 Manual token refresh requested");
+    const result = await enhancedTokenStorage.refreshAllExpiringTokens();
+
+    res.json({
+      success: true,
+      refreshed: result.refreshed,
+      failed: result.failed,
+      results: result.results,
+      message: `Refreshed ${result.refreshed} tokens, ${result.failed} failed`,
+    });
   } catch (error) {
     console.error("❌ Manual refresh error:", error);
-    showRefreshResult(`❌ Refresh failed: ${error.message}`);
-
-    // Restore button even on error
-    const refreshBtn = event
-      ? event.target
-      : document.querySelector('button[onclick*="manualRefreshTokens"]');
-    if (refreshBtn) {
-      refreshBtn.textContent = "Refresh Now";
-      refreshBtn.disabled = false;
-      refreshBtn.style.opacity = "1";
-    }
-  }
-}
-
-// Show refresh result message
-function showRefreshResult(message) {
-  console.log("📢 Showing refresh result:", message);
-
-  // Create temporary notification
-  const notification = document.createElement("div");
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
-    border: 1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"};
-    color: ${message.includes("✅") ? "#155724" : "#721c24"};
-    padding: 12px 20px;
-    border-radius: 6px;
-    font-weight: bold;
-    z-index: 9999;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    max-width: 400px;
-    word-wrap: break-word;
-  `;
-  notification.textContent = message;
-
-  document.body.appendChild(notification);
-  console.log("✅ Notification added to DOM");
-
-  // Remove after 5 seconds
-  setTimeout(() => {
-    if (document.body.contains(notification)) {
-      document.body.removeChild(notification);
-      console.log("🗑️ Notification removed from DOM");
-    }
-  }, 5000);
-}
-
-// Start token monitoring when dashboard loads
-function startTokenMonitoring() {
-  // Check token status immediately
-  monitorTokenStatus();
-
-  // Then check every 2 minutes
-  tokenStatusInterval = setInterval(monitorTokenStatus, 2 * 60 * 1000);
-
-  console.log("🔄 Token status monitoring started");
-}
-
-// Stop token monitoring
-function stopTokenMonitoring() {
-  if (tokenStatusInterval) {
-    clearInterval(tokenStatusInterval);
-    tokenStatusInterval = null;
-    console.log("⏹️ Token status monitoring stopped");
-  }
-}
-
-// Request notification permission when dashboard loads
-function requestNotificationPermission() {
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission().then((permission) => {
-      if (permission === "granted") {
-        console.log("✅ Notification permission granted");
-      }
+    res.status(500).json({
+      success: false,
+      error: error.message,
     });
   }
-}
+});
 
-// DATE PICKER FUNCTIONS
-function updateReportDate(newDate) {
-  selectedReportDate = newDate;
-  const displayElement = document.getElementById("display-date");
-  if (displayElement) {
-    displayElement.textContent = formatDisplayDate(newDate);
-  }
-  loadDashboardData();
-}
-
-function setQuickDate(option) {
-  let newDate;
-  const today = new Date();
-
-  switch (option) {
-    case "today":
-      newDate = today;
-      break;
-    case "monthEnd":
-      newDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      break;
-    case "lastMonth":
-      newDate = new Date(today.getFullYear(), today.getMonth(), 0);
-      break;
-    default:
-      newDate = today;
-  }
-
-  const dateString = newDate.toISOString().split("T")[0];
-  selectedReportDate = dateString;
-
-  const dateInput = document.getElementById("report-date");
-  if (dateInput) {
-    dateInput.value = dateString;
-  }
-
-  const displayElement = document.getElementById("display-date");
-  if (displayElement) {
-    displayElement.textContent = formatDisplayDate(dateString);
-  }
-
-  loadDashboardData();
-}
-
-function formatDisplayDate(dateString) {
-  const date = new Date(dateString + "T00:00:00");
-  const options = {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "long",
-  };
-  return date.toLocaleDateString("en-AU", options);
-}
-
-// TRIAL BALANCE FUNCTIONS
-
-// Load and render hierarchical trial balance data
-async function loadTrialBalanceData() {
+// API endpoint to check token status and warnings
+app.get("/api/token-status", async (req, res) => {
   try {
-    const response = await fetch("/api/consolidated-trial-balance");
-    const data = await response.json();
+    const [allConnections, expiringTokens] = await Promise.all([
+      enhancedTokenStorage.getAllXeroConnections(),
+      enhancedTokenStorage.getExpiringTokens(15), // Warn 15 minutes ahead
+    ]);
 
-    dashboardData = data;
-    renderHierarchicalTrialBalanceView(data);
+    const tokenStatus = {
+      totalTokens: allConnections.length,
+      connectedTokens: allConnections.filter((conn) => conn.connected).length,
+      expiredTokens: allConnections.filter((conn) => !conn.connected).length,
+      expiringTokens: expiringTokens.length,
+      expiringDetails: expiringTokens,
+      needsAttention:
+        expiringTokens.length > 0 ||
+        allConnections.filter((conn) => !conn.connected).length > 0,
+    };
+
+    res.json(tokenStatus);
   } catch (error) {
-    console.error("❌ Error loading hierarchical trial balance:", error);
-    showError("Failed to load hierarchical trial balance data");
+    console.error("❌ Token status error:", error);
+    res.status(500).json({ error: error.message });
   }
-}
-
-// Render hierarchical trial balance view with expandable sections
-function renderHierarchicalTrialBalanceView(data) {
-  document.querySelector(".toggle-btn").parentElement.style.display = "block";
-  const content = document.getElementById("dashboard-content");
-
-  const totals = data.consolidated.totals;
-  const balanceCheck = data.consolidated.balanceCheck;
-  const summary = data.summary;
-
-  content.innerHTML = `
-    <!-- Consolidated Trial Balance Overview - FULL WIDTH -->
-    <div class="demo-card financial-overview">
-        <div class="card-header">
-            <h3>⚖️ RAC Consolidated Trial Balance</h3>
-            <p>Hierarchical financial position across ${
-              data.companies.length
-            } RAC entities</p>
-        </div>
-        <div class="card-content">
-            <div class="dashboard-mockup">
-                <!-- Consolidated Balance Check Status -->
-                <div style="margin-bottom: 20px; padding: 15px; border-radius: 8px; ${
-                  balanceCheck.debitsEqualCredits
-                    ? "background: #d4edda; border: 1px solid #c3e6cb; color: #155724;"
-                    : "background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;"
-                }">
-                    <div style="font-weight: bold; margin-bottom: 5px;">
-                        ${
-                          balanceCheck.debitsEqualCredits
-                            ? "✅ Consolidated Books are BALANCED"
-                            : "⚠️ Consolidated Books are OUT OF BALANCE"
-                        }
-                    </div>
-                    <div style="font-size: 0.9rem;">
-                        Debits: ${totals.totalDebits.toLocaleString()} | Credits: ${totals.totalCredits.toLocaleString()}
-                        ${
-                          !balanceCheck.debitsEqualCredits
-                            ? ` | Difference: ${Math.abs(
-                                balanceCheck.difference
-                              ).toLocaleString()}`
-                            : ""
-                        }
-                    </div>
-                    <div style="font-size: 0.9rem; margin-top: 5px;">
-                        Accounting Equation: Assets (${totals.totalAssets.toLocaleString()}) = Liabilities + Equity (${(
-    totals.totalLiabilities + totals.totalEquity
-  ).toLocaleString()})
-                        ${
-                          balanceCheck.accountingEquation.balanced
-                            ? " ✅"
-                            : " ⚠️"
-                        }
-                    </div>
-                </div>
-
-                <!-- Consolidated Summary Totals -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px;">
-                    <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                        <div style="font-size: 1.4rem; font-weight: bold; color: #28a745;">${totals.totalAssets.toLocaleString()}</div>
-                        <div style="font-size: 1rem; color: #666;">Total Assets</div>
-                    </div>
-                    <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                        <div style="font-size: 1.4rem; font-weight: bold; color: #dc3545;">${totals.totalLiabilities.toLocaleString()}</div>
-                        <div style="font-size: 1rem; color: #666;">Total Liabilities</div>
-                    </div>
-                    <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                        <div style="font-size: 1.4rem; font-weight: bold; color: #17a2b8;">${totals.totalEquity.toLocaleString()}</div>
-                        <div style="font-size: 1rem; color: #666;">Total Equity</div>
-                    </div>
-                </div>
-
-                <!-- Entity Breakdown Header -->
-                <div style="border-bottom: 2px solid #13547a; padding-bottom: 10px; margin-bottom: 20px;">
-                    <div style="font-weight: bold; font-size: 1.1rem; color: #13547a;">📊 Entity Breakdown:</div>
-                    <div style="font-size: 0.9rem; color: #666;">
-                        ${summary.totalCompanies} companies • ${
-    summary.totalAccounts
-  } accounts • 
-                        ${summary.balancedCompanies}/${
-    summary.totalCompanies
-  } balanced
-                    </div>
-                </div>
-
-                <!-- Company-by-Company Hierarchical Breakdown -->
-                <div id="companies-breakdown">
-                    ${data.companies
-                      .map(
-                        (company, companyIndex) => `
-                        <div class="company-card" style="margin-bottom: 25px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
-                            <!-- Company Header (Clickable to expand/collapse) -->
-                            <div class="company-header" 
-                                 onclick="toggleCompany(${companyIndex})" 
-                                 style="
-                                    background: ${
-                                      company.balanceCheck.debitsEqualCredits
-                                        ? "#f8f9fa"
-                                        : "#fff3cd"
-                                    }; 
-                                    padding: 15px; 
-                                    cursor: pointer; 
-                                    border-bottom: 1px solid #ddd;
-                                    display: flex; 
-                                    justify-content: space-between; 
-                                    align-items: center;
-                                 ">
-                                <div>
-                                    <div style="font-weight: bold; color: #13547a; font-size: 1.1rem;">
-                                        <span id="company-toggle-${companyIndex}" style="margin-right: 8px;">▶</span>
-                                        🏢 ${company.tenantName}
-                                    </div>
-                                    <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
-                                        ${
-                                          company.accountCounts.totalAccounts
-                                        } accounts • 
-                                        ${
-                                          company.balanceCheck
-                                            .debitsEqualCredits
-                                            ? "✅ Balanced"
-                                            : "⚠️ Out of Balance"
-                                        }
-                                    </div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-size: 0.9rem; color: #666;">Assets: ${company.totals.totalAssets.toLocaleString()}</div>
-                                    <div style="font-size: 0.9rem; color: #666;">Liabilities: ${company.totals.totalLiabilities.toLocaleString()}</div>
-                                    <div style="font-size: 0.9rem; color: #666;">Equity: ${company.totals.totalEquity.toLocaleString()}</div>
-                                </div>
-                            </div>
-
-                            <!-- Company Sections (Initially Hidden) -->
-                            <div id="company-sections-${companyIndex}" class="company-sections" style="display: none;">
-                                ${Object.entries(company.sections)
-                                  .filter(
-                                    ([sectionKey, section]) =>
-                                      section.accounts.length > 0
-                                  )
-                                  .map(
-                                    ([sectionKey, section], sectionIndex) => `
-                                    <div class="section-card" style="margin: 10px; border: 1px solid #e9ecef; border-radius: 8px;">
-                                        <!-- Section Header (Clickable to expand/collapse accounts) -->
-                                        <div class="section-header" 
-                                             onclick="toggleSection(${companyIndex}, '${sectionKey}')"
-                                             style="
-                                                background: #f8f9fa; 
-                                                padding: 12px; 
-                                                cursor: pointer;
-                                                display: flex; 
-                                                justify-content: space-between; 
-                                                align-items: center;
-                                             ">
-                                            <div>
-                                                <span id="section-toggle-${companyIndex}-${sectionKey}" style="margin-right: 8px;">▶</span>
-                                                <strong>${
-                                                  section.title
-                                                }</strong>
-                                                <span style="color: #666; margin-left: 10px;">(${
-                                                  section.accounts.length
-                                                } accounts)</span>
-                                            </div>
-                                            <div style="font-weight: bold; color: ${
-                                              sectionKey === "assets"
-                                                ? "#28a745"
-                                                : sectionKey === "liabilities"
-                                                ? "#dc3545"
-                                                : sectionKey === "equity"
-                                                ? "#17a2b8"
-                                                : sectionKey === "revenue"
-                                                ? "#28a745"
-                                                : "#ffc107"
-                                            };">
-                                                ${section.total.toLocaleString()}
-                                            </div>
-                                        </div>
-
-                                        <!-- Account Details (Initially Hidden) -->
-                                        <div id="section-accounts-${companyIndex}-${sectionKey}" class="section-accounts" style="display: none;">
-                                            <div style="padding: 10px;">
-                                                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; background: #f1f3f4; padding: 8px; font-weight: bold; font-size: 0.9rem;">
-                                                    <div>Account Name</div>
-                                                    <div style="text-align: right;">Debit</div>
-                                                    <div style="text-align: right;">Credit</div>
-                                                </div>
-                                                ${section.accounts
-                                                  .map(
-                                                    (account) => `
-                                                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9rem;">
-                                                        <div>${
-                                                          account.name
-                                                        }</div>
-                                                        <div style="text-align: right; ${
-                                                          account.debit > 0
-                                                            ? "font-weight: bold;"
-                                                            : "color: #999;"
-                                                        }">
-                                                            ${
-                                                              account.debit > 0
-                                                                ? "$" +
-                                                                  account.debit.toLocaleString()
-                                                                : "-"
-                                                            }
-                                                        </div>
-                                                        <div style="text-align: right; ${
-                                                          account.credit > 0
-                                                            ? "font-weight: bold;"
-                                                            : "color: #999;"
-                                                        }">
-                                                            ${
-                                                              account.credit > 0
-                                                                ? "$" +
-                                                                  account.credit.toLocaleString()
-                                                                : "-"
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                `
-                                                  )
-                                                  .join("")}
-                                            </div>
-                                        </div>
-                                    </div>
-                                `
-                                  )
-                                  .join("")}
-                            </div>
-                        </div>
-                    `
-                      )
-                      .join("")}
-                </div>
-            </div>
-            
-            <div class="${
-              balanceCheck.debitsEqualCredits ? "success-box" : "alert-box"
-            }">
-                ${
-                  balanceCheck.debitsEqualCredits
-                    ? "✅ Consolidated Trial Balance is accurate across all RAC entities"
-                    : "⚠️ Trial Balance shows discrepancies - expand companies above to review individual entity balances"
-                }
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Stats Cards -->
-    <div class="demo-card">
-        <div class="card-header">
-            <h3>📈 Portfolio Overview</h3>
-            <p>RAC financial portfolio at a glance</p>
-        </div>
-        <div class="card-content">
-            <div class="dashboard-mockup">
-                <div class="metric-row">
-                    <span class="metric-label">Total Portfolio Value</span>
-                    <span class="metric-value large">${(
-                      totals.totalAssets - totals.totalLiabilities
-                    ).toLocaleString()}</span>
-                </div>
-                <div class="metric-row">
-                    <span class="metric-label">Largest Entity</span>
-                    <span class="metric-value">${
-                      data.companies.length > 0
-                        ? data.companies
-                            .reduce((max, company) =>
-                              company.totals.totalAssets >
-                              max.totals.totalAssets
-                                ? company
-                                : max
-                            )
-                            .tenantName.split(" ")
-                            .slice(0, 3)
-                            .join(" ")
-                        : "N/A"
-                    }</span>
-                </div>
-                <div class="metric-row">
-                    <span class="metric-label">Data Quality</span>
-                    <span class="metric-value" style="color: ${
-                      summary.dataQuality.allBalanced ? "green" : "orange"
-                    };">
-                        ${
-                          summary.dataQuality.allBalanced
-                            ? "100% Balanced"
-                            : "Review Required"
-                        }
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Integration Status -->
-    <div class="demo-card">
-        <div class="card-header">
-            <h3>🔗 Integration Status</h3>
-            <p>System connections and data flow</p>
-        </div>
-        <div class="card-content">
-            <div class="dashboard-mockup">
-                <div class="metric-row">
-                    <span class="metric-label">Connected Entities</span>
-                    <span class="metric-value">${
-                      summary.totalCompanies
-                    } RAC companies</span>
-                </div>
-                <div class="metric-row">
-                    <span class="metric-label">Total Accounts</span>
-                    <span class="metric-value">${
-                      summary.totalAccounts
-                    } active accounts</span>
-                </div>
-                <div class="metric-row">
-                    <span class="metric-label">Last Update</span>
-                    <span class="metric-value">Just now</span>
-                </div>
-            </div>
-            <div class="success-box">
-                ✅ Hierarchical Trial Balance system operational - Real-time drilling from consolidated to account level
-            </div>
-        </div>
-    </div>
-  `;
-}
-
-// Toggle company expansion
-function toggleCompany(companyIndex) {
-  const sectionsDiv = document.getElementById(
-    `company-sections-${companyIndex}`
-  );
-  const toggleIcon = document.getElementById(`company-toggle-${companyIndex}`);
-
-  if (sectionsDiv.style.display === "none") {
-    sectionsDiv.style.display = "block";
-    toggleIcon.textContent = "▼";
-  } else {
-    sectionsDiv.style.display = "none";
-    toggleIcon.textContent = "▶";
-  }
-}
-
-// Toggle section expansion
-function toggleSection(companyIndex, sectionKey) {
-  const accountsDiv = document.getElementById(
-    `section-accounts-${companyIndex}-${sectionKey}`
-  );
-  const toggleIcon = document.getElementById(
-    `section-toggle-${companyIndex}-${sectionKey}`
-  );
-
-  if (accountsDiv.style.display === "none") {
-    accountsDiv.style.display = "block";
-    toggleIcon.textContent = "▼";
-  } else {
-    accountsDiv.style.display = "none";
-    toggleIcon.textContent = "▶";
-  }
-}
-
-// Show error message
-function showError(message) {
-  const content = document.getElementById("dashboard-content");
-  content.innerHTML = `<div class="error">❌ ${message}</div>`;
-}
-
-// Set view type
-function setView(viewType) {
-  currentView = viewType;
-
-  // Update button states
-  document.querySelectorAll(".toggle-btn").forEach((btn) => {
-    btn.classList.remove("active");
-  });
-
-  if (event && event.target) {
-    event.target.classList.add("active");
-  }
-
-  // Reload data with new view
-  loadDashboardData();
-}
-
-// Placeholder functions for missing renders
-function renderXeroTenantView(tenantData) {
-  console.log("renderXeroTenantView called with:", tenantData);
-  // Add implementation if needed
-}
-
-function renderApprovalMaxTenantView(organizationData) {
-  console.log("renderApprovalMaxTenantView called with:", organizationData);
-  // Add implementation if needed
-}
-
-// Debug function for testing
-function testRefreshButton() {
-  console.log("🧪 Testing refresh button...");
-
-  const button = document.querySelector(
-    'button[onclick*="manualRefreshTokens"]'
-  );
-  if (button) {
-    console.log("✅ Found refresh button:", button);
-    const fakeEvent = { target: button };
-    manualRefreshTokens(fakeEvent);
-  } else {
-    console.log("❌ Refresh button not found");
-  }
-}
-
-// Update timestamp
-function updateTimestamp() {
-  const timestampElement = document.getElementById("timestamp");
-  if (timestampElement) {
-    timestampElement.textContent = new Date().toLocaleString();
-  }
-}
-
-// Initialize dashboard
-function initializeDashboard() {
-  // Request notification permission
-  requestNotificationPermission();
-
-  // Start token monitoring after a short delay
-  setTimeout(() => {
-    startTokenMonitoring();
-  }, 3000);
-
-  // Update timestamp
-  updateTimestamp();
-  setInterval(updateTimestamp, 30000);
-
-  // Load tenants and connection status
-  loadTenants();
-
-  // Auto-refresh data every 5 minutes
-  setInterval(loadDashboardData, 300000);
-}
-
-// Event listeners and initialization
-document.addEventListener("DOMContentLoaded", function () {
-  initializeDashboard();
 });
 
-// Initialize when page loads
-window.addEventListener("load", () => {
-  initializeDashboard();
+// Enhanced connection status with auto-refresh info
+app.get("/api/connection-status-enhanced", async (req, res) => {
+  try {
+    const [connections, expiringTokens] = await Promise.all([
+      enhancedTokenStorage.getAllXeroConnections(),
+      enhancedTokenStorage.getExpiringTokens(30), // Check 30 minutes ahead
+    ]);
+
+    // Add expiry warnings to connection data
+    const enhancedConnections = connections.map((conn) => {
+      const expiring = expiringTokens.find(
+        (exp) => exp.tenantId === conn.tenantId
+      );
+      return {
+        ...conn,
+        minutesUntilExpiry: expiring ? expiring.minutesUntilExpiry : null,
+        needsRefresh: expiring ? expiring.minutesUntilExpiry < 15 : false,
+      };
+    });
+
+    // Add ApprovalMax connections (keep existing logic)
+    const approvalMaxToken = await enhancedTokenStorage.getApprovalMaxToken();
+    if (approvalMaxToken) {
+      enhancedConnections.push({
+        tenantId: "approvalmax_integration",
+        tenantName: "RAC ApprovalMax Integration",
+        provider: "approvalmax",
+        connected: true,
+        lastSeen: approvalMaxToken.lastSeen,
+        organizationCount: approvalMaxToken.organizations
+          ? approvalMaxToken.organizations.length
+          : 0,
+        error: null,
+        minutesUntilExpiry: null,
+        needsRefresh: false,
+      });
+    }
+
+    res.json(enhancedConnections);
+  } catch (error) {
+    console.error("❌ Error getting enhanced connection status:", error);
+    res.status(500).json({ error: "Failed to get enhanced connection status" });
+  }
 });
 
-// Cleanup when page unloads
-window.addEventListener("beforeunload", function () {
-  stopTokenMonitoring();
+// Start auto-refresh when server starts
+// Add this to your startServer() function, after initializeDatabase()
+async function initializeAutoRefresh() {
+  try {
+    await initializeDatabase();
+
+    // Start the auto-refresh system
+    startAutoRefresh();
+
+    console.log("✅ Auto token refresh system initialized");
+  } catch (error) {
+    console.error("❌ Failed to initialize auto-refresh:", error);
+  }
+}
+
+// Update your existing startServer function to call initializeAutoRefresh()
+// Replace: await initializeDatabase();
+// With: await initializeAutoRefresh();
+
+// Health check endpoint
+app.get("/api/health", async (req, res) => {
+  try {
+    // Test database connection
+    const dbTest = await pool.query("SELECT NOW()");
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
+
+    res.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      database: "connected",
+      xeroConnections: xeroConnections.length,
+      uptime: process.uptime(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "unhealthy",
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
-// Make functions available globally
-window.setSystemView = setSystemView;
-window.setView = setView;
-window.toggleConnectionManager = toggleConnectionManager;
-window.showDashboard = showDashboard;
-window.connectEntity = connectEntity;
-window.manualRefreshTokens = manualRefreshTokens;
-window.testRefreshButton = testRefreshButton;
-window.toggleCompany = toggleCompany;
-window.toggleSection = toggleSection;
-window.updateReportDate = updateReportDate;
-window.setQuickDate = setQuickDate;
+// DATABASE DEBUG endpoint - Add this to see what's stored
+app.get("/api/debug/database", async (req, res) => {
+  try {
+    console.log("🔍 DEBUG: Checking database contents...");
+
+    // Get all tokens from database
+    const result = await pool.query(
+      "SELECT tenant_id, tenant_name, provider, expires_at, last_seen FROM tokens ORDER BY last_seen DESC"
+    );
+
+    const now = Date.now();
+    const tokens = result.rows.map((row) => ({
+      tenant_id: row.tenant_id,
+      tenant_name: row.tenant_name,
+      provider: row.provider,
+      expired: now > row.expires_at,
+      expires_in_minutes: Math.floor((row.expires_at - now) / (1000 * 60)),
+      last_seen: row.last_seen,
+    }));
+
+    console.log("✅ DEBUG: Database tokens:", tokens);
+
+    res.json({
+      totalTokens: tokens.length,
+      tokens: tokens,
+      currentTime: new Date().toISOString(),
+      currentTimestamp: now,
+    });
+  } catch (error) {
+    console.error("❌ DEBUG: Database error:", error);
+    res.status(500).json({
+      error: "Database query failed",
+      details: error.message,
+    });
+  }
+});
+
+// Serve main dashboard
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// ==============================================================================
+// ENHANCED TRIAL BALANCE ENDPOINTS WITH DATE SUPPORT
+// ==============================================================================
+
+// Enhanced Individual Trial Balance with Date Support
+app.get("/api/trial-balance/:tenantId", async (req, res) => {
+  try {
+    console.log(
+      `🔍 Getting PROPER trial balance for tenant: ${req.params.tenantId}`
+    );
+
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    // Get date from query parameter or use today
+    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
+    console.log(`📅 Report date: ${reportDate}`);
+
+    // Get Balance Sheet report for specified date
+    const balanceSheetResponse = await xero.accountingApi.getReportBalanceSheet(
+      req.params.tenantId,
+      reportDate
+    );
+
+    const balanceSheetRows = balanceSheetResponse.body.reports?.[0]?.rows || [];
+    console.log(
+      `📊 Processing ${balanceSheetRows.length} Balance Sheet sections for ${reportDate}`
+    );
+
+    // Initialize trial balance structure
+    const trialBalance = {
+      assets: [],
+      liabilities: [],
+      equity: [],
+      revenue: [],
+      expenses: [],
+      totals: {
+        totalDebits: 0,
+        totalCredits: 0,
+        totalAssets: 0,
+        totalLiabilities: 0,
+        totalEquity: 0,
+        totalRevenue: 0,
+        totalExpenses: 0,
+      },
+    };
+
+    let processedAccounts = 0;
+
+    // Process each Balance Sheet section
+    balanceSheetRows.forEach((section, sectionIndex) => {
+      if (section.rowType === "Section" && section.rows && section.title) {
+        const sectionTitle = section.title.toLowerCase();
+        console.log(
+          `🔄 Processing section: ${section.title} (${section.rows.length} rows)`
+        );
+
+        section.rows.forEach((row) => {
+          if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
+            const accountName = row.cells[0]?.value || "";
+            const currentBalance = parseFloat(row.cells[1]?.value || 0);
+
+            if (
+              accountName.toLowerCase().includes("total") ||
+              currentBalance === 0
+            ) {
+              return;
+            }
+
+            processedAccounts++;
+            console.log(
+              `📈 Processing: ${accountName} = ${currentBalance.toLocaleString()}`
+            );
+
+            const accountInfo = {
+              name: accountName,
+              balance: currentBalance,
+              debit: 0,
+              credit: 0,
+              section: section.title,
+            };
+
+            // Account classification logic
+            if (
+              sectionTitle.includes("bank") ||
+              sectionTitle.includes("asset")
+            ) {
+              accountInfo.debit = currentBalance >= 0 ? currentBalance : 0;
+              accountInfo.credit =
+                currentBalance < 0 ? Math.abs(currentBalance) : 0;
+              trialBalance.assets.push(accountInfo);
+              trialBalance.totals.totalAssets += currentBalance;
+            } else if (sectionTitle.includes("liabilit")) {
+              accountInfo.credit = currentBalance >= 0 ? currentBalance : 0;
+              accountInfo.debit =
+                currentBalance < 0 ? Math.abs(currentBalance) : 0;
+              trialBalance.liabilities.push(accountInfo);
+              trialBalance.totals.totalLiabilities += currentBalance;
+            } else if (sectionTitle.includes("equity")) {
+              accountInfo.credit = currentBalance >= 0 ? currentBalance : 0;
+              accountInfo.debit =
+                currentBalance < 0 ? Math.abs(currentBalance) : 0;
+              trialBalance.equity.push(accountInfo);
+              trialBalance.totals.totalEquity += currentBalance;
+            }
+
+            trialBalance.totals.totalDebits += accountInfo.debit;
+            trialBalance.totals.totalCredits += accountInfo.credit;
+          }
+        });
+      }
+    });
+
+    // Get P&L data for the same date
+    try {
+      console.log("🔄 Fetching P&L report for Revenue/Expenses...");
+      const profitLossResponse =
+        await xero.accountingApi.getReportProfitAndLoss(
+          req.params.tenantId,
+          reportDate,
+          reportDate
+        );
+
+      const plRows = profitLossResponse.body.reports?.[0]?.rows || [];
+
+      plRows.forEach((section) => {
+        if (section.rowType === "Section" && section.rows && section.title) {
+          const sectionTitle = section.title.toLowerCase();
+
+          section.rows.forEach((row) => {
+            if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
+              const accountName = row.cells[0]?.value || "";
+              const currentAmount = parseFloat(row.cells[1]?.value || 0);
+
+              if (
+                accountName.toLowerCase().includes("total") ||
+                currentAmount === 0
+              ) {
+                return;
+              }
+
+              processedAccounts++;
+              const accountInfo = {
+                name: accountName,
+                balance: currentAmount,
+                debit: 0,
+                credit: 0,
+                section: section.title,
+              };
+
+              if (
+                sectionTitle.includes("income") ||
+                sectionTitle.includes("revenue")
+              ) {
+                accountInfo.credit = Math.abs(currentAmount);
+                trialBalance.revenue.push(accountInfo);
+                trialBalance.totals.totalRevenue += Math.abs(currentAmount);
+              } else if (
+                sectionTitle.includes("expense") ||
+                sectionTitle.includes("cost")
+              ) {
+                accountInfo.debit = Math.abs(currentAmount);
+                trialBalance.expenses.push(accountInfo);
+                trialBalance.totals.totalExpenses += Math.abs(currentAmount);
+              }
+
+              trialBalance.totals.totalDebits += accountInfo.debit;
+              trialBalance.totals.totalCredits += accountInfo.credit;
+            }
+          });
+        }
+      });
+    } catch (plError) {
+      console.log("⚠️ Could not fetch P&L data:", plError.message);
+    }
+
+    // Sort and calculate balance check
+    ["assets", "liabilities", "equity", "revenue", "expenses"].forEach(
+      (category) => {
+        trialBalance[category].sort((a, b) => a.name.localeCompare(b.name));
+      }
+    );
+
+    const balanceCheck = {
+      debitsEqualCredits:
+        Math.abs(
+          trialBalance.totals.totalDebits - trialBalance.totals.totalCredits
+        ) < 0.01,
+      difference:
+        trialBalance.totals.totalDebits - trialBalance.totals.totalCredits,
+      accountingEquation: {
+        assets: trialBalance.totals.totalAssets,
+        liabilitiesAndEquity:
+          trialBalance.totals.totalLiabilities +
+          trialBalance.totals.totalEquity,
+        balanced:
+          Math.abs(
+            trialBalance.totals.totalAssets -
+              (trialBalance.totals.totalLiabilities +
+                trialBalance.totals.totalEquity)
+          ) < 0.01,
+      },
+    };
+
+    console.log(
+      `✅ PROPER Trial balance completed for ${tokenData.tenantName} as at ${reportDate}:`,
+      {
+        processedAccounts: processedAccounts,
+        totalAssets: trialBalance.totals.totalAssets,
+        totalLiabilities: trialBalance.totals.totalLiabilities,
+        totalEquity: trialBalance.totals.totalEquity,
+        balanced: balanceCheck.debitsEqualCredits,
+      }
+    );
+
+    res.json({
+      tenantId: req.params.tenantId,
+      tenantName: tokenData.tenantName,
+      trialBalance,
+      balanceCheck,
+      generatedAt: new Date().toISOString(),
+      reportDate: reportDate,
+      processedAccounts: processedAccounts,
+      dataSource: "Balance Sheet + P&L Reports",
+    });
+  } catch (error) {
+    console.error("❌ Error getting PROPER trial balance:", error);
+    res.status(500).json({
+      error: "Failed to get trial balance",
+      details: error.message,
+      tenantId: req.params.tenantId,
+    });
+  }
+});
+
+// Enhanced Consolidated Trial Balance with Date Support
+app.get("/api/consolidated-trial-balance", async (req, res) => {
+  try {
+    // Get date from query parameter or use today
+    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
+    console.log(
+      `🔄 Loading HIERARCHICAL consolidated trial balance for ${reportDate}...`
+    );
+
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
+    const connectedXeroEntities = xeroConnections.filter(
+      (conn) => conn.connected
+    );
+
+    console.log(`🏢 Found ${connectedXeroEntities.length} connected entities`);
+
+    const hierarchicalTrialBalance = {
+      consolidated: {
+        totals: {
+          totalDebits: 0,
+          totalCredits: 0,
+          totalAssets: 0,
+          totalLiabilities: 0,
+          totalEquity: 0,
+          totalRevenue: 0,
+          totalExpenses: 0,
+        },
+        balanceCheck: {
+          debitsEqualCredits: false,
+          difference: 0,
+          accountingEquation: {
+            assets: 0,
+            liabilitiesAndEquity: 0,
+            balanced: false,
+          },
+        },
+      },
+      companies: [],
+      reportDate: reportDate,
+      generatedAt: new Date().toISOString(),
+    };
+
+    // Process each entity with the specified date
+    for (const connection of connectedXeroEntities) {
+      try {
+        console.log(
+          `🔄 Processing entity: ${connection.tenantName} for ${reportDate}`
+        );
+
+        const trialBalanceResponse = await fetch(
+          `${req.protocol}://${req.get("host")}/api/trial-balance/${
+            connection.tenantId
+          }?date=${reportDate}`
+        );
+
+        if (trialBalanceResponse.ok) {
+          const entityTrialBalance = await trialBalanceResponse.json();
+
+          // Create hierarchical company structure
+          const companyData = {
+            tenantId: connection.tenantId,
+            tenantName: connection.tenantName,
+            balanceCheck: entityTrialBalance.balanceCheck,
+            totals: entityTrialBalance.trialBalance.totals,
+            reportDate: entityTrialBalance.reportDate,
+            sections: {
+              assets: {
+                title: "Assets",
+                total: entityTrialBalance.trialBalance.totals.totalAssets,
+                accounts: entityTrialBalance.trialBalance.assets.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Assets",
+                  })
+                ),
+              },
+              liabilities: {
+                title: "Liabilities",
+                total: entityTrialBalance.trialBalance.totals.totalLiabilities,
+                accounts: entityTrialBalance.trialBalance.liabilities.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Liabilities",
+                  })
+                ),
+              },
+              equity: {
+                title: "Equity",
+                total: entityTrialBalance.trialBalance.totals.totalEquity,
+                accounts: entityTrialBalance.trialBalance.equity.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Equity",
+                  })
+                ),
+              },
+              revenue: {
+                title: "Revenue",
+                total: entityTrialBalance.trialBalance.totals.totalRevenue,
+                accounts: entityTrialBalance.trialBalance.revenue.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Revenue",
+                  })
+                ),
+              },
+              expenses: {
+                title: "Expenses",
+                total: entityTrialBalance.trialBalance.totals.totalExpenses,
+                accounts: entityTrialBalance.trialBalance.expenses.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Expenses",
+                  })
+                ),
+              },
+            },
+            accountCounts: {
+              totalAccounts: Object.values({
+                assets: entityTrialBalance.trialBalance.assets,
+                liabilities: entityTrialBalance.trialBalance.liabilities,
+                equity: entityTrialBalance.trialBalance.equity,
+                revenue: entityTrialBalance.trialBalance.revenue,
+                expenses: entityTrialBalance.trialBalance.expenses,
+              }).reduce((sum, accounts) => sum + accounts.length, 0),
+              assetAccounts: entityTrialBalance.trialBalance.assets.length,
+              liabilityAccounts:
+                entityTrialBalance.trialBalance.liabilities.length,
+              equityAccounts: entityTrialBalance.trialBalance.equity.length,
+              revenueAccounts: entityTrialBalance.trialBalance.revenue.length,
+              expenseAccounts: entityTrialBalance.trialBalance.expenses.length,
+            },
+          };
+
+          hierarchicalTrialBalance.companies.push(companyData);
+
+          // Add to consolidated totals
+          const totals = hierarchicalTrialBalance.consolidated.totals;
+          const entityTotals = entityTrialBalance.trialBalance.totals;
+
+          totals.totalDebits += entityTotals.totalDebits;
+          totals.totalCredits += entityTotals.totalCredits;
+          totals.totalAssets += entityTotals.totalAssets;
+          totals.totalLiabilities += entityTotals.totalLiabilities;
+          totals.totalEquity += entityTotals.totalEquity;
+          totals.totalRevenue += entityTotals.totalRevenue;
+          totals.totalExpenses += entityTotals.totalExpenses;
+
+          console.log(
+            `✅ Added ${connection.tenantName} to hierarchical structure for ${reportDate}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `❌ Error loading trial balance for ${connection.tenantId}:`,
+          error
+        );
+      }
+    }
+
+    // Calculate consolidated balance check and summary
+    const totals = hierarchicalTrialBalance.consolidated.totals;
+    hierarchicalTrialBalance.consolidated.balanceCheck = {
+      debitsEqualCredits:
+        Math.abs(totals.totalDebits - totals.totalCredits) < 0.01,
+      difference: totals.totalDebits - totals.totalCredits,
+      accountingEquation: {
+        assets: totals.totalAssets,
+        liabilitiesAndEquity: totals.totalLiabilities + totals.totalEquity,
+        balanced:
+          Math.abs(
+            totals.totalAssets - (totals.totalLiabilities + totals.totalEquity)
+          ) < 0.01,
+      },
+    };
+
+    hierarchicalTrialBalance.summary = {
+      totalCompanies: hierarchicalTrialBalance.companies.length,
+      totalAccounts: hierarchicalTrialBalance.companies.reduce(
+        (sum, company) => sum + company.accountCounts.totalAccounts,
+        0
+      ),
+      balancedCompanies: hierarchicalTrialBalance.companies.filter(
+        (company) => company.balanceCheck.debitsEqualCredits
+      ).length,
+      dataQuality: {
+        allConnected:
+          hierarchicalTrialBalance.companies.length ===
+          connectedXeroEntities.length,
+        allBalanced: hierarchicalTrialBalance.companies.every(
+          (company) => company.balanceCheck.debitsEqualCredits
+        ),
+        consolidatedBalanced:
+          hierarchicalTrialBalance.consolidated.balanceCheck.debitsEqualCredits,
+      },
+    };
+
+    console.log(
+      `✅ Hierarchical consolidated trial balance completed for ${reportDate}:`,
+      {
+        companies: hierarchicalTrialBalance.companies.length,
+        totalAccounts: hierarchicalTrialBalance.summary.totalAccounts,
+        totalAssets: totals.totalAssets,
+        consolidatedBalanced:
+          hierarchicalTrialBalance.consolidated.balanceCheck.debitsEqualCredits,
+      }
+    );
+
+    res.json(hierarchicalTrialBalance);
+  } catch (error) {
+    console.error(
+      "❌ Error loading hierarchical consolidated trial balance:",
+      error
+    );
+    res.status(500).json({
+      error: "Failed to load hierarchical consolidated trial balance",
+    });
+  }
+});
+
+// DEBUG ENDPOINTS (Keep existing ones)
+app.get("/api/debug/simple/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
+    const allAccounts = response.body.accounts || [];
+    const firstThree = allAccounts.slice(0, 3);
+
+    console.log("Raw Xero Response Structure:");
+    console.log("Total accounts:", allAccounts.length);
+    console.log(
+      "First account keys:",
+      firstThree[0] ? Object.keys(firstThree[0]) : "No accounts"
+    );
+    console.log("First account full:", firstThree[0]);
+
+    res.json({
+      message: "Raw Xero account data",
+      totalAccounts: allAccounts.length,
+      firstThreeAccounts: firstThree,
+      firstAccountKeys: firstThree[0] ? Object.keys(firstThree[0]) : [],
+    });
+  } catch (error) {
+    console.error("❌ Simple debug error:", error);
+    res
+      .status(500)
+      .json({ error: "Simple debug failed", details: error.message });
+  }
+});
+
+// TESTING - Balance Sheet endpoint (Keep for testing)
+app.get("/api/trial-balance-fixed/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
+    const allAccounts = response.body.accounts || [];
+
+    const today = new Date().toISOString().split("T")[0];
+    const balanceSheetResponse = await xero.accountingApi.getReportBalanceSheet(
+      req.params.tenantId,
+      today
+    );
+
+    console.log("✅ Got Balance Sheet report");
+
+    res.json({
+      message: "Testing Balance Sheet approach",
+      totalAccounts: allAccounts.length,
+      balanceSheetStructure:
+        balanceSheetResponse.body.reports?.[0]?.rows?.slice(0, 10),
+    });
+  } catch (error) {
+    console.error("❌ Error:", error);
+    res
+      .status(500)
+      .json({ error: "Failed", details: error.message || "No message" });
+  }
+});
+
+function toggleSectionFromElement(element) {
+  const companyIndex = parseInt(element.getAttribute("data-company"));
+  const sectionKey = element.getAttribute("data-section");
+  toggleSection(companyIndex, sectionKey);
+}
+
+// Initialize database and start server
+async function startServer() {
+  try {
+    await initializeAutoRefresh();
+
+    app.listen(port, () => {
+      console.log(`🚀 RAC Financial Dashboard running on port ${port}`);
+      console.log(
+        `📊 Dashboard: ${
+          process.env.NODE_ENV === "production"
+            ? "https://your-app.up.railway.app"
+            : `http://localhost:${port}`
+        }`
+      );
+      console.log(`💾 Database: Connected to PostgreSQL`);
+      console.log(`🔗 Xero OAuth: /auth`);
+      console.log(`🔗 ApprovalMax OAuth: /auth?provider=approvalmax`);
+      console.log(
+        `🎯 Ready for RAC financial integration with date-flexible trial balance!`
+      );
+    });
+  } catch (error) {
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+startServer();
