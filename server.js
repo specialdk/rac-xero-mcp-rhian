@@ -1142,8 +1142,13 @@ app.get("/api/debug/database", async (req, res) => {
   }
 });
 
-// Serve main dashboard
+// Serve login manager as default
 app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "login-manager.html"));
+});
+
+// Serve main dashboard
+app.get("/dashboard", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
