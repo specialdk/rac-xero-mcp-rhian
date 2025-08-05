@@ -1599,28 +1599,50 @@
       }
 
       async function waitForPopupCompletion(popup, companyName) {
-  return new Promise((resolve) => {
-    updateRefreshLog(`Waiting for ${companyName} OAuth completion...`);
-    
-    const checkClosed = setInterval(() => {
-      if (popup.closed) {
-        updateRefreshLog(`✅ ${companyName} OAuth completed`);
-        clearInterval(checkClosed);
-        resolve();
+        return new Promise((resolve) => {
+          updateRefreshLog(`Waiting for ${companyName} OAuth completion...`);
+
+          // Check for OAuth success (faster detection)
+          const checkSuccess = setInterval(() => {
+            try {
+              // If popup URL contains 'success' or redirects to dashboard, close it
+              if (
+                popup.location.href.includes("success") ||
+                popup.location.href.includes("/dashboard")
+              ) {
+                popup.close();
+                updateRefreshLog(`✅ OAuth success detected - popup closed`);
+                clearInterval(checkSuccess);
+                clearInterval(checkClosed);
+                resolve();
+              }
+            } catch (e) {
+              // Cross-origin access blocked, that's fine - continue checking
+            }
+          }, 500);
+
+          // Also check if popup closed manually
+          const checkClosed = setInterval(() => {
+            if (popup.closed) {
+              updateRefreshLog(`✅ ${companyName} OAuth completed`);
+              clearInterval(checkSuccess);
+              clearInterval(checkClosed);
+              resolve();
+            }
+          }, 1000);
+
+          // Timeout after 60 seconds
+          setTimeout(() => {
+            if (!popup.closed) {
+              popup.close();
+              updateRefreshLog(`⚠️ ${companyName} timed out`, "error");
+            }
+            clearInterval(checkSuccess);
+            clearInterval(checkClosed);
+            resolve();
+          }, 60000);
+        });
       }
-    }, 1000);
-    
-    // Timeout after 60 seconds
-    setTimeout(() => {
-      if (!popup.closed) {
-        popup.close();
-        updateRefreshLog(`⚠️ ${companyName} timed out`, 'error');
-      }
-      clearInterval(checkClosed);
-      resolve();
-    }, 60000);
-  });
-}
 
       async function checkTokenTimes() {
         try {
