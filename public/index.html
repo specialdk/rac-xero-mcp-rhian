@@ -1598,6 +1598,30 @@
         await waitForPopupCompletion(popup, companyName);
       }
 
+      async function waitForPopupCompletion(popup, companyName) {
+  return new Promise((resolve) => {
+    updateRefreshLog(`Waiting for ${companyName} OAuth completion...`);
+    
+    const checkClosed = setInterval(() => {
+      if (popup.closed) {
+        updateRefreshLog(`✅ ${companyName} OAuth completed`);
+        clearInterval(checkClosed);
+        resolve();
+      }
+    }, 1000);
+    
+    // Timeout after 60 seconds
+    setTimeout(() => {
+      if (!popup.closed) {
+        popup.close();
+        updateRefreshLog(`⚠️ ${companyName} timed out`, 'error');
+      }
+      clearInterval(checkClosed);
+      resolve();
+    }, 60000);
+  });
+}
+
       async function checkTokenTimes() {
         try {
           const response = await fetch("/api/debug/database");
