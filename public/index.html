@@ -770,7 +770,34 @@
       // ====== LOGIN MANAGER FUNCTIONS ======
       function loadSavedPreferences() {
         const saved = localStorage.getItem("racCompanyPreferences");
-        if (saved) {
+        const refreshMode = localStorage.getItem("oauthRefreshMode");
+
+        if (refreshMode === "true") {
+          console.log("🔄 Detected OAuth refresh mode");
+
+          // Auto-select saved companies
+          if (saved) {
+            try {
+              selectedCompanies = JSON.parse(saved);
+              selectedCompanies.forEach((companyId) => {
+                const checkbox = document.getElementById(
+                  `company-${companyId}`
+                );
+                if (checkbox) checkbox.checked = true;
+              });
+              updateSelectionSummary();
+
+              // Auto-start the OAuth flow
+              console.log("🚀 Auto-starting OAuth refresh...");
+              setTimeout(() => {
+                startOAuthFlow();
+              }, 1000);
+            } catch (error) {
+              console.log("Error in refresh mode:", error);
+            }
+          }
+        } else if (saved) {
+          // Normal load mode
           try {
             selectedCompanies = JSON.parse(saved);
             selectedCompanies.forEach((companyId) => {
@@ -1000,6 +1027,20 @@
       }
 
       function showMainDashboard() {
+        // Check if this is completing an OAuth refresh
+        const refreshMode = localStorage.getItem("oauthRefreshMode");
+        if (refreshMode === "true") {
+          console.log("✅ OAuth refresh completed, cleaning up...");
+
+          // Clear refresh mode flags
+          localStorage.removeItem("oauthRefreshMode");
+          localStorage.removeItem("oauthProgress");
+
+          // Show success message
+          showTokenRefreshStatus("🎉 All connections refreshed successfully!");
+          console.log("🎉 OAuth refresh cycle completed!");
+        }
+
         localStorage.removeItem("oauthCompanies");
         localStorage.removeItem("oauthProgress");
         localStorage.removeItem("currentOAuthCompany");
@@ -1307,39 +1348,41 @@
         }
       }
 
-      // ====== TOKEN FUNCTIONS ======
-      async function manualRefreshTokens(event) {
+      // ====== OAUTH FUNCTIONS ======
+      async function refreshOAuthConnections(event) {
         if (event) event.preventDefault();
 
-        console.log("🔄 Starting manual token refresh...");
+        console.log("🔄 Starting OAuth connection refresh...");
 
         try {
-          const response = await fetch("/api/refresh-tokens", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          });
+          // Get current connected companies from localStorage
+          const connectedCompanies = JSON.parse(
+            localStorage.getItem("racCompanyPreferences") || "[]"
+          );
 
-          const result = await response.json();
-
-          if (result.success) {
-            console.log(
-              `✅ Refresh completed: ${result.refreshed} tokens refreshed, ${result.failed} failed`
-            );
-
-            // Update UI to show success
-            showTokenRefreshStatus(
-              `Refreshed ${result.refreshed} tokens successfully`
-            );
-
-            // Reload trial balance data
-            loadTrialBalanceData();
-          } else {
-            console.error("❌ Refresh failed:", result.error);
-            showTokenRefreshStatus(`Refresh failed: ${result.error}`, "error");
+          if (connectedCompanies.length === 0) {
+            showRefreshStatus("No companies to refresh", "error");
+            return;
           }
+
+          console.log("🔄 Refreshing connections for:", connectedCompanies);
+          showRefreshStatus(
+            `Starting OAuth refresh for ${connectedCompanies.length} companies...`
+          );
+
+          // Store refresh state
+          localStorage.setItem("oauthRefreshMode", "true");
+          localStorage.setItem(
+            "oauthCompanies",
+            JSON.stringify(connectedCompanies)
+          );
+          localStorage.setItem("oauthProgress", "0");
+
+          // Redirect to login manager to start OAuth cycle
+          window.location.href = "/?mode=refresh";
         } catch (error) {
-          console.error("❌ Manual refresh error:", error);
-          showTokenRefreshStatus(`Refresh error: ${error.message}`, "error");
+          console.error("❌ OAuth refresh error:", error);
+          showRefreshStatus(`Refresh error: ${error.message}`, "error");
         }
       }
 
