@@ -744,6 +744,35 @@
     </div>
 
     <script>
+      console.log("=== PAGE LOAD DEBUG ===");
+      console.log("Current URL:", window.location.href);
+      console.log(
+        "URL params:",
+        new URLSearchParams(window.location.search).toString()
+      );
+      console.log("Refresh mode:", localStorage.getItem("oauthRefreshMode"));
+      console.log("OAuth companies:", localStorage.getItem("oauthCompanies"));
+
+      // Track what's visible
+      setTimeout(() => {
+        console.log(
+          "Login manager display:",
+          document.getElementById("loginManager")?.style.display
+        );
+        console.log(
+          "Main dashboard display:",
+          document.getElementById("mainDashboard")?.style.display
+        );
+        console.log(
+          "Login manager exists:",
+          !!document.getElementById("loginManager")
+        );
+        console.log(
+          "Main dashboard exists:",
+          !!document.getElementById("mainDashboard")
+        );
+      }, 100);
+
       // ====== GLOBAL VARIABLES ======
       let currentView = "overview";
       let dashboardData = {};
