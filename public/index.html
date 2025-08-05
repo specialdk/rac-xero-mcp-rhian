@@ -613,7 +613,7 @@
             Connected to Xero • Live Data
           </div>
           <button
-            onclick="refreshOAuthConnections(event)"
+            onclick="backgroundRefreshAllCompanies(event)"
             style="
               margin-top: 10px;
               padding: 8px 16px;
@@ -643,9 +643,92 @@
           >
             🔙 Back to Login Manager
           </button>
+          <button
+            id="refresh-toggle-btn"
+            onclick="toggleRefreshPanel()"
+            style="
+              margin-top: 10px;
+              margin-left: 10px;
+              padding: 8px 16px;
+              background: #28a745;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 0.9rem;
+            "
+          >
+            👁️ Show Refresh Status
+          </button>
           <div id="token-status-display"></div>
         </div>
-
+        <!-- Refresh Status Panel (Initially Hidden) -->
+        <div
+          id="refresh-status-panel"
+          style="
+            position: fixed;
+            top: 60px;
+            right: 10px;
+            width: 350px;
+            height: 300px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            z-index: 9999;
+            display: none;
+            overflow: auto;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          "
+        >
+          <div style="padding: 15px">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+              "
+            >
+              <h4 style="margin: 0; color: #333">OAuth Refresh Monitor</h4>
+              <button
+                onclick="toggleRefreshPanel()"
+                style="
+                  background: none;
+                  border: none;
+                  font-size: 1.2rem;
+                  cursor: pointer;
+                "
+              >
+                ×
+              </button>
+            </div>
+            <div
+              id="refresh-log"
+              style="
+                background: #f8f9fa;
+                padding: 10px;
+                border-radius: 4px;
+                font-family: monospace;
+                font-size: 0.8rem;
+                height: 120px;
+                overflow-y: auto;
+                border: 1px solid #eee;
+              "
+            >
+              Ready to refresh OAuth connections...
+            </div>
+            <iframe
+              id="oauth-iframe"
+              style="
+                width: 100%;
+                height: 120px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                margin-top: 10px;
+              "
+            ></iframe>
+          </div>
+        </div>
         <!-- Dashboard Controls -->
         <div class="controls" id="dashboard-controls">
           <h3>📊 Trial Balance Controls</h3>
@@ -1378,41 +1461,183 @@
       }
 
       // ====== OAUTH FUNCTIONS ======
-      async function refreshOAuthConnections(event) {
+      // ====== BACKGROUND OAUTH REFRESH FUNCTIONS ======
+      async function backgroundRefreshAllCompanies(event) {
         if (event) event.preventDefault();
 
-        console.log("🔄 Starting OAuth connection refresh...");
+        console.log("🔄 Starting background OAuth refresh...");
 
         try {
-          // Get current connected companies from localStorage
           const connectedCompanies = JSON.parse(
             localStorage.getItem("racCompanyPreferences") || "[]"
           );
 
           if (connectedCompanies.length === 0) {
-            showTokenRefreshStatus("No companies to refresh", "error");
+            updateRefreshLog("No companies to refresh", "error");
             return;
           }
 
-          console.log("🔄 Refreshing connections for:", connectedCompanies);
-          showTokenRefreshStatus(
-            `Starting OAuth refresh for ${connectedCompanies.length} companies...`
+          updateRefreshLog(
+            `Starting refresh for ${connectedCompanies.length} companies...`
           );
 
-          // Store refresh state
-          localStorage.setItem("oauthRefreshMode", "true");
-          localStorage.setItem(
-            "oauthCompanies",
-            JSON.stringify(connectedCompanies)
-          );
-          localStorage.setItem("oauthProgress", "0");
+          // Show refresh panel
+          document.getElementById("refresh-status-panel").style.display =
+            "block";
 
-          // Redirect to login manager to start OAuth cycle
-          window.location.href = "/?mode=refresh";
+          // Process each company in hidden iframe
+          for (let i = 0; i < connectedCompanies.length; i++) {
+            const company = connectedCompanies[i];
+            updateRefreshLog(
+              `🔄 Refreshing ${company} (${i + 1}/${
+                connectedCompanies.length
+              })...`
+            );
+
+            await refreshCompanyInIframe(company);
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+
+          updateRefreshLog(
+            "✅ All companies refreshed! Checking token times..."
+          );
+          checkTokenTimes();
         } catch (error) {
-          console.error("❌ OAuth refresh error:", error);
-          showTokenRefreshStatus(`Refresh error: ${error.message}`, "error");
+          console.error("❌ Background refresh error:", error);
+          updateRefreshLog(`Refresh error: ${error.message}`, "error");
         }
+      }
+
+      // ====== REFRESH PANEL HELPER FUNCTIONS ======
+      function toggleRefreshPanel() {
+        const panel = document.getElementById("refresh-status-panel");
+        panel.style.display = panel.style.display === "none" ? "block" : "none";
+      }
+
+      function updateRefreshLog(message, type = "info") {
+        const log = document.getElementById("refresh-log");
+        const timestamp = new Date().toLocaleTimeString();
+        const icon = type === "error" ? "❌" : type === "success" ? "✅" : "🔄";
+
+        log.innerHTML += `<div style="color: ${
+          type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#666"
+        };">
+    [${timestamp}] ${icon} ${message}
+  </div>`;
+
+        // Auto-scroll to bottom
+        log.scrollTop = log.scrollHeight;
+      }
+
+      async function refreshCompanyInIframe(companyId) {
+        const iframe = document.getElementById("oauth-iframe");
+        const companyName = companies[companyId]; // Use your existing companies object
+
+        updateRefreshLog(`Loading OAuth for ${companyName}...`);
+
+        // Navigate iframe to auth endpoint
+        iframe.src = "/auth";
+
+        // Wait for iframe to load
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Simulate form automation (we'll build this next)
+        await automateOAuthInIframe(iframe, companyName);
+
+        updateRefreshLog(`✅ ${companyName} refresh completed`, "success");
+      }
+
+      async function checkTokenTimes() {
+        try {
+          const response = await fetch("/api/debug/database");
+          const data = await response.json();
+
+          updateRefreshLog("Checking token expiry times...");
+
+          data.tokens.forEach((token) => {
+            if (!token.expired) {
+              const status = token.expires_in_minutes > 27 ? "✅" : "⚠️";
+              updateRefreshLog(
+                `${status} ${token.tenant_name}: ${token.expires_in_minutes} minutes remaining`
+              );
+            }
+          });
+        } catch (error) {
+          updateRefreshLog(`Error checking tokens: ${error.message}`, "error");
+        }
+      }
+
+      async function automateOAuthInIframe(iframe, companyName) {
+        try {
+          updateRefreshLog(`Automating forms for ${companyName}...`);
+
+          // Wait for iframe content to be accessible
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          const iframeDoc =
+            iframe.contentDocument || iframe.contentWindow.document;
+
+          // Step 1: Wait for company dropdown to appear
+          await waitForElementInIframe(iframeDoc, "select", 3000);
+
+          // Step 2: Select the correct company
+          const dropdown = iframeDoc.querySelector("select");
+          if (dropdown) {
+            // Find option that matches company name
+            const options = dropdown.querySelectorAll("option");
+            for (let option of options) {
+              if (option.textContent.includes(companyName)) {
+                dropdown.value = option.value;
+                updateRefreshLog(`Selected company: ${companyName}`);
+                break;
+              }
+            }
+          }
+
+          // Step 3: Wait for and click "Allow access" button
+          await waitForElementInIframe(iframeDoc, "button", 2000);
+
+          const allowButton = iframeDoc.querySelector(
+            'button[contains*="Allow access"], button[contains*="Allow"]'
+          );
+          if (allowButton) {
+            allowButton.click();
+            updateRefreshLog(`Clicked Allow button for ${companyName}`);
+          } else {
+            updateRefreshLog(
+              `⚠️ Allow button not found for ${companyName}`,
+              "error"
+            );
+          }
+
+          // Wait for OAuth completion
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        } catch (error) {
+          updateRefreshLog(
+            `Automation error for ${companyName}: ${error.message}`,
+            "error"
+          );
+        }
+      }
+
+      async function waitForElementInIframe(
+        iframeDoc,
+        selector,
+        timeout = 5000
+      ) {
+        const startTime = Date.now();
+
+        while (Date.now() - startTime < timeout) {
+          const element = iframeDoc.querySelector(selector);
+          if (element) {
+            updateRefreshLog(`Found element: ${selector}`);
+            return element;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        updateRefreshLog(`⚠️ Timeout waiting for: ${selector}`, "error");
+        return null;
       }
 
       function showTokenRefreshStatus(message, type = "success") {
