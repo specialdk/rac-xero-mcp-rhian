@@ -1538,7 +1538,7 @@
         const popup = window.open(
           "/auth",
           "xero-oauth",
-          "width=500,height=600,scrollbars=yes,resizable=yes"
+          "width=500,height=600,scrollbars=yes"
         );
 
         if (!popup) {
@@ -1546,36 +1546,56 @@
           return;
         }
 
-        // Wait for popup completion
+        // Wait for popup to load
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        // Try to automate the popup content
+        try {
+          const popupDoc = popup.document;
+
+          updateRefreshLog(`Attempting automation for ${companyName}...`);
+
+          // Find and select company dropdown
+          const dropdown = popupDoc.querySelector("select");
+          if (dropdown) {
+            updateRefreshLog(
+              `Found dropdown with ${dropdown.options.length} options`
+            );
+
+            for (let option of dropdown.options) {
+              if (
+                option.textContent.includes(companyName) ||
+                option.textContent.includes("7168")
+              ) {
+                dropdown.value = option.value;
+                dropdown.dispatchEvent(new Event("change", { bubbles: true }));
+                updateRefreshLog(`✅ Selected: ${option.textContent}`);
+                break;
+              }
+            }
+          } else {
+            updateRefreshLog(`⚠️ Dropdown not found`);
+          }
+
+          // Wait a moment then find Allow button
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          const allowButton = popupDoc.querySelector("button");
+          if (allowButton && allowButton.textContent.includes("Allow")) {
+            allowButton.click();
+            updateRefreshLog(`✅ Clicked Allow button for ${companyName}`);
+          } else {
+            updateRefreshLog(
+              `⚠️ Allow button not found - please click manually`
+            );
+          }
+        } catch (error) {
+          updateRefreshLog(`❌ Automation failed: ${error.message}`, "error");
+          updateRefreshLog(`Please complete OAuth manually in popup`, "info");
+        }
+
+        // Wait for completion
         await waitForPopupCompletion(popup, companyName);
-
-        updateRefreshLog(`✅ ${companyName} refresh completed`, "success");
-      }
-
-      async function waitForPopupCompletion(popup, companyName) {
-        return new Promise((resolve) => {
-          updateRefreshLog(`Waiting for ${companyName} OAuth completion...`);
-
-          const checkClosed = setInterval(() => {
-            if (popup.closed) {
-              updateRefreshLog(
-                `✅ ${companyName} popup closed - OAuth complete`
-              );
-              clearInterval(checkClosed);
-              resolve();
-            }
-          }, 1000);
-
-          // Timeout after 60 seconds
-          setTimeout(() => {
-            if (!popup.closed) {
-              popup.close();
-              updateRefreshLog(`⚠️ ${companyName} OAuth timed out`, "error");
-            }
-            clearInterval(checkClosed);
-            resolve();
-          }, 60000);
-        });
       }
 
       async function checkTokenTimes() {
