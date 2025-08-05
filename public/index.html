@@ -1309,35 +1309,68 @@
 
       // ====== TOKEN FUNCTIONS ======
       async function manualRefreshTokens(event) {
-        try {
-          const refreshBtn = event.target;
-          const originalText = refreshBtn.textContent;
-          refreshBtn.textContent = "Refreshing...";
-          refreshBtn.disabled = true;
+        if (event) event.preventDefault();
 
+        console.log("🔄 Starting manual token refresh...");
+
+        try {
           const response = await fetch("/api/refresh-tokens", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
           });
 
           const result = await response.json();
-          if (result.success) {
-            showNotification(
-              `✅ Refreshed ${result.refreshed} tokens successfully!`
-            );
-            await loadTrialBalanceData();
-          } else {
-            showNotification(`❌ Refresh failed: ${result.error}`);
-          }
 
-          refreshBtn.textContent = originalText;
-          refreshBtn.disabled = false;
+          if (result.success) {
+            console.log(
+              `✅ Refresh completed: ${result.refreshed} tokens refreshed, ${result.failed} failed`
+            );
+
+            // Update UI to show success
+            showTokenRefreshStatus(
+              `Refreshed ${result.refreshed} tokens successfully`
+            );
+
+            // Reload trial balance data
+            loadTrialBalanceData();
+          } else {
+            console.error("❌ Refresh failed:", result.error);
+            showTokenRefreshStatus(`Refresh failed: ${result.error}`, "error");
+          }
         } catch (error) {
           console.error("❌ Manual refresh error:", error);
-          showNotification(`❌ Refresh failed: ${error.message}`);
+          showTokenRefreshStatus(`Refresh error: ${error.message}`, "error");
         }
       }
 
+      function showTokenRefreshStatus(message, type = "success") {
+        console.log("📢 Status:", message);
+
+        // Find or create status display area
+        let statusElement = document.querySelector(".token-refresh-status");
+        if (!statusElement) {
+          // Create status element in the green banner area
+          const banner =
+            document.querySelector(".text-green-600")?.parentElement;
+          if (banner) {
+            statusElement = document.createElement("div");
+            statusElement.className = "token-refresh-status";
+            statusElement.style.cssText =
+              "margin-top: 5px; font-size: 0.9rem; font-weight: bold;";
+            banner.appendChild(statusElement);
+          }
+        }
+
+        if (statusElement) {
+          statusElement.textContent = message;
+          statusElement.style.color = type === "error" ? "#dc3545" : "#28a745";
+
+          // Clear message after 5 seconds
+          setTimeout(() => {
+            statusElement.textContent = "";
+          }, 5000);
+        }
+      }
       async function startTokenMonitoring() {
         const checkTokens = async () => {
           try {
