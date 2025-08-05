@@ -1494,7 +1494,7 @@
               })...`
             );
 
-            await refreshCompanyInIframe(company);
+            await refreshCompanyInPopup(company);
             await new Promise((resolve) => setTimeout(resolve, 2000));
           }
 
@@ -1529,22 +1529,53 @@
         log.scrollTop = log.scrollHeight;
       }
 
-      async function refreshCompanyInIframe(companyId) {
-        const iframe = document.getElementById("oauth-iframe");
-        const companyName = companies[companyId]; // Use your existing companies object
+      async function refreshCompanyInPopup(companyId) {
+        const companyName = companies[companyId];
 
-        updateRefreshLog(`Loading OAuth for ${companyName}...`);
+        updateRefreshLog(`Opening popup for ${companyName}...`);
 
-        // Navigate iframe to auth endpoint
-        iframe.src = "/auth";
+        // Open popup window
+        const popup = window.open(
+          "/auth",
+          "xero-oauth",
+          "width=500,height=600,scrollbars=yes,resizable=yes"
+        );
 
-        // Wait for iframe to load
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        if (!popup) {
+          updateRefreshLog(`❌ Popup blocked for ${companyName}`, "error");
+          return;
+        }
 
-        // Simulate form automation (we'll build this next)
-        await automateOAuthInIframe(iframe, companyName);
+        // Wait for popup completion
+        await waitForPopupCompletion(popup, companyName);
 
         updateRefreshLog(`✅ ${companyName} refresh completed`, "success");
+      }
+
+      async function waitForPopupCompletion(popup, companyName) {
+        return new Promise((resolve) => {
+          updateRefreshLog(`Waiting for ${companyName} OAuth completion...`);
+
+          const checkClosed = setInterval(() => {
+            if (popup.closed) {
+              updateRefreshLog(
+                `✅ ${companyName} popup closed - OAuth complete`
+              );
+              clearInterval(checkClosed);
+              resolve();
+            }
+          }, 1000);
+
+          // Timeout after 60 seconds
+          setTimeout(() => {
+            if (!popup.closed) {
+              popup.close();
+              updateRefreshLog(`⚠️ ${companyName} OAuth timed out`, "error");
+            }
+            clearInterval(checkClosed);
+            resolve();
+          }, 60000);
+        });
       }
 
       async function checkTokenTimes() {
