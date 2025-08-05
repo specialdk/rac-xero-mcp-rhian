@@ -1361,7 +1361,7 @@
           );
 
           if (connectedCompanies.length === 0) {
-            showRefreshStatus("No companies to refresh", "error");
+            showTokenRefreshStatus("No companies to refresh", "error");
             return;
           }
 
@@ -1382,7 +1382,7 @@
           window.location.href = "/?mode=refresh";
         } catch (error) {
           console.error("❌ OAuth refresh error:", error);
-          showRefreshStatus(`Refresh error: ${error.message}`, "error");
+          showTokenRefreshStatus(`Refresh error: ${error.message}`, "error");
         }
       }
 
