@@ -73,17 +73,6 @@ async function getTenantIdFromName(organizationName) {
   return matchingConnection.tenantId;
 }
 
-// Mock function for deep Xero API calls that would require direct API access
-// In a real implementation, these would need additional Railway endpoints
-async function mockXeroAPICall(endpoint, description) {
-  return {
-    error: "Deep analysis requires additional Railway API endpoints",
-    suggested_endpoint: endpoint,
-    description: description,
-    note: "These tools would require your Railway server to implement additional Xero API endpoints for granular transaction data",
-  };
-}
-
 const server = new Server(
   {
     name: "rac-xero-enhanced",
@@ -704,7 +693,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return { content: [{ type: "text", text: result }] };
     }
 
-    // NEW ANALYTICAL TOOLS (using mock data for now - would require additional Railway endpoints)
+    // FIXED ANALYTICAL TOOLS - Replace lines 696-1051 with this code
 
     if (name === "get_journal_entries") {
       const { tenantId, organizationName, dateFrom, dateTo, accountName } =
@@ -715,32 +704,53 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         actualTenantId = await getTenantIdFromName(organizationName);
       }
 
-      const mockResult = await mockXeroAPICall(
-        `/api/journal-entries/${actualTenantId}`,
-        "Retrieve manual journal entries to identify unusual postings"
+      // Build query parameters
+      let queryParams = "";
+      if (dateFrom || dateTo || accountName) {
+        const params = new URLSearchParams();
+        if (dateFrom) params.append("dateFrom", dateFrom);
+        if (dateTo) params.append("dateTo", dateTo);
+        if (accountName) params.append("accountName", accountName);
+        queryParams = "?" + params.toString();
+      }
+
+      // Call your actual Railway endpoint
+      const journalData = await callRailwayAPI(
+        `/api/journal-entries/${actualTenantId}${queryParams}`
       );
 
-      return {
-        content: [
-          {
-            type: "text",
-            text:
-              `📝 JOURNAL ENTRIES ANALYSIS\n\n` +
-              `Organization: ${organizationName || actualTenantId}\n` +
-              `Date Range: ${dateFrom || "Last 30 days"} to ${
-                dateTo || "Today"
-              }\n\n` +
-              `❌ ${mockResult.error}\n\n` +
-              `To implement this feature, add this endpoint to your Railway server:\n` +
-              `${mockResult.suggested_endpoint}\n\n` +
-              `This would call Xero's ManualJournals API to find:\n` +
-              `• Large unusual journal entries\n` +
-              `• Entries affecting equity accounts\n` +
-              `• Unbalanced manual postings\n` +
-              `• Entries with unusual account combinations`,
-          },
-        ],
-      };
+      let result = `📝 JOURNAL ENTRIES ANALYSIS\n\n`;
+      result += `Organization: ${journalData.tenantName}\n`;
+      result += `Date Range: ${journalData.dateFrom} to ${journalData.dateTo}\n`;
+      result += `Total Journals: ${journalData.totalJournals}\n`;
+      result += `Suspicious Journals: ${journalData.suspiciousJournals}\n`;
+      result += `Unbalanced Journals: ${journalData.unbalancedJournals}\n\n`;
+
+      if (journalData.journals && journalData.journals.length > 0) {
+        result += `🚨 SUSPICIOUS ENTRIES:\n`;
+        journalData.journals
+          .filter((j) => j.isSuspicious)
+          .slice(0, 10)
+          .forEach((journal) => {
+            result += `\n• Journal #${journal.journalNumber} (${journal.date})\n`;
+            result += `  Reference: ${journal.reference || "None"}\n`;
+            result += `  Status: ${journal.status}\n`;
+            result += `  Amount: $${Math.max(
+              journal.totalDebits,
+              journal.totalCredits
+            ).toLocaleString()}\n`;
+            if (!journal.isBalanced) {
+              result += `  ❌ UNBALANCED by $${Math.abs(
+                journal.imbalanceAmount
+              ).toLocaleString()}\n`;
+            }
+            if (journal.flags && journal.flags.affectsFutureFund) {
+              result += `  🎯 AFFECTS FUTURE FUND\n`;
+            }
+          });
+      }
+
+      return { content: [{ type: "text", text: result }] };
     }
 
     if (name === "analyze_equity_movements") {
@@ -752,27 +762,57 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         actualTenantId = await getTenantIdFromName(organizationName);
       }
 
-      return {
-        content: [
-          {
-            type: "text",
-            text:
-              `📈 EQUITY MOVEMENTS ANALYSIS\n\n` +
-              `Organization: ${organizationName || actualTenantId}\n` +
-              `Focus Account: ${equityAccountName || "All Equity Accounts"}\n` +
-              `Period: Last ${monthsBack || 12} months\n\n` +
-              `❌ This deep analysis requires additional Railway API endpoints.\n\n` +
-              `ANALYSIS FOCUS for Future Fund Charitable Payment Reserve:\n` +
-              `• When was the $29.5M entry made?\n` +
-              `• What was the offsetting debit entry?\n` +
-              `• Who created this journal entry?\n` +
-              `• Was this a data migration or manual entry?\n\n` +
-              `To implement: Add endpoint /api/equity-analysis/${actualTenantId}\n` +
-              `This would track equity account movements over time and identify\n` +
-              `the specific transactions that created large equity balances.`,
-          },
-        ],
-      };
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (equityAccountName)
+        params.append("equityAccountName", equityAccountName);
+      if (monthsBack) params.append("monthsBack", monthsBack.toString());
+      const queryParams = params.toString() ? "?" + params.toString() : "";
+
+      // Call your actual Railway endpoint
+      const equityData = await callRailwayAPI(
+        `/api/equity-analysis/${actualTenantId}${queryParams}`
+      );
+
+      let result = `📈 EQUITY MOVEMENTS ANALYSIS\n\n`;
+      result += `Organization: ${equityData.tenantName}\n`;
+      result += `Search Term: ${equityData.searchTerm}\n`;
+      result += `Period: ${equityData.monthsAnalyzed} months\n`;
+      result += `Accounts Found: ${equityData.accountsFound}\n\n`;
+
+      if (equityData.accounts && equityData.accounts.length > 0) {
+        equityData.accounts.forEach((account) => {
+          result += `💰 ${account.accountName} (${account.accountCode})\n`;
+          result += `  Current Balance: $${
+            account.currentBalance?.toLocaleString() || 0
+          }\n`;
+          result += `  Transaction Count: ${account.transactionCount || 0}\n`;
+          if (account.totalMovements) {
+            result += `  Total Movements: $${account.totalMovements.toLocaleString()}\n`;
+          }
+          if (account.transactions && account.transactions.length > 0) {
+            result += `  Recent Transactions:\n`;
+            account.transactions.slice(0, 5).forEach((trans) => {
+              result += `    • ${trans.date}: ${
+                trans.reference || "No reference"
+              }\n`;
+              trans.relevantLines.forEach((line) => {
+                result += `      ${
+                  line.description
+                }: $${line.lineAmount.toLocaleString()}\n`;
+              });
+            });
+          }
+          if (account.error) {
+            result += `  ❌ Error: ${account.error}\n`;
+          }
+          result += `\n`;
+        });
+      } else {
+        result += `No equity accounts found matching "${equityData.searchTerm}"\n`;
+      }
+
+      return { content: [{ type: "text", text: result }] };
     }
 
     if (name === "get_account_history") {
@@ -784,28 +824,55 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         actualTenantId = await getTenantIdFromName(organizationName);
       }
 
-      return {
-        content: [
-          {
-            type: "text",
-            text:
-              `📚 ACCOUNT HISTORY ANALYSIS\n\n` +
-              `Organization: ${organizationName || actualTenantId}\n` +
-              `Account: ${accountName}\n` +
-              `Period: ${dateFrom || "All time"} to ${dateTo || "Today"}\n\n` +
-              `❌ Requires additional Railway endpoint implementation.\n\n` +
-              `For the Future Fund account, this would show:\n` +
-              `• Every transaction affecting this account\n` +
-              `• Source documents (invoices, journal entries)\n` +
-              `• Running balance over time\n` +
-              `• Counterparty accounts for each transaction\n\n` +
-              `Implementation: /api/account-history/${actualTenantId}/${encodeURIComponent(
-                accountName
-              )}\n` +
-              `This would use Xero's Accounts/{AccountID}/Transactions API`,
-          },
-        ],
-      };
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      const queryParams = params.toString() ? "?" + params.toString() : "";
+
+      // Call your actual Railway endpoint
+      const accountData = await callRailwayAPI(
+        `/api/account-history/${actualTenantId}/${encodeURIComponent(
+          accountName
+        )}${queryParams}`
+      );
+
+      let result = `📚 ACCOUNT HISTORY ANALYSIS\n\n`;
+      result += `Organization: ${accountData.tenantName}\n`;
+      result += `Account: ${accountData.account.accountName} (${accountData.account.accountCode})\n`;
+      result += `Account Type: ${accountData.account.accountType}\n`;
+      result += `Current Balance: $${accountData.account.currentBalance.toLocaleString()}\n`;
+      result += `Period: ${accountData.dateFrom} to ${accountData.dateTo}\n`;
+      result += `Transaction Count: ${accountData.transactionCount}\n`;
+      result += `Total Movement: $${accountData.totalMovement.toLocaleString()}\n\n`;
+
+      if (accountData.transactions && accountData.transactions.length > 0) {
+        result += `📋 TRANSACTION HISTORY:\n`;
+        accountData.transactions.slice(0, 20).forEach((trans) => {
+          result += `\n• ${trans.date} - Journal #${trans.journalNumber}\n`;
+          result += `  Reference: ${trans.reference || "None"}\n`;
+          result += `  Net Amount: $${trans.netAmount.toLocaleString()}\n`;
+          result += `  Status: ${trans.status}\n`;
+          if (trans.description) {
+            result += `  Description: ${trans.description}\n`;
+          }
+          trans.relevantLines.forEach((line) => {
+            result += `    ${
+              line.description
+            }: $${line.lineAmount.toLocaleString()}\n`;
+          });
+        });
+
+        if (accountData.transactions.length > 20) {
+          result += `\n... and ${
+            accountData.transactions.length - 20
+          } more transactions\n`;
+        }
+      } else {
+        result += `No transactions found for this account in the specified period.\n`;
+      }
+
+      return { content: [{ type: "text", text: result }] };
     }
 
     if (name === "check_bank_reconciliation") {
@@ -869,29 +936,75 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         actualTenantId = await getTenantIdFromName(organizationName);
       }
 
-      return {
-        content: [
-          {
-            type: "text",
-            text:
-              `🔍 UNBALANCED TRANSACTIONS ANALYSIS\n\n` +
-              `Organization: ${organizationName || actualTenantId}\n` +
-              `Minimum Amount: $${(
-                minimumAmount || 10000
-              ).toLocaleString()}\n` +
-              `Date Range: ${dateRange || "All time"}\n\n` +
-              `❌ This requires additional Railway endpoint implementation.\n\n` +
-              `TARGET: Find the transaction that created the $29.5M imbalance\n\n` +
-              `This analysis would:\n` +
-              `• Search for large journal entries (>$1M)\n` +
-              `• Identify entries with only one side (debit without credit, or vice versa)\n` +
-              `• Find entries with unusual account combinations\n` +
-              `• Check for suspended or incomplete transactions\n\n` +
-              `Implementation: /api/find-unbalanced/${actualTenantId}\n` +
-              `Would use Xero's Journal API with filtering for large amounts`,
-          },
-        ],
-      };
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (minimumAmount)
+        params.append("minimumAmount", minimumAmount.toString());
+      if (dateRange) params.append("dateRange", dateRange);
+      const queryParams = params.toString() ? "?" + params.toString() : "";
+
+      // Call your actual Railway endpoint
+      const unbalancedData = await callRailwayAPI(
+        `/api/find-unbalanced/${actualTenantId}${queryParams}`
+      );
+
+      let result = `🔍 UNBALANCED TRANSACTIONS ANALYSIS\n\n`;
+      result += `Organization: ${unbalancedData.tenantName}\n`;
+      result += `Minimum Amount: $${unbalancedData.criteria.minimumAmount.toLocaleString()}\n`;
+      result += `Date Range: ${unbalancedData.criteria.dateRange} (from ${unbalancedData.criteria.startDate})\n\n`;
+
+      result += `📊 SUMMARY:\n`;
+      result += `• Total Journals Analyzed: ${unbalancedData.summary.totalJournalsAnalyzed}\n`;
+      result += `• Unbalanced Found: ${unbalancedData.summary.unbalancedFound}\n`;
+      result += `• Large Amount Found: ${unbalancedData.summary.largeAmountFound}\n`;
+      result += `• Critical Issues: ${unbalancedData.summary.criticalIssues}\n`;
+      result += `• Future Fund Related: ${unbalancedData.summary.futureFundRelated}\n\n`;
+
+      if (
+        unbalancedData.transactions &&
+        unbalancedData.transactions.length > 0
+      ) {
+        result += `🚨 PROBLEMATIC TRANSACTIONS:\n`;
+        unbalancedData.transactions.slice(0, 15).forEach((trans) => {
+          result += `\n• Journal #${trans.journalNumber} (${trans.date})\n`;
+          result += `  Reference: ${trans.reference || "None"}\n`;
+          result += `  Status: ${trans.status}\n`;
+          result += `  Severity: ${trans.severity}\n`;
+          result += `  Debits: $${trans.totalDebits.toLocaleString()}\n`;
+          result += `  Credits: $${trans.totalCredits.toLocaleString()}\n`;
+
+          if (trans.isUnbalanced) {
+            result += `  ❌ IMBALANCE: $${Math.abs(
+              trans.imbalanceAmount
+            ).toLocaleString()}\n`;
+          }
+
+          if (trans.flags) {
+            const flags = [];
+            if (trans.flags.largeAmount) flags.push("LARGE AMOUNT");
+            if (trans.flags.unbalanced) flags.push("UNBALANCED");
+            if (trans.flags.singleSided) flags.push("SINGLE-SIDED");
+            if (trans.flags.affectsFutureFund) flags.push("FUTURE FUND");
+            if (flags.length > 0) {
+              result += `  🚩 FLAGS: ${flags.join(", ")}\n`;
+            }
+          }
+
+          // Show account lines for Future Fund related entries
+          if (trans.flags && trans.flags.affectsFutureFund) {
+            result += `  📝 ACCOUNT LINES:\n`;
+            trans.journalLines.forEach((line) => {
+              result += `    ${
+                line.accountName
+              }: $${line.lineAmount.toLocaleString()}\n`;
+            });
+          }
+        });
+      } else {
+        result += `No unbalanced transactions found matching the criteria.\n`;
+      }
+
+      return { content: [{ type: "text", text: result }] };
     }
 
     if (name === "get_chart_of_accounts") {
@@ -902,30 +1015,63 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         actualTenantId = await getTenantIdFromName(organizationName);
       }
 
-      return {
-        content: [
-          {
-            type: "text",
-            text:
-              `📋 CHART OF ACCOUNTS ANALYSIS\n\n` +
-              `Organization: ${organizationName || actualTenantId}\n` +
-              `Filter: ${accountType || "All account types"}\n` +
-              `Include Archived: ${includeArchived || false}\n\n` +
-              `❌ This requires additional Railway endpoint implementation.\n\n` +
-              `This would retrieve the complete chart of accounts from Xero\n` +
-              `and identify accounts that might be causing issues:\n\n` +
-              `• Unusual account names or codes\n` +
-              `• Accounts with abnormally large balances\n` +
-              `• Equity accounts that shouldn't exist\n` +
-              `• Accounts with zero activity but large balances\n\n` +
-              `SPECIFIC TARGET: Analyze the "Future Fund Charitable Payment Reserve"\n` +
-              `• Is this a standard account type?\n` +
-              `• When was it created?\n` +
-              `• What's its intended purpose?\n\n` +
-              `Implementation: /api/chart-of-accounts/${actualTenantId}`,
-          },
-        ],
-      };
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (accountType) params.append("accountType", accountType);
+      if (includeArchived)
+        params.append("includeArchived", includeArchived.toString());
+      const queryParams = params.toString() ? "?" + params.toString() : "";
+
+      // Call your actual Railway endpoint
+      const chartData = await callRailwayAPI(
+        `/api/chart-of-accounts/${actualTenantId}${queryParams}`
+      );
+
+      let result = `📋 CHART OF ACCOUNTS ANALYSIS\n\n`;
+      result += `Organization: ${chartData.tenantName}\n`;
+      result += `Filter: ${chartData.filters.accountType}\n`;
+      result += `Include Archived: ${chartData.filters.includeArchived}\n\n`;
+
+      result += `📊 SUMMARY:\n`;
+      result += `• Total Accounts: ${chartData.summary.totalAccounts}\n`;
+      result += `• Active Accounts: ${chartData.summary.activeAccounts}\n`;
+      result += `• Archived Accounts: ${chartData.summary.archivedAccounts}\n`;
+      result += `• Large Balance Accounts: ${chartData.summary.largeBalanceAccounts}\n`;
+      result += `• Unusual Equity Accounts: ${chartData.summary.unusualEquityAccounts}\n\n`;
+
+      result += `📈 ACCOUNTS BY TYPE:\n`;
+      Object.entries(chartData.summary.accountsByType).forEach(
+        ([type, count]) => {
+          result += `• ${type}: ${count}\n`;
+        }
+      );
+      result += `\n`;
+
+      if (chartData.flaggedAccounts && chartData.flaggedAccounts.length > 0) {
+        result += `🚩 FLAGGED ACCOUNTS:\n`;
+        chartData.flaggedAccounts.forEach((account) => {
+          result += `\n• ${account.name} (${account.code})\n`;
+          result += `  Type: ${account.type}\n`;
+          result += `  Balance: $${account.currentBalance.toLocaleString()}\n`;
+          result += `  Status: ${account.status}\n`;
+
+          const flags = [];
+          if (account.flags.largeBalance) flags.push("LARGE BALANCE");
+          if (account.flags.unusualEquity) flags.push("UNUSUAL EQUITY");
+          if (account.flags.negativeAsset) flags.push("NEGATIVE ASSET");
+          if (account.flags.positiveExpense) flags.push("POSITIVE EXPENSE");
+
+          if (flags.length > 0) {
+            result += `  🚩 FLAGS: ${flags.join(", ")}\n`;
+          }
+
+          if (account.description) {
+            result += `  Description: ${account.description}\n`;
+          }
+        });
+      }
+
+      return { content: [{ type: "text", text: result }] };
     }
 
     if (name === "investigate_imbalance") {
@@ -982,10 +1128,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           result += `3. An incomplete transaction or suspended entry\n\n`;
 
           result += `💡 INVESTIGATION RECOMMENDATIONS:\n`;
-          result += `1. Review journal entries containing "Future Fund" account\n`;
-          result += `2. Check if there's a corresponding asset that should balance this equity\n`;
-          result += `3. Verify with Financial Controller Matt about the purpose of this account\n`;
-          result += `4. Look for any matching debit entries that may have been posted to wrong accounts\n\n`;
+          result += `1. Use get_journal_entries to find entries affecting Future Fund\n`;
+          result += `2. Use analyze_equity_movements to track when this account was created\n`;
+          result += `3. Use find_unbalanced_transactions to identify the problematic entry\n`;
+          result += `4. Use get_account_history for detailed Future Fund transaction history\n\n`;
         } else {
           result += `• No obvious single account causing the imbalance\n`;
           result += `• The imbalance may be spread across multiple accounts\n\n`;
@@ -998,10 +1144,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result += `• Compliance with accounting standards may be compromised\n\n`;
 
         result += `🚀 NEXT STEPS:\n`;
-        result += `1. Implement additional MCP tools for transaction-level analysis\n`;
-        result += `2. Consult with Financial Controller Matt about the Future Fund account\n`;
-        result += `3. Prepare correcting journal entries once root cause is identified\n`;
-        result += `4. Establish controls to prevent similar issues in the future\n`;
+        result += `1. Run: get_journal_entries with accountName "Future Fund"\n`;
+        result += `2. Run: find_unbalanced_transactions with minimumAmount 1000000\n`;
+        result += `3. Run: get_account_history for "Future Fund Charitable Payment Reserve"\n`;
+        result += `4. Consult with Financial Controller about findings\n`;
       } else {
         result += `• Books are properly balanced - no investigation needed\n`;
       }
@@ -1018,30 +1164,79 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         actualTenantId = await getTenantIdFromName(organizationName);
       }
 
-      return {
-        content: [
-          {
-            type: "text",
-            text:
-              `📊 PERIOD COMPARISON ANALYSIS\n\n` +
-              `Organization: ${organizationName || actualTenantId}\n` +
-              `From Date: ${fromDate}\n` +
-              `To Date: ${toDate || "Today"}\n` +
-              `Account Filter: ${accountFilter || "All accounts"}\n\n` +
-              `❌ This requires additional Railway endpoint implementation.\n\n` +
-              `PURPOSE: Identify when the $29.5M imbalance was introduced\n\n` +
-              `This analysis would compare trial balances between periods to:\n` +
-              `• Show balance changes for each account\n` +
-              `• Identify the period when imbalances first appeared\n` +
-              `• Highlight accounts with unusual movement patterns\n` +
-              `• Track the Future Fund account creation/modification dates\n\n` +
-              `STRATEGY: Run monthly comparisons to pinpoint when\n` +
-              `the Future Fund Charitable Payment Reserve was created.\n\n` +
-              `Implementation: /api/compare-periods/${actualTenantId}\n` +
-              `Would retrieve trial balances for multiple dates and compare`,
-          },
-        ],
-      };
+      // Build query parameters
+      const params = new URLSearchParams();
+      params.append("fromDate", fromDate);
+      if (toDate) params.append("toDate", toDate);
+      if (accountFilter) params.append("accountFilter", accountFilter);
+      const queryParams = "?" + params.toString();
+
+      // Call your actual Railway endpoint
+      const comparisonData = await callRailwayAPI(
+        `/api/compare-periods/${actualTenantId}${queryParams}`
+      );
+
+      let result = `📊 PERIOD COMPARISON ANALYSIS\n\n`;
+      result += `Organization: ${comparisonData.tenantName}\n`;
+      result += `From Date: ${comparisonData.fromDate}\n`;
+      result += `To Date: ${comparisonData.toDate}\n\n`;
+
+      result += `📈 PERIOD COMPARISON:\n`;
+      result += `FROM PERIOD (${comparisonData.fromDate}):\n`;
+      result += `• Assets: $${comparisonData.fromPeriod.totalAssets.toLocaleString()}\n`;
+      result += `• Liabilities: $${comparisonData.fromPeriod.totalLiabilities.toLocaleString()}\n`;
+      result += `• Equity: $${comparisonData.fromPeriod.totalEquity.toLocaleString()}\n`;
+      result += `• Balanced: ${
+        comparisonData.fromPeriod.balanced ? "YES" : "NO"
+      }\n\n`;
+
+      result += `TO PERIOD (${comparisonData.toDate}):\n`;
+      result += `• Assets: $${comparisonData.toPeriod.totalAssets.toLocaleString()}\n`;
+      result += `• Liabilities: $${comparisonData.toPeriod.totalLiabilities.toLocaleString()}\n`;
+      result += `• Equity: $${comparisonData.toPeriod.totalEquity.toLocaleString()}\n`;
+      result += `• Balanced: ${
+        comparisonData.toPeriod.balanced ? "YES" : "NO"
+      }\n\n`;
+
+      result += `📊 CHANGES:\n`;
+      result += `• Assets Change: $${comparisonData.changes.assetsChange.toLocaleString()}\n`;
+      result += `• Liabilities Change: $${comparisonData.changes.liabilitiesChange.toLocaleString()}\n`;
+      result += `• Equity Change: $${comparisonData.changes.equityChange.toLocaleString()}\n`;
+
+      if (comparisonData.changes.balanceStatusChange) {
+        result += `• ⚠️ BALANCE STATUS CHANGED!\n`;
+      }
+      result += `\n`;
+
+      if (
+        comparisonData.significantChanges &&
+        comparisonData.significantChanges.length > 0
+      ) {
+        result += `🚨 SIGNIFICANT ACCOUNT CHANGES (>$100k):\n`;
+        comparisonData.significantChanges.forEach((change) => {
+          result += `\n• ${change.accountName}\n`;
+          result += `  From: $${change.fromBalance.toLocaleString()}\n`;
+          result += `  To: $${change.toBalance.toLocaleString()}\n`;
+          result += `  Change: $${change.change.toLocaleString()} (${
+            change.changeType
+          })\n`;
+        });
+      }
+
+      if (
+        comparisonData.accountChanges &&
+        comparisonData.accountChanges.length >
+          comparisonData.significantChanges.length
+      ) {
+        result += `\n📋 ALL ACCOUNT CHANGES:\n`;
+        comparisonData.accountChanges.slice(0, 20).forEach((change) => {
+          result += `• ${
+            change.accountName
+          }: $${change.change.toLocaleString()} (${change.changeType})\n`;
+        });
+      }
+
+      return { content: [{ type: "text", text: result }] };
     }
 
     throw new Error(`Unknown tool: ${name}`);
