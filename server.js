@@ -10,8 +10,13 @@ import fetch from "node-fetch";
 import pkg from "xero-node";
 const { XeroAccessToken, XeroIdToken, XeroClient } = pkg;
 import { Pool } from "pg";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3000;
