@@ -7,7 +7,8 @@ import dotenv from "dotenv";
 import express from "express";
 import path from "path";
 import fetch from "node-fetch";
-import { XeroAccessToken, XeroIdToken, XeroClient } from "xero-node";
+import pkg from "xero-node";
+const { XeroAccessToken, XeroIdToken, XeroClient } = pkg;
 import { Pool } from "pg";
 
 dotenv.config();
