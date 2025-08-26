@@ -1082,664 +1082,6 @@ async function initializeAutoRefresh() {
   }
 }
 
-// Update your existing startServer function to call initializeAutoRefresh()
-// Replace: await initializeDatabase();
-// With: await initializeAutoRefresh();
-
-// Health check endpoint
-app.get("/api/health", async (req, res) => {
-  try {
-    // Test database connection
-    const dbTest = await pool.query("SELECT NOW()");
-    const xeroConnections = await tokenStorage.getAllXeroConnections();
-
-    res.json({
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-      database: "connected",
-      xeroConnections: xeroConnections.length,
-      uptime: process.uptime(),
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: "unhealthy",
-      error: error.message,
-      timestamp: new Date().toISOString(),
-    });
-  }
-});
-
-// DATABASE DEBUG endpoint - Add this to see what's stored
-app.get("/api/debug/database", async (req, res) => {
-  try {
-    console.error("🔍 DEBUG: Checking database contents...");
-
-    // Get all tokens from database
-    const result = await pool.query(
-      "SELECT tenant_id, tenant_name, provider, expires_at, last_seen FROM tokens ORDER BY last_seen DESC"
-    );
-
-    const now = Date.now();
-    const tokens = result.rows.map((row) => ({
-      tenant_id: row.tenant_id,
-      tenant_name: row.tenant_name,
-      provider: row.provider,
-      expired: now > row.expires_at,
-      expires_in_minutes: Math.floor((row.expires_at - now) / (1000 * 60)),
-      last_seen: row.last_seen,
-    }));
-
-    console.error("✅ DEBUG: Database tokens:", tokens);
-
-    res.json({
-      totalTokens: tokens.length,
-      tokens: tokens,
-      currentTime: new Date().toISOString(),
-      currentTimestamp: now,
-    });
-  } catch (error) {
-    console.error("❌ DEBUG: Database error:", error);
-    res.status(500).json({
-      error: "Database query failed",
-      details: error.message,
-    });
-  }
-});
-
-// Serve login manager as default
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "login-manager.html"));
-});
-
-// Serve main dashboard
-app.get("/dashboard", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-// ==============================================================================
-// ENHANCED TRIAL BALANCE ENDPOINTS WITH DATE SUPPORT
-// ==============================================================================
-
-// Enhanced Individual Trial Balance with Date Support
-app.get("/api/trial-balance/:tenantId", async (req, res) => {
-  try {
-    console.log(
-      `🔍 Getting PROPER trial balance for tenant: ${req.params.tenantId}`
-    );
-
-    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
-    if (!tokenData) {
-      return res
-        .status(404)
-        .json({ error: "Tenant not found or token expired" });
-    }
-
-    await xero.setTokenSet(tokenData);
-
-    // Get date from query parameter or use today
-    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
-    console.log(`📅 Report date: ${reportDate}`);
-
-    // Get Balance Sheet report for specified date
-    const balanceSheetResponse = await xero.accountingApi.getReportBalanceSheet(
-      req.params.tenantId,
-      reportDate
-    );
-
-    const balanceSheetRows = balanceSheetResponse.body.reports?.[0]?.rows || [];
-    console.log(
-      `📊 Processing ${balanceSheetRows.length} Balance Sheet sections for ${reportDate}`
-    );
-
-    // Initialize trial balance structure
-    const trialBalance = {
-      assets: [],
-      liabilities: [],
-      equity: [],
-      revenue: [],
-      expenses: [],
-      totals: {
-        totalDebits: 0,
-        totalCredits: 0,
-        totalAssets: 0,
-        totalLiabilities: 0,
-        totalEquity: 0,
-        totalRevenue: 0,
-        totalExpenses: 0,
-      },
-    };
-
-    let processedAccounts = 0;
-
-    // Process each Balance Sheet section
-    balanceSheetRows.forEach((section, sectionIndex) => {
-      if (section.rowType === "Section" && section.rows && section.title) {
-        const sectionTitle = section.title.toLowerCase();
-        console.log(
-          `🔄 Processing section: ${section.title} (${section.rows.length} rows)`
-        );
-
-        section.rows.forEach((row) => {
-          if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
-            const accountName = row.cells[0]?.value || "";
-            const currentBalance = parseFloat(row.cells[1]?.value || 0);
-
-            if (
-              accountName.toLowerCase().includes("total") ||
-              currentBalance === 0
-            ) {
-              return;
-            }
-
-            processedAccounts++;
-            console.log(
-              `📈 Processing: ${accountName} = ${currentBalance.toLocaleString()}`
-            );
-
-            const accountInfo = {
-              name: accountName,
-              balance: currentBalance,
-              debit: 0,
-              credit: 0,
-              section: section.title,
-            };
-
-            // Account classification logic
-            if (
-              sectionTitle.includes("bank") ||
-              sectionTitle.includes("asset")
-            ) {
-              accountInfo.debit = currentBalance >= 0 ? currentBalance : 0;
-              accountInfo.credit =
-                currentBalance < 0 ? Math.abs(currentBalance) : 0;
-              trialBalance.assets.push(accountInfo);
-              trialBalance.totals.totalAssets += currentBalance;
-            } else if (sectionTitle.includes("liabilit")) {
-              accountInfo.credit = currentBalance >= 0 ? currentBalance : 0;
-              accountInfo.debit =
-                currentBalance < 0 ? Math.abs(currentBalance) : 0;
-              trialBalance.liabilities.push(accountInfo);
-              trialBalance.totals.totalLiabilities += currentBalance;
-            } else if (sectionTitle.includes("equity")) {
-              accountInfo.credit = currentBalance >= 0 ? currentBalance : 0;
-              accountInfo.debit =
-                currentBalance < 0 ? Math.abs(currentBalance) : 0;
-              trialBalance.equity.push(accountInfo);
-              trialBalance.totals.totalEquity += currentBalance;
-            }
-
-            trialBalance.totals.totalDebits += accountInfo.debit;
-            trialBalance.totals.totalCredits += accountInfo.credit;
-          }
-        });
-      }
-    });
-
-    // Get P&L data for the same date
-    try {
-      console.error("🔄 Fetching P&L report for Revenue/Expenses...");
-      const profitLossResponse =
-        await xero.accountingApi.getReportProfitAndLoss(
-          req.params.tenantId,
-          reportDate,
-          reportDate
-        );
-
-      const plRows = profitLossResponse.body.reports?.[0]?.rows || [];
-
-      plRows.forEach((section) => {
-        if (section.rowType === "Section" && section.rows && section.title) {
-          const sectionTitle = section.title.toLowerCase();
-
-          section.rows.forEach((row) => {
-            if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
-              const accountName = row.cells[0]?.value || "";
-              const currentAmount = parseFloat(row.cells[1]?.value || 0);
-
-              if (
-                accountName.toLowerCase().includes("total") ||
-                currentAmount === 0
-              ) {
-                return;
-              }
-
-              processedAccounts++;
-              const accountInfo = {
-                name: accountName,
-                balance: currentAmount,
-                debit: 0,
-                credit: 0,
-                section: section.title,
-              };
-
-              if (
-                sectionTitle.includes("income") ||
-                sectionTitle.includes("revenue")
-              ) {
-                accountInfo.credit = Math.abs(currentAmount);
-                trialBalance.revenue.push(accountInfo);
-                trialBalance.totals.totalRevenue += Math.abs(currentAmount);
-              } else if (
-                sectionTitle.includes("expense") ||
-                sectionTitle.includes("cost")
-              ) {
-                accountInfo.debit = Math.abs(currentAmount);
-                trialBalance.expenses.push(accountInfo);
-                trialBalance.totals.totalExpenses += Math.abs(currentAmount);
-              }
-
-              trialBalance.totals.totalDebits += accountInfo.debit;
-              trialBalance.totals.totalCredits += accountInfo.credit;
-            }
-          });
-        }
-      });
-    } catch (plError) {
-      console.errorlog("⚠️ Could not fetch P&L data:", plError.message);
-    }
-
-    // Sort and calculate balance check
-    ["assets", "liabilities", "equity", "revenue", "expenses"].forEach(
-      (category) => {
-        trialBalance[category].sort((a, b) => a.name.localeCompare(b.name));
-      }
-    );
-
-    const balanceCheck = {
-      debitsEqualCredits:
-        Math.abs(
-          trialBalance.totals.totalDebits - trialBalance.totals.totalCredits
-        ) < 0.01,
-      difference:
-        trialBalance.totals.totalDebits - trialBalance.totals.totalCredits,
-      accountingEquation: {
-        assets: trialBalance.totals.totalAssets,
-        liabilitiesAndEquity:
-          trialBalance.totals.totalLiabilities +
-          trialBalance.totals.totalEquity,
-        balanced:
-          Math.abs(
-            trialBalance.totals.totalAssets -
-              (trialBalance.totals.totalLiabilities +
-                trialBalance.totals.totalEquity)
-          ) < 0.01,
-      },
-    };
-
-    console.log(
-      `✅ PROPER Trial balance completed for ${tokenData.tenantName} as at ${reportDate}:`,
-      {
-        processedAccounts: processedAccounts,
-        totalAssets: trialBalance.totals.totalAssets,
-        totalLiabilities: trialBalance.totals.totalLiabilities,
-        totalEquity: trialBalance.totals.totalEquity,
-        balanced: balanceCheck.debitsEqualCredits,
-      }
-    );
-
-    res.json({
-      tenantId: req.params.tenantId,
-      tenantName: tokenData.tenantName,
-      trialBalance,
-      balanceCheck,
-      generatedAt: new Date().toISOString(),
-      reportDate: reportDate,
-      processedAccounts: processedAccounts,
-      dataSource: "Balance Sheet + P&L Reports",
-    });
-  } catch (error) {
-    console.error("❌ Error getting PROPER trial balance:", error);
-    res.status(500).json({
-      error: "Failed to get trial balance",
-      details: error.message,
-      tenantId: req.params.tenantId,
-    });
-  }
-});
-
-// Enhanced Consolidated Trial Balance with Date Support
-app.get("/api/consolidated-trial-balance", async (req, res) => {
-  try {
-    // Get date from query parameter or use today
-    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
-    console.log(
-      `🔄 Loading HIERARCHICAL consolidated trial balance for ${reportDate}...`
-    );
-
-    const xeroConnections = await tokenStorage.getAllXeroConnections();
-    const connectedXeroEntities = xeroConnections.filter(
-      (conn) => conn.connected
-    );
-
-    console.log(`🏢 Found ${connectedXeroEntities.length} connected entities`);
-
-    const hierarchicalTrialBalance = {
-      consolidated: {
-        totals: {
-          totalDebits: 0,
-          totalCredits: 0,
-          totalAssets: 0,
-          totalLiabilities: 0,
-          totalEquity: 0,
-          totalRevenue: 0,
-          totalExpenses: 0,
-        },
-        balanceCheck: {
-          debitsEqualCredits: false,
-          difference: 0,
-          accountingEquation: {
-            assets: 0,
-            liabilitiesAndEquity: 0,
-            balanced: false,
-          },
-        },
-      },
-      companies: [],
-      reportDate: reportDate,
-      generatedAt: new Date().toISOString(),
-    };
-
-    // Process each entity with the specified date
-    for (const connection of connectedXeroEntities) {
-      try {
-        console.log(
-          `🔄 Processing entity: ${connection.tenantName} for ${reportDate}`
-        );
-
-        const trialBalanceResponse = await fetch(
-          `${req.protocol}://${req.get("host")}/api/trial-balance/${
-            connection.tenantId
-          }?date=${reportDate}`
-        );
-
-        if (trialBalanceResponse.ok) {
-          const entityTrialBalance = await trialBalanceResponse.json();
-
-          // Create hierarchical company structure
-          const companyData = {
-            tenantId: connection.tenantId,
-            tenantName: connection.tenantName,
-            balanceCheck: entityTrialBalance.balanceCheck,
-            totals: entityTrialBalance.trialBalance.totals,
-            reportDate: entityTrialBalance.reportDate,
-            sections: {
-              assets: {
-                title: "Assets",
-                total: entityTrialBalance.trialBalance.totals.totalAssets,
-                accounts: entityTrialBalance.trialBalance.assets.map(
-                  (account) => ({
-                    name: account.name,
-                    debit: account.debit,
-                    credit: account.credit,
-                    balance: account.balance,
-                    section: account.section || "Assets",
-                  })
-                ),
-              },
-              liabilities: {
-                title: "Liabilities",
-                total: entityTrialBalance.trialBalance.totals.totalLiabilities,
-                accounts: entityTrialBalance.trialBalance.liabilities.map(
-                  (account) => ({
-                    name: account.name,
-                    debit: account.debit,
-                    credit: account.credit,
-                    balance: account.balance,
-                    section: account.section || "Liabilities",
-                  })
-                ),
-              },
-              equity: {
-                title: "Equity",
-                total: entityTrialBalance.trialBalance.totals.totalEquity,
-                accounts: entityTrialBalance.trialBalance.equity.map(
-                  (account) => ({
-                    name: account.name,
-                    debit: account.debit,
-                    credit: account.credit,
-                    balance: account.balance,
-                    section: account.section || "Equity",
-                  })
-                ),
-              },
-              revenue: {
-                title: "Revenue",
-                total: entityTrialBalance.trialBalance.totals.totalRevenue,
-                accounts: entityTrialBalance.trialBalance.revenue.map(
-                  (account) => ({
-                    name: account.name,
-                    debit: account.debit,
-                    credit: account.credit,
-                    balance: account.balance,
-                    section: account.section || "Revenue",
-                  })
-                ),
-              },
-              expenses: {
-                title: "Expenses",
-                total: entityTrialBalance.trialBalance.totals.totalExpenses,
-                accounts: entityTrialBalance.trialBalance.expenses.map(
-                  (account) => ({
-                    name: account.name,
-                    debit: account.debit,
-                    credit: account.credit,
-                    balance: account.balance,
-                    section: account.section || "Expenses",
-                  })
-                ),
-              },
-            },
-            accountCounts: {
-              totalAccounts: Object.values({
-                assets: entityTrialBalance.trialBalance.assets,
-                liabilities: entityTrialBalance.trialBalance.liabilities,
-                equity: entityTrialBalance.trialBalance.equity,
-                revenue: entityTrialBalance.trialBalance.revenue,
-                expenses: entityTrialBalance.trialBalance.expenses,
-              }).reduce((sum, accounts) => sum + accounts.length, 0),
-              assetAccounts: entityTrialBalance.trialBalance.assets.length,
-              liabilityAccounts:
-                entityTrialBalance.trialBalance.liabilities.length,
-              equityAccounts: entityTrialBalance.trialBalance.equity.length,
-              revenueAccounts: entityTrialBalance.trialBalance.revenue.length,
-              expenseAccounts: entityTrialBalance.trialBalance.expenses.length,
-            },
-          };
-
-          hierarchicalTrialBalance.companies.push(companyData);
-
-          // Add to consolidated totals
-          const totals = hierarchicalTrialBalance.consolidated.totals;
-          const entityTotals = entityTrialBalance.trialBalance.totals;
-
-          totals.totalDebits += entityTotals.totalDebits;
-          totals.totalCredits += entityTotals.totalCredits;
-          totals.totalAssets += entityTotals.totalAssets;
-          totals.totalLiabilities += entityTotals.totalLiabilities;
-          totals.totalEquity += entityTotals.totalEquity;
-          totals.totalRevenue += entityTotals.totalRevenue;
-          totals.totalExpenses += entityTotals.totalExpenses;
-
-          console.log(
-            `✅ Added ${connection.tenantName} to hierarchical structure for ${reportDate}`
-          );
-        }
-      } catch (error) {
-        console.error(
-          `❌ Error loading trial balance for ${connection.tenantId}:`,
-          error
-        );
-      }
-    }
-
-    // Calculate consolidated balance check and summary
-    const totals = hierarchicalTrialBalance.consolidated.totals;
-    hierarchicalTrialBalance.consolidated.balanceCheck = {
-      debitsEqualCredits:
-        Math.abs(totals.totalDebits - totals.totalCredits) < 0.01,
-      difference: totals.totalDebits - totals.totalCredits,
-      accountingEquation: {
-        assets: totals.totalAssets,
-        liabilitiesAndEquity: totals.totalLiabilities + totals.totalEquity,
-        balanced:
-          Math.abs(
-            totals.totalAssets - (totals.totalLiabilities + totals.totalEquity)
-          ) < 0.01,
-      },
-    };
-
-    hierarchicalTrialBalance.summary = {
-      totalCompanies: hierarchicalTrialBalance.companies.length,
-      totalAccounts: hierarchicalTrialBalance.companies.reduce(
-        (sum, company) => sum + company.accountCounts.totalAccounts,
-        0
-      ),
-      balancedCompanies: hierarchicalTrialBalance.companies.filter(
-        (company) => company.balanceCheck.debitsEqualCredits
-      ).length,
-      dataQuality: {
-        allConnected:
-          hierarchicalTrialBalance.companies.length ===
-          connectedXeroEntities.length,
-        allBalanced: hierarchicalTrialBalance.companies.every(
-          (company) => company.balanceCheck.debitsEqualCredits
-        ),
-        consolidatedBalanced:
-          hierarchicalTrialBalance.consolidated.balanceCheck.debitsEqualCredits,
-      },
-    };
-
-    console.log(
-      `✅ Hierarchical consolidated trial balance completed for ${reportDate}:`,
-      {
-        companies: hierarchicalTrialBalance.companies.length,
-        totalAccounts: hierarchicalTrialBalance.summary.totalAccounts,
-        totalAssets: totals.totalAssets,
-        consolidatedBalanced:
-          hierarchicalTrialBalance.consolidated.balanceCheck.debitsEqualCredits,
-      }
-    );
-
-    res.json(hierarchicalTrialBalance);
-  } catch (error) {
-    console.error(
-      "❌ Error loading hierarchical consolidated trial balance:",
-      error
-    );
-    res.status(500).json({
-      error: "Failed to load hierarchical consolidated trial balance",
-    });
-  }
-});
-
-// DEBUG ENDPOINTS (Keep existing ones)
-app.get("/api/debug/simple/:tenantId", async (req, res) => {
-  try {
-    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
-    if (!tokenData) {
-      return res
-        .status(404)
-        .json({ error: "Tenant not found or token expired" });
-    }
-
-    await xero.setTokenSet(tokenData);
-    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
-    const allAccounts = response.body.accounts || [];
-    const firstThree = allAccounts.slice(0, 3);
-
-    console.log("Raw Xero Response Structure:");
-    console.log("Total accounts:", allAccounts.length);
-    console.log(
-      "First account keys:",
-      firstThree[0] ? Object.keys(firstThree[0]) : "No accounts"
-    );
-    console.log("First account full:", firstThree[0]);
-
-    res.json({
-      message: "Raw Xero account data",
-      totalAccounts: allAccounts.length,
-      firstThreeAccounts: firstThree,
-      firstAccountKeys: firstThree[0] ? Object.keys(firstThree[0]) : [],
-    });
-  } catch (error) {
-    console.error("❌ Simple debug error:", error);
-    res
-      .status(500)
-      .json({ error: "Simple debug failed", details: error.message });
-  }
-});
-
-// TESTING - Balance Sheet endpoint (Keep for testing)
-app.get("/api/trial-balance-fixed/:tenantId", async (req, res) => {
-  try {
-    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
-    if (!tokenData) {
-      return res
-        .status(404)
-        .json({ error: "Tenant not found or token expired" });
-    }
-
-    await xero.setTokenSet(tokenData);
-    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
-    const allAccounts = response.body.accounts || [];
-
-    const today = new Date().toISOString().split("T")[0];
-    const balanceSheetResponse = await xero.accountingApi.getReportBalanceSheet(
-      req.params.tenantId,
-      today
-    );
-
-    console.error("✅ Got Balance Sheet report");
-
-    res.json({
-      message: "Testing Balance Sheet approach",
-      totalAccounts: allAccounts.length,
-      balanceSheetStructure:
-        balanceSheetResponse.body.reports?.[0]?.rows?.slice(0, 10),
-    });
-  } catch (error) {
-    console.error("❌ Error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed", details: error.message || "No message" });
-  }
-});
-
-function toggleSectionFromElement(element) {
-  const companyIndex = parseInt(element.getAttribute("data-company"));
-  const sectionKey = element.getAttribute("data-section");
-  toggleSection(companyIndex, sectionKey);
-}
-
-// Initialize database and start server
-async function startServer() {
-  try {
-    await initializeAutoRefresh();
-
-    app.listen(port, () => {
-      console.log(`🚀 RAC Financial Dashboard running on port ${port}`);
-      console.log(
-        `📊 Dashboard: ${
-          process.env.NODE_ENV === "production"
-            ? "https://your-app.up.railway.app"
-            : `http://localhost:${port}`
-        }`
-      );
-      console.log(`💾 Database: Connected to PostgreSQL`);
-      console.log(`🔗 Xero OAuth: /auth`);
-      console.log(`🔗 ApprovalMax OAuth: /auth?provider=approvalmax`);
-      console.log(
-        `🎯 Ready for RAC financial integration with date-flexible trial balance!`
-      );
-    });
-  } catch (error) {
-    console.error("❌ Failed to start server:", error);
-    process.exit(1);
-  }
-}
-
-startServer();
-
 // Add these endpoints to your existing server.js after your current API routes
 
 // ============================================================================
@@ -2540,3 +1882,661 @@ app.get("/api/compare-periods/:tenantId", async (req, res) => {
     });
   }
 });
+
+// Update your existing startServer function to call initializeAutoRefresh()
+// Replace: await initializeDatabase();
+// With: await initializeAutoRefresh();
+
+// Health check endpoint
+app.get("/api/health", async (req, res) => {
+  try {
+    // Test database connection
+    const dbTest = await pool.query("SELECT NOW()");
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
+
+    res.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      database: "connected",
+      xeroConnections: xeroConnections.length,
+      uptime: process.uptime(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "unhealthy",
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+// DATABASE DEBUG endpoint - Add this to see what's stored
+app.get("/api/debug/database", async (req, res) => {
+  try {
+    console.error("🔍 DEBUG: Checking database contents...");
+
+    // Get all tokens from database
+    const result = await pool.query(
+      "SELECT tenant_id, tenant_name, provider, expires_at, last_seen FROM tokens ORDER BY last_seen DESC"
+    );
+
+    const now = Date.now();
+    const tokens = result.rows.map((row) => ({
+      tenant_id: row.tenant_id,
+      tenant_name: row.tenant_name,
+      provider: row.provider,
+      expired: now > row.expires_at,
+      expires_in_minutes: Math.floor((row.expires_at - now) / (1000 * 60)),
+      last_seen: row.last_seen,
+    }));
+
+    console.error("✅ DEBUG: Database tokens:", tokens);
+
+    res.json({
+      totalTokens: tokens.length,
+      tokens: tokens,
+      currentTime: new Date().toISOString(),
+      currentTimestamp: now,
+    });
+  } catch (error) {
+    console.error("❌ DEBUG: Database error:", error);
+    res.status(500).json({
+      error: "Database query failed",
+      details: error.message,
+    });
+  }
+});
+
+// Serve login manager as default
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "login-manager.html"));
+});
+
+// Serve main dashboard
+app.get("/dashboard", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// ==============================================================================
+// ENHANCED TRIAL BALANCE ENDPOINTS WITH DATE SUPPORT
+// ==============================================================================
+
+// Enhanced Individual Trial Balance with Date Support
+app.get("/api/trial-balance/:tenantId", async (req, res) => {
+  try {
+    console.log(
+      `🔍 Getting PROPER trial balance for tenant: ${req.params.tenantId}`
+    );
+
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    // Get date from query parameter or use today
+    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
+    console.log(`📅 Report date: ${reportDate}`);
+
+    // Get Balance Sheet report for specified date
+    const balanceSheetResponse = await xero.accountingApi.getReportBalanceSheet(
+      req.params.tenantId,
+      reportDate
+    );
+
+    const balanceSheetRows = balanceSheetResponse.body.reports?.[0]?.rows || [];
+    console.log(
+      `📊 Processing ${balanceSheetRows.length} Balance Sheet sections for ${reportDate}`
+    );
+
+    // Initialize trial balance structure
+    const trialBalance = {
+      assets: [],
+      liabilities: [],
+      equity: [],
+      revenue: [],
+      expenses: [],
+      totals: {
+        totalDebits: 0,
+        totalCredits: 0,
+        totalAssets: 0,
+        totalLiabilities: 0,
+        totalEquity: 0,
+        totalRevenue: 0,
+        totalExpenses: 0,
+      },
+    };
+
+    let processedAccounts = 0;
+
+    // Process each Balance Sheet section
+    balanceSheetRows.forEach((section, sectionIndex) => {
+      if (section.rowType === "Section" && section.rows && section.title) {
+        const sectionTitle = section.title.toLowerCase();
+        console.log(
+          `🔄 Processing section: ${section.title} (${section.rows.length} rows)`
+        );
+
+        section.rows.forEach((row) => {
+          if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
+            const accountName = row.cells[0]?.value || "";
+            const currentBalance = parseFloat(row.cells[1]?.value || 0);
+
+            if (
+              accountName.toLowerCase().includes("total") ||
+              currentBalance === 0
+            ) {
+              return;
+            }
+
+            processedAccounts++;
+            console.log(
+              `📈 Processing: ${accountName} = ${currentBalance.toLocaleString()}`
+            );
+
+            const accountInfo = {
+              name: accountName,
+              balance: currentBalance,
+              debit: 0,
+              credit: 0,
+              section: section.title,
+            };
+
+            // Account classification logic
+            if (
+              sectionTitle.includes("bank") ||
+              sectionTitle.includes("asset")
+            ) {
+              accountInfo.debit = currentBalance >= 0 ? currentBalance : 0;
+              accountInfo.credit =
+                currentBalance < 0 ? Math.abs(currentBalance) : 0;
+              trialBalance.assets.push(accountInfo);
+              trialBalance.totals.totalAssets += currentBalance;
+            } else if (sectionTitle.includes("liabilit")) {
+              accountInfo.credit = currentBalance >= 0 ? currentBalance : 0;
+              accountInfo.debit =
+                currentBalance < 0 ? Math.abs(currentBalance) : 0;
+              trialBalance.liabilities.push(accountInfo);
+              trialBalance.totals.totalLiabilities += currentBalance;
+            } else if (sectionTitle.includes("equity")) {
+              accountInfo.credit = currentBalance >= 0 ? currentBalance : 0;
+              accountInfo.debit =
+                currentBalance < 0 ? Math.abs(currentBalance) : 0;
+              trialBalance.equity.push(accountInfo);
+              trialBalance.totals.totalEquity += currentBalance;
+            }
+
+            trialBalance.totals.totalDebits += accountInfo.debit;
+            trialBalance.totals.totalCredits += accountInfo.credit;
+          }
+        });
+      }
+    });
+
+    // Get P&L data for the same date
+    try {
+      console.error("🔄 Fetching P&L report for Revenue/Expenses...");
+      const profitLossResponse =
+        await xero.accountingApi.getReportProfitAndLoss(
+          req.params.tenantId,
+          reportDate,
+          reportDate
+        );
+
+      const plRows = profitLossResponse.body.reports?.[0]?.rows || [];
+
+      plRows.forEach((section) => {
+        if (section.rowType === "Section" && section.rows && section.title) {
+          const sectionTitle = section.title.toLowerCase();
+
+          section.rows.forEach((row) => {
+            if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
+              const accountName = row.cells[0]?.value || "";
+              const currentAmount = parseFloat(row.cells[1]?.value || 0);
+
+              if (
+                accountName.toLowerCase().includes("total") ||
+                currentAmount === 0
+              ) {
+                return;
+              }
+
+              processedAccounts++;
+              const accountInfo = {
+                name: accountName,
+                balance: currentAmount,
+                debit: 0,
+                credit: 0,
+                section: section.title,
+              };
+
+              if (
+                sectionTitle.includes("income") ||
+                sectionTitle.includes("revenue")
+              ) {
+                accountInfo.credit = Math.abs(currentAmount);
+                trialBalance.revenue.push(accountInfo);
+                trialBalance.totals.totalRevenue += Math.abs(currentAmount);
+              } else if (
+                sectionTitle.includes("expense") ||
+                sectionTitle.includes("cost")
+              ) {
+                accountInfo.debit = Math.abs(currentAmount);
+                trialBalance.expenses.push(accountInfo);
+                trialBalance.totals.totalExpenses += Math.abs(currentAmount);
+              }
+
+              trialBalance.totals.totalDebits += accountInfo.debit;
+              trialBalance.totals.totalCredits += accountInfo.credit;
+            }
+          });
+        }
+      });
+    } catch (plError) {
+      console.errorlog("⚠️ Could not fetch P&L data:", plError.message);
+    }
+
+    // Sort and calculate balance check
+    ["assets", "liabilities", "equity", "revenue", "expenses"].forEach(
+      (category) => {
+        trialBalance[category].sort((a, b) => a.name.localeCompare(b.name));
+      }
+    );
+
+    const balanceCheck = {
+      debitsEqualCredits:
+        Math.abs(
+          trialBalance.totals.totalDebits - trialBalance.totals.totalCredits
+        ) < 0.01,
+      difference:
+        trialBalance.totals.totalDebits - trialBalance.totals.totalCredits,
+      accountingEquation: {
+        assets: trialBalance.totals.totalAssets,
+        liabilitiesAndEquity:
+          trialBalance.totals.totalLiabilities +
+          trialBalance.totals.totalEquity,
+        balanced:
+          Math.abs(
+            trialBalance.totals.totalAssets -
+              (trialBalance.totals.totalLiabilities +
+                trialBalance.totals.totalEquity)
+          ) < 0.01,
+      },
+    };
+
+    console.log(
+      `✅ PROPER Trial balance completed for ${tokenData.tenantName} as at ${reportDate}:`,
+      {
+        processedAccounts: processedAccounts,
+        totalAssets: trialBalance.totals.totalAssets,
+        totalLiabilities: trialBalance.totals.totalLiabilities,
+        totalEquity: trialBalance.totals.totalEquity,
+        balanced: balanceCheck.debitsEqualCredits,
+      }
+    );
+
+    res.json({
+      tenantId: req.params.tenantId,
+      tenantName: tokenData.tenantName,
+      trialBalance,
+      balanceCheck,
+      generatedAt: new Date().toISOString(),
+      reportDate: reportDate,
+      processedAccounts: processedAccounts,
+      dataSource: "Balance Sheet + P&L Reports",
+    });
+  } catch (error) {
+    console.error("❌ Error getting PROPER trial balance:", error);
+    res.status(500).json({
+      error: "Failed to get trial balance",
+      details: error.message,
+      tenantId: req.params.tenantId,
+    });
+  }
+});
+
+// Enhanced Consolidated Trial Balance with Date Support
+app.get("/api/consolidated-trial-balance", async (req, res) => {
+  try {
+    // Get date from query parameter or use today
+    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
+    console.log(
+      `🔄 Loading HIERARCHICAL consolidated trial balance for ${reportDate}...`
+    );
+
+    const xeroConnections = await tokenStorage.getAllXeroConnections();
+    const connectedXeroEntities = xeroConnections.filter(
+      (conn) => conn.connected
+    );
+
+    console.log(`🏢 Found ${connectedXeroEntities.length} connected entities`);
+
+    const hierarchicalTrialBalance = {
+      consolidated: {
+        totals: {
+          totalDebits: 0,
+          totalCredits: 0,
+          totalAssets: 0,
+          totalLiabilities: 0,
+          totalEquity: 0,
+          totalRevenue: 0,
+          totalExpenses: 0,
+        },
+        balanceCheck: {
+          debitsEqualCredits: false,
+          difference: 0,
+          accountingEquation: {
+            assets: 0,
+            liabilitiesAndEquity: 0,
+            balanced: false,
+          },
+        },
+      },
+      companies: [],
+      reportDate: reportDate,
+      generatedAt: new Date().toISOString(),
+    };
+
+    // Process each entity with the specified date
+    for (const connection of connectedXeroEntities) {
+      try {
+        console.log(
+          `🔄 Processing entity: ${connection.tenantName} for ${reportDate}`
+        );
+
+        const trialBalanceResponse = await fetch(
+          `${req.protocol}://${req.get("host")}/api/trial-balance/${
+            connection.tenantId
+          }?date=${reportDate}`
+        );
+
+        if (trialBalanceResponse.ok) {
+          const entityTrialBalance = await trialBalanceResponse.json();
+
+          // Create hierarchical company structure
+          const companyData = {
+            tenantId: connection.tenantId,
+            tenantName: connection.tenantName,
+            balanceCheck: entityTrialBalance.balanceCheck,
+            totals: entityTrialBalance.trialBalance.totals,
+            reportDate: entityTrialBalance.reportDate,
+            sections: {
+              assets: {
+                title: "Assets",
+                total: entityTrialBalance.trialBalance.totals.totalAssets,
+                accounts: entityTrialBalance.trialBalance.assets.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Assets",
+                  })
+                ),
+              },
+              liabilities: {
+                title: "Liabilities",
+                total: entityTrialBalance.trialBalance.totals.totalLiabilities,
+                accounts: entityTrialBalance.trialBalance.liabilities.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Liabilities",
+                  })
+                ),
+              },
+              equity: {
+                title: "Equity",
+                total: entityTrialBalance.trialBalance.totals.totalEquity,
+                accounts: entityTrialBalance.trialBalance.equity.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Equity",
+                  })
+                ),
+              },
+              revenue: {
+                title: "Revenue",
+                total: entityTrialBalance.trialBalance.totals.totalRevenue,
+                accounts: entityTrialBalance.trialBalance.revenue.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Revenue",
+                  })
+                ),
+              },
+              expenses: {
+                title: "Expenses",
+                total: entityTrialBalance.trialBalance.totals.totalExpenses,
+                accounts: entityTrialBalance.trialBalance.expenses.map(
+                  (account) => ({
+                    name: account.name,
+                    debit: account.debit,
+                    credit: account.credit,
+                    balance: account.balance,
+                    section: account.section || "Expenses",
+                  })
+                ),
+              },
+            },
+            accountCounts: {
+              totalAccounts: Object.values({
+                assets: entityTrialBalance.trialBalance.assets,
+                liabilities: entityTrialBalance.trialBalance.liabilities,
+                equity: entityTrialBalance.trialBalance.equity,
+                revenue: entityTrialBalance.trialBalance.revenue,
+                expenses: entityTrialBalance.trialBalance.expenses,
+              }).reduce((sum, accounts) => sum + accounts.length, 0),
+              assetAccounts: entityTrialBalance.trialBalance.assets.length,
+              liabilityAccounts:
+                entityTrialBalance.trialBalance.liabilities.length,
+              equityAccounts: entityTrialBalance.trialBalance.equity.length,
+              revenueAccounts: entityTrialBalance.trialBalance.revenue.length,
+              expenseAccounts: entityTrialBalance.trialBalance.expenses.length,
+            },
+          };
+
+          hierarchicalTrialBalance.companies.push(companyData);
+
+          // Add to consolidated totals
+          const totals = hierarchicalTrialBalance.consolidated.totals;
+          const entityTotals = entityTrialBalance.trialBalance.totals;
+
+          totals.totalDebits += entityTotals.totalDebits;
+          totals.totalCredits += entityTotals.totalCredits;
+          totals.totalAssets += entityTotals.totalAssets;
+          totals.totalLiabilities += entityTotals.totalLiabilities;
+          totals.totalEquity += entityTotals.totalEquity;
+          totals.totalRevenue += entityTotals.totalRevenue;
+          totals.totalExpenses += entityTotals.totalExpenses;
+
+          console.log(
+            `✅ Added ${connection.tenantName} to hierarchical structure for ${reportDate}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `❌ Error loading trial balance for ${connection.tenantId}:`,
+          error
+        );
+      }
+    }
+
+    // Calculate consolidated balance check and summary
+    const totals = hierarchicalTrialBalance.consolidated.totals;
+    hierarchicalTrialBalance.consolidated.balanceCheck = {
+      debitsEqualCredits:
+        Math.abs(totals.totalDebits - totals.totalCredits) < 0.01,
+      difference: totals.totalDebits - totals.totalCredits,
+      accountingEquation: {
+        assets: totals.totalAssets,
+        liabilitiesAndEquity: totals.totalLiabilities + totals.totalEquity,
+        balanced:
+          Math.abs(
+            totals.totalAssets - (totals.totalLiabilities + totals.totalEquity)
+          ) < 0.01,
+      },
+    };
+
+    hierarchicalTrialBalance.summary = {
+      totalCompanies: hierarchicalTrialBalance.companies.length,
+      totalAccounts: hierarchicalTrialBalance.companies.reduce(
+        (sum, company) => sum + company.accountCounts.totalAccounts,
+        0
+      ),
+      balancedCompanies: hierarchicalTrialBalance.companies.filter(
+        (company) => company.balanceCheck.debitsEqualCredits
+      ).length,
+      dataQuality: {
+        allConnected:
+          hierarchicalTrialBalance.companies.length ===
+          connectedXeroEntities.length,
+        allBalanced: hierarchicalTrialBalance.companies.every(
+          (company) => company.balanceCheck.debitsEqualCredits
+        ),
+        consolidatedBalanced:
+          hierarchicalTrialBalance.consolidated.balanceCheck.debitsEqualCredits,
+      },
+    };
+
+    console.log(
+      `✅ Hierarchical consolidated trial balance completed for ${reportDate}:`,
+      {
+        companies: hierarchicalTrialBalance.companies.length,
+        totalAccounts: hierarchicalTrialBalance.summary.totalAccounts,
+        totalAssets: totals.totalAssets,
+        consolidatedBalanced:
+          hierarchicalTrialBalance.consolidated.balanceCheck.debitsEqualCredits,
+      }
+    );
+
+    res.json(hierarchicalTrialBalance);
+  } catch (error) {
+    console.error(
+      "❌ Error loading hierarchical consolidated trial balance:",
+      error
+    );
+    res.status(500).json({
+      error: "Failed to load hierarchical consolidated trial balance",
+    });
+  }
+});
+
+// DEBUG ENDPOINTS (Keep existing ones)
+app.get("/api/debug/simple/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
+    const allAccounts = response.body.accounts || [];
+    const firstThree = allAccounts.slice(0, 3);
+
+    console.log("Raw Xero Response Structure:");
+    console.log("Total accounts:", allAccounts.length);
+    console.log(
+      "First account keys:",
+      firstThree[0] ? Object.keys(firstThree[0]) : "No accounts"
+    );
+    console.log("First account full:", firstThree[0]);
+
+    res.json({
+      message: "Raw Xero account data",
+      totalAccounts: allAccounts.length,
+      firstThreeAccounts: firstThree,
+      firstAccountKeys: firstThree[0] ? Object.keys(firstThree[0]) : [],
+    });
+  } catch (error) {
+    console.error("❌ Simple debug error:", error);
+    res
+      .status(500)
+      .json({ error: "Simple debug failed", details: error.message });
+  }
+});
+
+// TESTING - Balance Sheet endpoint (Keep for testing)
+app.get("/api/trial-balance-fixed/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+    const response = await xero.accountingApi.getAccounts(req.params.tenantId);
+    const allAccounts = response.body.accounts || [];
+
+    const today = new Date().toISOString().split("T")[0];
+    const balanceSheetResponse = await xero.accountingApi.getReportBalanceSheet(
+      req.params.tenantId,
+      today
+    );
+
+    console.error("✅ Got Balance Sheet report");
+
+    res.json({
+      message: "Testing Balance Sheet approach",
+      totalAccounts: allAccounts.length,
+      balanceSheetStructure:
+        balanceSheetResponse.body.reports?.[0]?.rows?.slice(0, 10),
+    });
+  } catch (error) {
+    console.error("❌ Error:", error);
+    res
+      .status(500)
+      .json({ error: "Failed", details: error.message || "No message" });
+  }
+});
+
+function toggleSectionFromElement(element) {
+  const companyIndex = parseInt(element.getAttribute("data-company"));
+  const sectionKey = element.getAttribute("data-section");
+  toggleSection(companyIndex, sectionKey);
+}
+
+// Initialize database and start server
+async function startServer() {
+  try {
+    await initializeAutoRefresh();
+
+    app.listen(port, () => {
+      console.log(`🚀 RAC Financial Dashboard running on port ${port}`);
+      console.log(
+        `📊 Dashboard: ${
+          process.env.NODE_ENV === "production"
+            ? "https://your-app.up.railway.app"
+            : `http://localhost:${port}`
+        }`
+      );
+      console.log(`💾 Database: Connected to PostgreSQL`);
+      console.log(`🔗 Xero OAuth: /auth`);
+      console.log(`🔗 ApprovalMax OAuth: /auth?provider=approvalmax`);
+      console.log(
+        `🎯 Ready for RAC financial integration with date-flexible trial balance!`
+      );
+    });
+  } catch (error) {
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+startServer();
