@@ -3,13 +3,15 @@
 // RAC Financial Dashboard - Complete Server.js with Date Picker Support
 // Includes all functionality: Database Token Storage, Trial Balance with Date Support, Multi-entity Integration
 
-require("dotenv").config();
+import dotenv from "dotenv";
+import express from "express";
+import path from "path";
+import fetch from "node-fetch";
+import { XeroAccessToken, XeroIdToken, XeroClient } from "xero-node";
+import { Pool } from "pg";
 
-const express = require("express");
-const path = require("path");
-const fetch = require("node-fetch");
-const { XeroAccessToken, XeroIdToken, XeroClient } = require("xero-node");
-const { Pool } = require("pg");
+dotenv.config();
+
 const app = express();
 const port = process.env.PORT || 3000;
 
