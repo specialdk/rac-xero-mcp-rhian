@@ -1050,6 +1050,712 @@ app.get("/api/connection-status-enhanced", async (req, res) => {
       };
     });
 
+    // === REST API Endpoints for Web Chat Interface ===
+
+    // POST Trial Balance endpoint (for web chat interface)
+    app.post("/api/trial-balance", async (req, res) => {
+      try {
+        const { organizationName, tenantId, reportDate } = req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        // Find tenant ID if organization name provided
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        // Call your existing GET endpoint internally
+        const dateParam = reportDate ? `?date=${reportDate}` : "";
+        const trialBalanceUrl = `${req.protocol}://${req.get(
+          "host"
+        )}/api/trial-balance/${actualTenantId}${dateParam}`;
+        const response = await fetch(trialBalanceUrl);
+
+        if (!response.ok) {
+          throw new Error(`Trial balance request failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Trial balance POST API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Cash Position endpoint
+    app.post("/api/cash-position", async (req, res) => {
+      try {
+        const { organizationName, tenantId } = req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        // Find tenant ID if organization name provided
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        // Call your existing GET endpoint internally
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/cash-position/${actualTenantId}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Cash position request failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Cash position API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Profit & Loss Summary endpoint
+    app.post("/api/profit-loss-summary", async (req, res) => {
+      try {
+        const { organizationName, tenantId, date, periodMonths } = req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        // Find tenant ID if organization name provided
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        // Call your existing GET endpoint internally
+        const params = new URLSearchParams();
+        if (date) params.append("date", date);
+        if (periodMonths)
+          params.append("periodMonths", periodMonths.toString());
+        const queryString = params.toString() ? `?${params.toString()}` : "";
+
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/profit-loss/${actualTenantId}${queryString}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`P&L request failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ P&L summary API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Outstanding Invoices endpoint
+    app.post("/api/outstanding-invoices", async (req, res) => {
+      try {
+        const { organizationName, tenantId } = req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        // Find tenant ID if organization name provided
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        // Call your existing GET endpoint internally
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/outstanding-invoices/${actualTenantId}`
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Outstanding invoices request failed: ${response.status}`
+          );
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Outstanding invoices API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Financial Ratios endpoint
+    app.post("/api/financial-ratios", async (req, res) => {
+      try {
+        const { organizationName, tenantId, date } = req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        // Find tenant ID if organization name provided
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        // Call your existing GET endpoint internally
+        const dateParam = date ? `?date=${date}` : "";
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/financial-ratios/${actualTenantId}${dateParam}`
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Financial ratios request failed: ${response.status}`
+          );
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Financial ratios API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Consolidated Trial Balance endpoint
+    app.post("/api/consolidated-trial-balance", async (req, res) => {
+      try {
+        const { reportDate } = req.body;
+
+        const dateParam = reportDate ? `?date=${reportDate}` : "";
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/consolidated-trial-balance${dateParam}`
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Consolidated trial balance request failed: ${response.status}`
+          );
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Consolidated trial balance API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Journal Entries endpoint
+    app.post("/api/journal-entries", async (req, res) => {
+      try {
+        const { organizationName, tenantId, dateFrom, dateTo, accountName } =
+          req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        const params = new URLSearchParams();
+        if (dateFrom) params.append("dateFrom", dateFrom);
+        if (dateTo) params.append("dateTo", dateTo);
+        if (accountName) params.append("accountName", accountName);
+        const queryString = params.toString() ? `?${params.toString()}` : "";
+
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/journal-entries/${actualTenantId}${queryString}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Journal entries request failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Journal entries API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Equity Analysis endpoint
+    app.post("/api/equity-analysis", async (req, res) => {
+      try {
+        const { organizationName, tenantId, equityAccountName, monthsBack } =
+          req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        const params = new URLSearchParams();
+        if (equityAccountName)
+          params.append("equityAccountName", equityAccountName);
+        if (monthsBack) params.append("monthsBack", monthsBack.toString());
+        const queryString = params.toString() ? `?${params.toString()}` : "";
+
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/equity-analysis/${actualTenantId}${queryString}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Equity analysis request failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Equity analysis API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Account History endpoint
+    app.post("/api/account-history", async (req, res) => {
+      try {
+        const { organizationName, tenantId, accountName, dateFrom, dateTo } =
+          req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        if (!accountName) {
+          return res.status(400).json({ error: "Account name is required" });
+        }
+
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        const params = new URLSearchParams();
+        if (dateFrom) params.append("dateFrom", dateFrom);
+        if (dateTo) params.append("dateTo", dateTo);
+        const queryString = params.toString() ? `?${params.toString()}` : "";
+
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/account-history/${actualTenantId}/${encodeURIComponent(
+            accountName
+          )}${queryString}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Account history request failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Account history API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Aged Receivables endpoint
+    app.post("/api/aged-receivables", async (req, res) => {
+      try {
+        const { organizationName, tenantId, date } = req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        const dateParam = date ? `?date=${date}` : "";
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/aged-receivables/${actualTenantId}${dateParam}`
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Aged receivables request failed: ${response.status}`
+          );
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Aged receivables API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Expense Analysis endpoint
+    app.post("/api/expense-analysis", async (req, res) => {
+      try {
+        const { organizationName, tenantId, date, periodMonths } = req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        const params = new URLSearchParams();
+        if (date) params.append("date", date);
+        if (periodMonths)
+          params.append("periodMonths", periodMonths.toString());
+        const queryString = params.toString() ? `?${params.toString()}` : "";
+
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/expense-analysis/${actualTenantId}${queryString}`
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Expense analysis request failed: ${response.status}`
+          );
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Expense analysis API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Intercompany Transactions endpoint
+    app.post("/api/intercompany-transactions", async (req, res) => {
+      try {
+        const { organizationName, tenantId, date } = req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        const dateParam = date ? `?date=${date}` : "";
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/intercompany/${actualTenantId}${dateParam}`
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Intercompany transactions request failed: ${response.status}`
+          );
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Intercompany transactions API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Chart of Accounts endpoint
+    app.post("/api/chart-of-accounts", async (req, res) => {
+      try {
+        const { organizationName, tenantId, accountType, includeArchived } =
+          req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        const params = new URLSearchParams();
+        if (accountType) params.append("accountType", accountType);
+        if (includeArchived !== undefined)
+          params.append("includeArchived", includeArchived.toString());
+        const queryString = params.toString() ? `?${params.toString()}` : "";
+
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/chart-of-accounts/${actualTenantId}${queryString}`
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Chart of accounts request failed: ${response.status}`
+          );
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Chart of accounts API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Find Unbalanced Transactions endpoint
+    app.post("/api/find-unbalanced", async (req, res) => {
+      try {
+        const { organizationName, tenantId, minimumAmount, dateRange } =
+          req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        const params = new URLSearchParams();
+        if (minimumAmount)
+          params.append("minimumAmount", minimumAmount.toString());
+        if (dateRange) params.append("dateRange", dateRange);
+        const queryString = params.toString() ? `?${params.toString()}` : "";
+
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/find-unbalanced/${actualTenantId}${queryString}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Find unbalanced request failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Find unbalanced API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Compare Periods endpoint
+    app.post("/api/compare-periods", async (req, res) => {
+      try {
+        const { organizationName, tenantId, fromDate, toDate, accountFilter } =
+          req.body;
+
+        if (!organizationName && !tenantId) {
+          return res
+            .status(400)
+            .json({ error: "Organization name or tenant ID required" });
+        }
+
+        if (!fromDate) {
+          return res
+            .status(400)
+            .json({ error: "fromDate is required for period comparison" });
+        }
+
+        let actualTenantId = tenantId;
+        if (organizationName && !tenantId) {
+          const connections = await tokenStorage.getAllXeroConnections();
+          const connection = connections.find((c) =>
+            c.tenantName.toLowerCase().includes(organizationName.toLowerCase())
+          );
+          if (connection) {
+            actualTenantId = connection.tenantId;
+          } else {
+            return res.status(404).json({ error: "Organization not found" });
+          }
+        }
+
+        const params = new URLSearchParams();
+        params.append("fromDate", fromDate);
+        if (toDate) params.append("toDate", toDate);
+        if (accountFilter) params.append("accountFilter", accountFilter);
+        const queryString = "?" + params.toString();
+
+        const response = await fetch(
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/compare-periods/${actualTenantId}${queryString}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Compare periods request failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+      } catch (error) {
+        console.error("❌ Compare periods API error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
     // Add ApprovalMax connections (keep existing logic)
     const approvalMaxToken = await enhancedTokenStorage.getApprovalMaxToken();
     if (approvalMaxToken) {
