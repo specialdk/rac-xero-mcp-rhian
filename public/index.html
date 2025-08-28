@@ -979,11 +979,21 @@
 
       // Chat toggle functions
       function openAIChat() {
+        const chatPanel = document.getElementById("aiChatPanel");
+        const dashboardArea = document.getElementById("dashboardArea");
+        const chatToggleBtn = document.getElementById("chatToggleBtn");
+        const chatInput = document.getElementById("chatInput");
+
+        if (!chatPanel || !dashboardArea) {
+          console.error("Chat elements not found in DOM");
+          return;
+        }
+
         isChatOpen = true;
-        document.getElementById("aiChatPanel").classList.add("open");
-        document.getElementById("dashboardArea").classList.add("with-chat");
-        document.getElementById("chatToggleBtn").style.display = "none";
-        document.getElementById("chatInput").focus();
+        chatPanel.classList.add("open");
+        dashboardArea.classList.add("with-chat");
+        if (chatToggleBtn) chatToggleBtn.style.display = "none";
+        if (chatInput) chatInput.focus();
       }
 
       function closeAIChat() {
