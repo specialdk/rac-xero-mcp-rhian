@@ -395,447 +395,761 @@
         margin-top: 15px;
         font-style: italic;
       }
+
+      /* Main container modifications */
+      .main-container {
+        display: flex;
+        height: 100vh;
+        max-width: 1400px;
+        margin: 0 auto;
+        background: white;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      .dashboard-area {
+        flex: 1;
+        overflow-y: auto;
+        transition: margin-right 0.3s ease;
+      }
+
+      .dashboard-area.with-chat {
+        margin-right: 400px;
+      }
+
+      /* AI Chat Side Panel */
+      .ai-chat-panel {
+        position: fixed;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 400px;
+        background: white;
+        border-left: 1px solid #ddd;
+        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .ai-chat-panel.open {
+        transform: translateX(0);
+      }
+
+      .chat-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .chat-header h3 {
+        font-size: 1.2rem;
+        margin: 0;
+        flex: 1;
+      }
+
+      .close-chat-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: background 0.2s;
+      }
+
+      .close-chat-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      .organization-selector {
+        padding: 15px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .organization-selector select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.9rem;
+      }
+
+      .quick-actions {
+        padding: 15px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .quick-actions-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .quick-action-btn {
+        padding: 8px 12px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        text-align: center;
+        transition: all 0.2s;
+      }
+
+      .quick-action-btn:hover {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+      }
+
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .message {
+        max-width: 85%;
+        padding: 12px 16px;
+        border-radius: 12px;
+        word-wrap: break-word;
+      }
+
+      .message.user {
+        align-self: flex-end;
+        background: #667eea;
+        color: white;
+        border-bottom-right-radius: 4px;
+      }
+
+      .message.assistant {
+        align-self: flex-start;
+        background: #f1f3f4;
+        color: #333;
+        border-bottom-left-radius: 4px;
+      }
+
+      .message-time {
+        font-size: 0.7rem;
+        opacity: 0.7;
+        margin-top: 4px;
+      }
+
+      .typing-indicator {
+        align-self: flex-start;
+        background: #f1f3f4;
+        color: #666;
+        padding: 12px 16px;
+        border-radius: 12px;
+        border-bottom-left-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .typing-dots {
+        display: flex;
+        gap: 4px;
+      }
+
+      .typing-dots span {
+        width: 6px;
+        height: 6px;
+        background: #666;
+        border-radius: 50%;
+        animation: typing 1.4s infinite;
+      }
+
+      .typing-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .typing-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes typing {
+        0%,
+        60%,
+        100% {
+          transform: translateY(0);
+          opacity: 0.4;
+        }
+        30% {
+          transform: translateY(-10px);
+          opacity: 1;
+        }
+      }
+
+      .chat-input-area {
+        padding: 20px;
+        border-top: 1px solid #ddd;
+        background: white;
+      }
+
+      .chat-input-container {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+      }
+
+      .chat-input {
+        flex: 1;
+        padding: 12px 16px;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        resize: none;
+        font-family: inherit;
+        font-size: 0.9rem;
+        max-height: 100px;
+        min-height: 44px;
+      }
+
+      .chat-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+      }
+
+      .send-btn {
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+      }
+
+      .send-btn:hover:not(:disabled) {
+        background: #5a67d8;
+      }
+
+      .send-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+
+      .chat-toggle-btn {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.2rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        z-index: 999;
+      }
+
+      .chat-toggle-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+      }
+
+      .financial-data {
+        font-family: "Courier New", monospace;
+        background: #f8f9fa;
+        padding: 12px;
+        border-radius: 6px;
+        border-left: 4px solid #667eea;
+        margin: 8px 0;
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+
+      .financial-data h4 {
+        color: #667eea;
+        margin-bottom: 8px;
+        font-family: inherit;
+      }
     </style>
   </head>
   <body>
-    <div class="container">
-      <!-- ====== MULTI-COMPANY LOGIN MANAGER ====== -->
-      <div class="login-manager" id="loginManager">
-        <div class="login-header">
-          <h1>RAC Multi-Company Login Manager</h1>
-          <p>Streamlined access to your Xero organisations</p>
-        </div>
-
-        <div class="login-content">
-          <!-- Step Indicator -->
-          <div class="step-indicator">
-            <div class="step active" id="step1Indicator">
-              <div class="step-number">1</div>
-              <span>Select Companies</span>
+    <div class="main-container">
+      <!-- Main Dashboard Area -->
+      <div class="dashboard-area" id="dashboardArea">
+        <div class="container">
+          <!-- ====== MULTI-COMPANY LOGIN MANAGER ====== -->
+          <div class="login-manager" id="loginManager">
+            <div class="login-header">
+              <h1>RAC Multi-Company Login Manager</h1>
+              <p>Streamlined access to your Xero organisations</p>
             </div>
-            <div class="step" id="step2Indicator">
-              <div class="step-number">2</div>
-              <span>OAuth Authentication</span>
-            </div>
-            <div class="step" id="step3Indicator">
-              <div class="step-number">3</div>
-              <span>Launch Dashboard</span>
-            </div>
-          </div>
 
-          <!-- Step 1: Company Selection -->
-          <div class="company-selection" id="step1">
-            <h2>Select Companies to Connect</h2>
-
-            <div class="company-list">
-              <!-- ALL Companies Option -->
-              <div
-                class="company-item all-companies"
-                onclick="toggleAllCompanies(event)"
-              >
-                <input
-                  type="checkbox"
-                  class="company-checkbox"
-                  id="all-companies"
-                />
-                <div class="company-name">🚀 ALL COMPANIES (Quick Connect)</div>
-              </div>
-
-              <!-- Individual Companies -->
-              <div class="company-item" onclick="toggleCompany('rac', event)">
-                <input
-                  type="checkbox"
-                  class="company-checkbox"
-                  id="company-rac"
-                />
-                <div class="company-name">
-                  Rirratjingu Aboriginal Corporation 8538
+            <div class="login-content">
+              <!-- Step Indicator -->
+              <div class="step-indicator">
+                <div class="step active" id="step1Indicator">
+                  <div class="step-number">1</div>
+                  <span>Select Companies</span>
+                </div>
+                <div class="step" id="step2Indicator">
+                  <div class="step-number">2</div>
+                  <span>OAuth Authentication</span>
+                </div>
+                <div class="step" id="step3Indicator">
+                  <div class="step-number">3</div>
+                  <span>Launch Dashboard</span>
                 </div>
               </div>
 
-              <div
-                class="company-item"
-                onclick="toggleCompany('mining', event)"
-              >
-                <input
-                  type="checkbox"
-                  class="company-checkbox"
-                  id="company-mining"
-                />
-                <div class="company-name">Rirratjingu Mining Pty Ltd 7168</div>
+              <!-- Step 1: Company Selection -->
+              <div class="company-selection" id="step1">
+                <h2>Select Companies to Connect</h2>
+
+                <div class="company-list">
+                  <!-- ALL Companies Option -->
+                  <div
+                    class="company-item all-companies"
+                    onclick="toggleAllCompanies(event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="all-companies"
+                    />
+                    <div class="company-name">
+                      🚀 ALL COMPANIES (Quick Connect)
+                    </div>
+                  </div>
+
+                  <!-- Individual Companies -->
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('rac', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-rac"
+                    />
+                    <div class="company-name">
+                      Rirratjingu Aboriginal Corporation 8538
+                    </div>
+                  </div>
+
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('mining', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-mining"
+                    />
+                    <div class="company-name">
+                      Rirratjingu Mining Pty Ltd 7168
+                    </div>
+                  </div>
+
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('property', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-property"
+                    />
+                    <div class="company-name">
+                      Rirratjingu Property Management & Maintenance Services Pty
+                      Ltd
+                    </div>
+                  </div>
+
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('enterprises', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-enterprises"
+                    />
+                    <div class="company-name">
+                      Rirratjingu Enterprises Pty Ltd
+                    </div>
+                  </div>
+
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('invest', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-invest"
+                    />
+                    <div class="company-name">
+                      Rirratjingu Invest P/ L ATF Miliditjpi Trust
+                    </div>
+                  </div>
+
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('ngarrkuwuy', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-ngarrkuwuy"
+                    />
+                    <div class="company-name">
+                      Ngarrkuwuy Developments Pty Ltd
+                    </div>
+                  </div>
+
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('marrin', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-marrin"
+                    />
+                    <div class="company-name">
+                      Marrin Square Developments Pty Ltd
+                    </div>
+                  </div>
+                </div>
+
+                <div class="selection-summary" id="selectionSummary">
+                  <strong>Selected: 0 companies</strong>
+                </div>
+
+                <button
+                  class="continue-btn"
+                  id="continueBtn"
+                  onclick="startOAuthFlow()"
+                  disabled
+                >
+                  Continue with Selected Companies
+                </button>
               </div>
 
-              <div
-                class="company-item"
-                onclick="toggleCompany('property', event)"
-              >
-                <input
-                  type="checkbox"
-                  class="company-checkbox"
-                  id="company-property"
-                />
-                <div class="company-name">
-                  Rirratjingu Property Management & Maintenance Services Pty Ltd
+              <!-- Step 2: OAuth Flow -->
+              <div class="oauth-flow" id="step2">
+                <h2>Connecting to Your Companies</h2>
+
+                <div class="current-connection">
+                  <h3 id="currentCompanyName">Ready to connect...</h3>
+                  <div class="progress-bar">
+                    <div
+                      class="progress-fill"
+                      id="progressFill"
+                      style="width: 0%"
+                    ></div>
+                  </div>
+                  <div id="progressText">Preparing connections...</div>
+                </div>
+
+                <div class="success-box" id="oauthInstructions">
+                  <strong>Ready to start:</strong> Click "Start OAuth Flow" to
+                  begin connecting to your selected companies.
+                </div>
+
+                <div id="oauthButtons">
+                  <button
+                    class="oauth-btn primary"
+                    onclick="startNextOAuth()"
+                    id="startOAuthBtn"
+                  >
+                    🔗 Start OAuth Flow
+                  </button>
+                </div>
+
+                <div id="waitingMessage" style="display: none">
+                  <div class="success-box">
+                    <strong>Waiting for OAuth completion...</strong><br />
+                    Complete the Xero authorization, then return here.
+                  </div>
+                  <button class="oauth-btn" onclick="checkOAuthStatus()">
+                    ✅ I've completed the OAuth - Continue
+                  </button>
                 </div>
               </div>
 
-              <div
-                class="company-item"
-                onclick="toggleCompany('enterprises', event)"
-              >
-                <input
-                  type="checkbox"
-                  class="company-checkbox"
-                  id="company-enterprises"
-                />
-                <div class="company-name">Rirratjingu Enterprises Pty Ltd</div>
-              </div>
-
-              <div
-                class="company-item"
-                onclick="toggleCompany('invest', event)"
-              >
-                <input
-                  type="checkbox"
-                  class="company-checkbox"
-                  id="company-invest"
-                />
-                <div class="company-name">
-                  Rirratjingu Invest P/ L ATF Miliditjpi Trust
-                </div>
-              </div>
-
-              <div
-                class="company-item"
-                onclick="toggleCompany('ngarrkuwuy', event)"
-              >
-                <input
-                  type="checkbox"
-                  class="company-checkbox"
-                  id="company-ngarrkuwuy"
-                />
-                <div class="company-name">Ngarrkuwuy Developments Pty Ltd</div>
-              </div>
-
-              <div
-                class="company-item"
-                onclick="toggleCompany('marrin', event)"
-              >
-                <input
-                  type="checkbox"
-                  class="company-checkbox"
-                  id="company-marrin"
-                />
-                <div class="company-name">
-                  Marrin Square Developments Pty Ltd
-                </div>
-              </div>
-            </div>
-
-            <div class="selection-summary" id="selectionSummary">
-              <strong>Selected: 0 companies</strong>
-            </div>
-
-            <button
-              class="continue-btn"
-              id="continueBtn"
-              onclick="startOAuthFlow()"
-              disabled
-            >
-              Continue with Selected Companies
-            </button>
-          </div>
-
-          <!-- Step 2: OAuth Flow -->
-          <div class="oauth-flow" id="step2">
-            <h2>Connecting to Your Companies</h2>
-
-            <div class="current-connection">
-              <h3 id="currentCompanyName">Ready to connect...</h3>
-              <div class="progress-bar">
+              <!-- Step 3: Completion -->
+              <div class="completion" id="step3">
+                <h2>🎉 All Companies Connected!</h2>
                 <div
-                  class="progress-fill"
-                  id="progressFill"
-                  style="width: 0%"
+                  class="connected-companies"
+                  id="connectedCompaniesList"
                 ></div>
+                <div class="success-box">
+                  <strong>Ready to launch!</strong> All selected companies are
+                  now connected.
+                </div>
+                <button class="launch-btn" onclick="showMainDashboard()">
+                  🚀 Launch Financial Dashboard
+                </button>
               </div>
-              <div id="progressText">Preparing connections...</div>
             </div>
+          </div>
 
-            <div class="success-box" id="oauthInstructions">
-              <strong>Ready to start:</strong> Click "Start OAuth Flow" to begin
-              connecting to your selected companies.
-            </div>
-
-            <div id="oauthButtons">
+          <!-- ====== MAIN DASHBOARD ====== -->
+          <div class="main-dashboard" id="mainDashboard">
+            <div class="header">
+              <h1>🏢 RAC Financial Dashboard</h1>
+              <p>Real-Time Xero Integration - Live Data</p>
+              <div class="live-indicator">
+                <div class="live-dot"></div>
+                Connected to Xero • Live Data
+              </div>
               <button
-                class="oauth-btn primary"
-                onclick="startNextOAuth()"
-                id="startOAuthBtn"
+                onclick="backgroundRefreshAllCompanies(event)"
+                style="
+                  margin-top: 10px;
+                  padding: 8px 16px;
+                  background: #007bff;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-size: 0.9rem;
+                "
               >
-                🔗 Start OAuth Flow
+                🔄 Refresh Tokens
               </button>
-            </div>
-
-            <div id="waitingMessage" style="display: none">
-              <div class="success-box">
-                <strong>Waiting for OAuth completion...</strong><br />
-                Complete the Xero authorization, then return here.
-              </div>
-              <button class="oauth-btn" onclick="checkOAuthStatus()">
-                ✅ I've completed the OAuth - Continue
-              </button>
-            </div>
-          </div>
-
-          <!-- Step 3: Completion -->
-          <div class="completion" id="step3">
-            <h2>🎉 All Companies Connected!</h2>
-            <div class="connected-companies" id="connectedCompaniesList"></div>
-            <div class="success-box">
-              <strong>Ready to launch!</strong> All selected companies are now
-              connected.
-            </div>
-            <button class="launch-btn" onclick="showMainDashboard()">
-              🚀 Launch Financial Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- ====== MAIN DASHBOARD ====== -->
-      <div class="main-dashboard" id="mainDashboard">
-        <div class="header">
-          <h1>🏢 RAC Financial Dashboard</h1>
-          <p>Real-Time Xero Integration - Live Data</p>
-          <div class="live-indicator">
-            <div class="live-dot"></div>
-            Connected to Xero • Live Data
-          </div>
-          <button
-            onclick="backgroundRefreshAllCompanies(event)"
-            style="
-              margin-top: 10px;
-              padding: 8px 16px;
-              background: #007bff;
-              color: white;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 0.9rem;
-            "
-          >
-            🔄 Refresh Tokens
-          </button>
-          <button
-            onclick="backToLoginManager()"
-            style="
-              margin-top: 10px;
-              margin-left: 10px;
-              padding: 8px 16px;
-              background: #6c757d;
-              color: white;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 0.9rem;
-            "
-          >
-            🔙 Back to Login Manager
-          </button>
-          <button
-            id="refresh-toggle-btn"
-            onclick="toggleRefreshPanel()"
-            style="
-              margin-top: 10px;
-              margin-left: 10px;
-              padding: 8px 16px;
-              background: #28a745;
-              color: white;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 0.9rem;
-            "
-          >
-            👁️ Show Refresh Status
-          </button>
-          <div id="token-status-display"></div>
-        </div>
-        <!-- Refresh Status Panel (Initially Hidden) -->
-        <div
-          id="refresh-status-panel"
-          style="
-            position: fixed;
-            top: 60px;
-            right: 10px;
-            width: 350px;
-            height: 300px;
-            background: white;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            z-index: 9999;
-            display: none;
-            overflow: auto;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-          "
-        >
-          <div style="padding: 15px">
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 10px;
-              "
-            >
-              <h4 style="margin: 0; color: #333">OAuth Refresh Monitor</h4>
               <button
+                onclick="backToLoginManager()"
+                style="
+                  margin-top: 10px;
+                  margin-left: 10px;
+                  padding: 8px 16px;
+                  background: #6c757d;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-size: 0.9rem;
+                "
+              >
+                🔙 Back to Login Manager
+              </button>
+              <button
+                id="refresh-toggle-btn"
                 onclick="toggleRefreshPanel()"
                 style="
-                  background: none;
+                  margin-top: 10px;
+                  margin-left: 10px;
+                  padding: 8px 16px;
+                  background: #28a745;
+                  color: white;
                   border: none;
-                  font-size: 1.2rem;
-                  cursor: pointer;
-                "
-              >
-                ×
-              </button>
-            </div>
-            <div
-              id="refresh-log"
-              style="
-                background: #f8f9fa;
-                padding: 10px;
-                border-radius: 4px;
-                font-family: monospace;
-                font-size: 0.8rem;
-                height: 120px;
-                overflow-y: auto;
-                border: 1px solid #eee;
-              "
-            >
-              Ready to refresh OAuth connections...
-            </div>
-            <iframe
-              id="oauth-iframe"
-              style="
-                width: 100%;
-                height: 120px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                margin-top: 10px;
-              "
-            ></iframe>
-          </div>
-        </div>
-        <!-- Dashboard Controls -->
-        <div class="controls" id="dashboard-controls">
-          <h3>📊 Trial Balance Controls</h3>
-          <div
-            style="
-              display: flex;
-              gap: 20px;
-              align-items: center;
-              flex-wrap: wrap;
-            "
-          >
-            <div style="display: flex; align-items: center; gap: 10px">
-              <label for="report-date" style="font-weight: bold; color: #13547a"
-                >📅 Report Date:</label
-              >
-              <input
-                type="date"
-                id="report-date"
-                onchange="updateReportDate(this.value)"
-                style="
-                  padding: 8px 12px;
-                  border: 2px solid #13547a;
                   border-radius: 6px;
-                  font-size: 1rem;
-                  background: white;
-                  color: #333;
                   cursor: pointer;
-                "
-              />
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center">
-              <span style="font-size: 0.9rem; color: #666">Quick:</span>
-              <button
-                onclick="setQuickDate('today')"
-                style="
-                  padding: 6px 12px;
-                  border: 1px solid #ccc;
-                  background: white;
-                  border-radius: 4px;
-                  font-size: 0.85rem;
-                  cursor: pointer;
+                  font-size: 0.9rem;
                 "
               >
-                Today
+                👁️ Show Refresh Status
               </button>
-              <button
-                onclick="setQuickDate('monthEnd')"
-                style="
-                  padding: 6px 12px;
-                  border: 1px solid #ccc;
-                  background: white;
-                  border-radius: 4px;
-                  font-size: 0.85rem;
-                  cursor: pointer;
-                "
-              >
-                Month End
-              </button>
+              <div id="token-status-display"></div>
             </div>
-            <div class="toggle-btn active" onclick="setView('overview', event)">
-              Overview
-            </div>
-            <div class="toggle-btn" onclick="setView('detailed', event)">
-              Detailed
-            </div>
-            <button
-              onclick="openAIChat()"
+            <!-- Refresh Status Panel (Initially Hidden) -->
+            <div
+              id="refresh-status-panel"
               style="
-                background: #28a745;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                cursor: pointer;
-                margin-left: 10px;
+                position: fixed;
+                top: 60px;
+                right: 10px;
+                width: 350px;
+                height: 300px;
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                z-index: 9999;
+                display: none;
+                overflow: auto;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
               "
             >
-              Open AI Assistant
-            </button>
-          </div>
-          <div
-            style="
-              margin-top: 15px;
-              padding: 10px;
-              background: #f8f9fa;
-              border-radius: 6px;
-              border-left: 4px solid #13547a;
-            "
-          >
-            <div style="font-size: 0.9rem; color: #666">
-              <span style="font-weight: bold">Viewing:</span>
-              Trial Balance as at
-              <span
-                style="font-weight: bold; color: #13547a"
-                id="display-date"
-              ></span>
+              <div style="padding: 15px">
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                  "
+                >
+                  <h4 style="margin: 0; color: #333">OAuth Refresh Monitor</h4>
+                  <button
+                    onclick="toggleRefreshPanel()"
+                    style="
+                      background: none;
+                      border: none;
+                      font-size: 1.2rem;
+                      cursor: pointer;
+                    "
+                  >
+                    ×
+                  </button>
+                </div>
+                <div
+                  id="refresh-log"
+                  style="
+                    background: #f8f9fa;
+                    padding: 10px;
+                    border-radius: 4px;
+                    font-family: monospace;
+                    font-size: 0.8rem;
+                    height: 120px;
+                    overflow-y: auto;
+                    border: 1px solid #eee;
+                  "
+                >
+                  Ready to refresh OAuth connections...
+                </div>
+                <iframe
+                  id="oauth-iframe"
+                  style="
+                    width: 100%;
+                    height: 120px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    margin-top: 10px;
+                  "
+                ></iframe>
+              </div>
+            </div>
+            <!-- Dashboard Controls -->
+            <div class="controls" id="dashboard-controls">
+              <h3>📊 Trial Balance Controls</h3>
+              <div
+                style="
+                  display: flex;
+                  gap: 20px;
+                  align-items: center;
+                  flex-wrap: wrap;
+                "
+              >
+                <div style="display: flex; align-items: center; gap: 10px">
+                  <label
+                    for="report-date"
+                    style="font-weight: bold; color: #13547a"
+                    >📅 Report Date:</label
+                  >
+                  <input
+                    type="date"
+                    id="report-date"
+                    onchange="updateReportDate(this.value)"
+                    style="
+                      padding: 8px 12px;
+                      border: 2px solid #13547a;
+                      border-radius: 6px;
+                      font-size: 1rem;
+                      background: white;
+                      color: #333;
+                      cursor: pointer;
+                    "
+                  />
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center">
+                  <span style="font-size: 0.9rem; color: #666">Quick:</span>
+                  <button
+                    onclick="setQuickDate('today')"
+                    style="
+                      padding: 6px 12px;
+                      border: 1px solid #ccc;
+                      background: white;
+                      border-radius: 4px;
+                      font-size: 0.85rem;
+                      cursor: pointer;
+                    "
+                  >
+                    Today
+                  </button>
+                  <button
+                    onclick="setQuickDate('monthEnd')"
+                    style="
+                      padding: 6px 12px;
+                      border: 1px solid #ccc;
+                      background: white;
+                      border-radius: 4px;
+                      font-size: 0.85rem;
+                      cursor: pointer;
+                    "
+                  >
+                    Month End
+                  </button>
+                </div>
+                <div
+                  class="toggle-btn active"
+                  onclick="setView('overview', event)"
+                >
+                  Overview
+                </div>
+                <div class="toggle-btn" onclick="setView('detailed', event)">
+                  Detailed
+                </div>
+                <button
+                  onclick="openAIChat()"
+                  style="
+                    background: #28a745;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    margin-left: 10px;
+                  "
+                >
+                  Open AI Assistant
+                </button>
+              </div>
+              <div
+                style="
+                  margin-top: 15px;
+                  padding: 10px;
+                  background: #f8f9fa;
+                  border-radius: 6px;
+                  border-left: 4px solid #13547a;
+                "
+              >
+                <div style="font-size: 0.9rem; color: #666">
+                  <span style="font-weight: bold">Viewing:</span>
+                  Trial Balance as at
+                  <span
+                    style="font-weight: bold; color: #13547a"
+                    id="display-date"
+                  ></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="demo-grid" id="dashboard-content">
+              <div class="loading">Loading live RAC financial data...</div>
+            </div>
+
+            <div class="last-updated">
+              Last updated: <span id="timestamp"></span> • Data sources: Live
+              RAC Xero Accounts
             </div>
           </div>
-        </div>
-
-        <div class="demo-grid" id="dashboard-content">
-          <div class="loading">Loading live RAC financial data...</div>
-        </div>
-
-        <div class="last-updated">
-          Last updated: <span id="timestamp"></span> • Data sources: Live RAC
-          Xero Accounts
         </div>
       </div>
     </div>
