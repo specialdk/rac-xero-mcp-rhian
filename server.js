@@ -982,28 +982,6 @@ function stopAutoRefresh() {
   }
 }
 
-// API endpoint to manually trigger refresh
-app.post("/api/refresh-tokens", async (req, res) => {
-  try {
-    console.error("🔄 Manual token refresh requested");
-    const result = await enhancedTokenStorage.refreshAllExpiringTokens();
-
-    res.json({
-      success: true,
-      refreshed: result.refreshed,
-      failed: result.failed,
-      results: result.results,
-      message: `Refreshed ${result.refreshed} tokens, ${result.failed} failed`,
-    });
-  } catch (error) {
-    console.error("❌ Manual refresh error:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
 // API endpoint to check token status and warnings
 app.get("/api/token-status", async (req, res) => {
   try {
@@ -1051,6 +1029,27 @@ app.get("/api/connection-status-enhanced", async (req, res) => {
     });
 
     // === REST API Endpoints for Web Chat Interface ===
+    // API endpoint to manually trigger refresh
+    app.post("/api/refresh-tokens", async (req, res) => {
+      try {
+        console.error("🔄 Manual token refresh requested");
+        const result = await enhancedTokenStorage.refreshAllExpiringTokens();
+
+        res.json({
+          success: true,
+          refreshed: result.refreshed,
+          failed: result.failed,
+          results: result.results,
+          message: `Refreshed ${result.refreshed} tokens, ${result.failed} failed`,
+        });
+      } catch (error) {
+        console.error("❌ Manual refresh error:", error);
+        res.status(500).json({
+          success: false,
+          error: error.message,
+        });
+      }
+    });
 
     // POST Trial Balance endpoint (for web chat interface)
     app.post("/api/trial-balance", async (req, res) => {
