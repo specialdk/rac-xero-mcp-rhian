@@ -210,6 +210,8 @@
       }
 
       .header {
+        position: relative;
+        z-index: 1;
         text-align: center;
         color: white;
         margin-bottom: 40px;
@@ -419,7 +421,9 @@
       /* AI Chat Side Panel */
       .ai-chat-panel {
         position: fixed;
-        right: 0;
+        right: calc(
+          (100vw - 1400px) / 2
+        ); /* This positions it next to your max-width container */
         top: 0;
         bottom: 0;
         width: 400px;
