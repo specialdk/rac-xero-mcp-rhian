@@ -2520,6 +2520,589 @@ function toggleSectionFromElement(element) {
   toggleSection(companyIndex, sectionKey);
 }
 
+// Add these endpoints to your server.js after the existing endpoints
+
+// ============================================================================
+// ADDITIONAL FINANCIAL ANALYSIS ENDPOINTS
+// ============================================================================
+
+// Get Profit & Loss summary
+app.get("/api/profit-loss/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
+    const periodMonths = parseInt(req.query.periodMonths) || 12;
+
+    // Calculate from date (start of period)
+    const fromDate = new Date(reportDate);
+    fromDate.setMonth(fromDate.getMonth() - periodMonths);
+    const fromDateStr = fromDate.toISOString().split("T")[0];
+
+    console.log(
+      `Getting P&L for ${tokenData.tenantName} from ${fromDateStr} to ${reportDate}`
+    );
+
+    const response = await xero.accountingApi.getReportProfitAndLoss(
+      req.params.tenantId,
+      fromDateStr,
+      reportDate
+    );
+
+    const plRows = response.body.reports?.[0]?.rows || [];
+
+    const plSummary = {
+      totalRevenue: 0,
+      totalExpenses: 0,
+      netProfit: 0,
+      revenueAccounts: [],
+      expenseAccounts: [],
+      grossProfit: 0,
+      operatingExpenses: 0,
+    };
+
+    plRows.forEach((section) => {
+      if (section.rowType === "Section" && section.rows && section.title) {
+        const sectionTitle = section.title.toLowerCase();
+
+        section.rows.forEach((row) => {
+          if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
+            const accountName = row.cells[0]?.value || "";
+            const amount = parseFloat(row.cells[1]?.value || 0);
+
+            if (accountName.toLowerCase().includes("total") || amount === 0) {
+              return;
+            }
+
+            if (
+              sectionTitle.includes("income") ||
+              sectionTitle.includes("revenue")
+            ) {
+              plSummary.revenueAccounts.push({
+                name: accountName,
+                amount: Math.abs(amount),
+              });
+              plSummary.totalRevenue += Math.abs(amount);
+            } else if (
+              sectionTitle.includes("expense") ||
+              sectionTitle.includes("cost")
+            ) {
+              plSummary.expenseAccounts.push({
+                name: accountName,
+                amount: Math.abs(amount),
+              });
+              plSummary.totalExpenses += Math.abs(amount);
+            }
+          }
+        });
+      }
+    });
+
+    plSummary.netProfit = plSummary.totalRevenue - plSummary.totalExpenses;
+
+    res.json({
+      tenantId: req.params.tenantId,
+      tenantName: tokenData.tenantName,
+      period: {
+        from: fromDateStr,
+        to: reportDate,
+        months: periodMonths,
+      },
+      summary: plSummary,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error getting P&L summary:", error);
+    res.status(500).json({
+      error: "Failed to get P&L summary",
+      details: error.message,
+    });
+  }
+});
+
+// Get aged receivables
+app.get("/api/aged-receivables/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
+
+    console.log(
+      `Getting aged receivables for ${tokenData.tenantName} as at ${reportDate}`
+    );
+
+    const response = await xero.accountingApi.getReportAgedReceivablesByContact(
+      req.params.tenantId,
+      null, // contactId
+      reportDate
+    );
+
+    const reportRows = response.body.reports?.[0]?.rows || [];
+
+    const agedSummary = {
+      totalOutstanding: 0,
+      current: 0,
+      days1to30: 0,
+      days31to60: 0,
+      days61to90: 0,
+      over90days: 0,
+      contactBreakdown: [],
+    };
+
+    reportRows.forEach((row) => {
+      if (row.rowType === "Row" && row.cells && row.cells.length >= 6) {
+        const contactName = row.cells[0]?.value || "";
+        const total = parseFloat(row.cells[1]?.value || 0);
+        const current = parseFloat(row.cells[2]?.value || 0);
+        const days1to30 = parseFloat(row.cells[3]?.value || 0);
+        const days31to60 = parseFloat(row.cells[4]?.value || 0);
+        const days61to90 = parseFloat(row.cells[5]?.value || 0);
+        const over90 = parseFloat(row.cells[6]?.value || 0);
+
+        if (
+          total > 0 &&
+          contactName &&
+          !contactName.toLowerCase().includes("total")
+        ) {
+          agedSummary.contactBreakdown.push({
+            contactName,
+            total,
+            current,
+            days1to30,
+            days31to60,
+            days61to90,
+            over90days: over90,
+            riskLevel:
+              over90 > total * 0.3
+                ? "HIGH"
+                : days61to90 > total * 0.2
+                ? "MEDIUM"
+                : "LOW",
+          });
+
+          agedSummary.totalOutstanding += total;
+          agedSummary.current += current;
+          agedSummary.days1to30 += days1to30;
+          agedSummary.days31to60 += days31to60;
+          agedSummary.days61to90 += days61to90;
+          agedSummary.over90days += over90;
+        }
+      }
+    });
+
+    // Sort by total outstanding (highest first)
+    agedSummary.contactBreakdown.sort((a, b) => b.total - a.total);
+
+    res.json({
+      tenantId: req.params.tenantId,
+      tenantName: tokenData.tenantName,
+      reportDate,
+      summary: agedSummary,
+      riskAnalysis: {
+        highRiskCustomers: agedSummary.contactBreakdown.filter(
+          (c) => c.riskLevel === "HIGH"
+        ).length,
+        over90DaysPercentage: (
+          (agedSummary.over90days / agedSummary.totalOutstanding) *
+          100
+        ).toFixed(1),
+      },
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error getting aged receivables:", error);
+    res.status(500).json({
+      error: "Failed to get aged receivables",
+      details: error.message,
+    });
+  }
+});
+
+// Get expense analysis
+app.get("/api/expense-analysis/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
+    const periodMonths = parseInt(req.query.periodMonths) || 12;
+
+    const fromDate = new Date(reportDate);
+    fromDate.setMonth(fromDate.getMonth() - periodMonths);
+    const fromDateStr = fromDate.toISOString().split("T")[0];
+
+    console.log(`Getting expense analysis for ${tokenData.tenantName}`);
+
+    const response = await xero.accountingApi.getReportProfitAndLoss(
+      req.params.tenantId,
+      fromDateStr,
+      reportDate
+    );
+
+    const plRows = response.body.reports?.[0]?.rows || [];
+
+    const expenseAnalysis = {
+      totalExpenses: 0,
+      expenseCategories: [],
+      topExpenses: [],
+      monthlyAverage: 0,
+    };
+
+    plRows.forEach((section) => {
+      if (section.rowType === "Section" && section.rows && section.title) {
+        const sectionTitle = section.title.toLowerCase();
+
+        if (sectionTitle.includes("expense") || sectionTitle.includes("cost")) {
+          section.rows.forEach((row) => {
+            if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
+              const accountName = row.cells[0]?.value || "";
+              const amount = parseFloat(row.cells[1]?.value || 0);
+
+              if (!accountName.toLowerCase().includes("total") && amount > 0) {
+                const expenseItem = {
+                  accountName,
+                  amount: Math.abs(amount),
+                  monthlyAverage: Math.abs(amount) / periodMonths,
+                  category: categorizeExpense(accountName),
+                };
+
+                expenseAnalysis.expenseCategories.push(expenseItem);
+                expenseAnalysis.totalExpenses += Math.abs(amount);
+              }
+            }
+          });
+        }
+      }
+    });
+
+    // Sort by amount (highest first)
+    expenseAnalysis.expenseCategories.sort((a, b) => b.amount - a.amount);
+    expenseAnalysis.topExpenses = expenseAnalysis.expenseCategories.slice(
+      0,
+      10
+    );
+    expenseAnalysis.monthlyAverage =
+      expenseAnalysis.totalExpenses / periodMonths;
+
+    // Group by category
+    const categoryTotals = {};
+    expenseAnalysis.expenseCategories.forEach((expense) => {
+      if (!categoryTotals[expense.category]) {
+        categoryTotals[expense.category] = 0;
+      }
+      categoryTotals[expense.category] += expense.amount;
+    });
+
+    expenseAnalysis.categoryBreakdown = Object.entries(categoryTotals)
+      .map(([category, total]) => ({
+        category,
+        total,
+        percentage: ((total / expenseAnalysis.totalExpenses) * 100).toFixed(1),
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    res.json({
+      tenantId: req.params.tenantId,
+      tenantName: tokenData.tenantName,
+      period: {
+        from: fromDateStr,
+        to: reportDate,
+        months: periodMonths,
+      },
+      analysis: expenseAnalysis,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error getting expense analysis:", error);
+    res.status(500).json({
+      error: "Failed to get expense analysis",
+      details: error.message,
+    });
+  }
+});
+
+// Helper function to categorize expenses
+function categorizeExpense(accountName) {
+  const name = accountName.toLowerCase();
+
+  if (
+    name.includes("salary") ||
+    name.includes("wage") ||
+    name.includes("payroll")
+  )
+    return "Personnel";
+  if (
+    name.includes("rent") ||
+    name.includes("lease") ||
+    name.includes("utilities")
+  )
+    return "Occupancy";
+  if (name.includes("marketing") || name.includes("advertising"))
+    return "Marketing";
+  if (name.includes("travel") || name.includes("transport")) return "Travel";
+  if (name.includes("insurance")) return "Insurance";
+  if (
+    name.includes("legal") ||
+    name.includes("professional") ||
+    name.includes("consulting")
+  )
+    return "Professional Services";
+  if (
+    name.includes("equipment") ||
+    name.includes("computer") ||
+    name.includes("software")
+  )
+    return "Technology";
+  if (name.includes("supplies") || name.includes("materials"))
+    return "Supplies";
+  if (name.includes("depreciation")) return "Depreciation";
+  if (name.includes("interest") || name.includes("bank"))
+    return "Finance Costs";
+
+  return "Other";
+}
+
+// Get intercompany transactions
+app.get("/api/intercompany/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    await xero.setTokenSet(tokenData);
+
+    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
+
+    console.log(
+      `Getting intercompany transactions for ${tokenData.tenantName}`
+    );
+
+    // Get trial balance to find intercompany accounts
+    const tbResponse = await xero.accountingApi.getReportBalanceSheet(
+      req.params.tenantId,
+      reportDate
+    );
+
+    const balanceSheetRows = tbResponse.body.reports?.[0]?.rows || [];
+
+    const intercompanyAccounts = [];
+    const racEntityNames = [
+      "rirratjingu",
+      "rac",
+      "mining",
+      "property",
+      "enterprises",
+      "invest",
+      "ngarrkuwuy",
+      "marrin",
+      "yirrkala",
+    ];
+
+    balanceSheetRows.forEach((section) => {
+      if (section.rowType === "Section" && section.rows) {
+        section.rows.forEach((row) => {
+          if (row.rowType === "Row" && row.cells && row.cells.length >= 2) {
+            const accountName = row.cells[0]?.value || "";
+            const balance = parseFloat(row.cells[1]?.value || 0);
+
+            // Check if account name contains RAC entity names
+            const isIntercompany = racEntityNames.some(
+              (entity) =>
+                accountName.toLowerCase().includes(entity) &&
+                (accountName.toLowerCase().includes("loan") ||
+                  accountName.toLowerCase().includes("due") ||
+                  accountName.toLowerCase().includes("receivable") ||
+                  accountName.toLowerCase().includes("payable"))
+            );
+
+            if (isIntercompany && Math.abs(balance) > 0) {
+              intercompanyAccounts.push({
+                accountName,
+                balance,
+                section: section.title,
+                relatedEntity: racEntityNames.find((entity) =>
+                  accountName.toLowerCase().includes(entity)
+                ),
+              });
+            }
+          }
+        });
+      }
+    });
+
+    const analysis = {
+      totalIntercompanyAssets: intercompanyAccounts
+        .filter(
+          (acc) =>
+            acc.balance > 0 && acc.section.toLowerCase().includes("asset")
+        )
+        .reduce((sum, acc) => sum + acc.balance, 0),
+      totalIntercompanyLiabilities: intercompanyAccounts
+        .filter(
+          (acc) =>
+            acc.balance > 0 && acc.section.toLowerCase().includes("liabilit")
+        )
+        .reduce((sum, acc) => sum + acc.balance, 0),
+      accountCount: intercompanyAccounts.length,
+      accounts: intercompanyAccounts.sort(
+        (a, b) => Math.abs(b.balance) - Math.abs(a.balance)
+      ),
+    };
+
+    res.json({
+      tenantId: req.params.tenantId,
+      tenantName: tokenData.tenantName,
+      reportDate,
+      analysis,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error getting intercompany transactions:", error);
+    res.status(500).json({
+      error: "Failed to get intercompany analysis",
+      details: error.message,
+    });
+  }
+});
+
+// Get financial ratios
+app.get("/api/financial-ratios/:tenantId", async (req, res) => {
+  try {
+    const tokenData = await tokenStorage.getXeroToken(req.params.tenantId);
+    if (!tokenData) {
+      return res
+        .status(404)
+        .json({ error: "Tenant not found or token expired" });
+    }
+
+    const reportDate = req.query.date || new Date().toISOString().split("T")[0];
+
+    // Get trial balance and P&L data
+    const [tbResponse, plResponse] = await Promise.all([
+      fetch(
+        `${req.protocol}://${req.get("host")}/api/trial-balance/${
+          req.params.tenantId
+        }?date=${reportDate}`
+      ),
+      fetch(
+        `${req.protocol}://${req.get("host")}/api/profit-loss/${
+          req.params.tenantId
+        }?date=${reportDate}`
+      ),
+    ]);
+
+    if (!tbResponse.ok || !plResponse.ok) {
+      throw new Error(
+        "Failed to retrieve financial data for ratio calculation"
+      );
+    }
+
+    const [tbData, plData] = await Promise.all([
+      tbResponse.json(),
+      plResponse.json(),
+    ]);
+
+    const totals = tbData.trialBalance.totals;
+    const plSummary = plData.summary;
+
+    // Calculate key financial ratios
+    const ratios = {
+      liquidity: {
+        currentRatio: totals.totalAssets / Math.max(totals.totalLiabilities, 1),
+        workingCapital: totals.totalAssets - totals.totalLiabilities,
+      },
+      leverage: {
+        debtToEquity:
+          Math.abs(totals.totalLiabilities) / Math.max(totals.totalEquity, 1),
+        equityRatio: totals.totalEquity / Math.max(totals.totalAssets, 1),
+      },
+      profitability: {
+        netProfitMargin:
+          (plSummary.netProfit / Math.max(plSummary.totalRevenue, 1)) * 100,
+        returnOnAssets:
+          (plSummary.netProfit / Math.max(totals.totalAssets, 1)) * 100,
+        returnOnEquity:
+          (plSummary.netProfit / Math.max(totals.totalEquity, 1)) * 100,
+      },
+      efficiency: {
+        assetTurnover: plSummary.totalRevenue / Math.max(totals.totalAssets, 1),
+        expenseRatio:
+          (plSummary.totalExpenses / Math.max(plSummary.totalRevenue, 1)) * 100,
+      },
+    };
+
+    // Add ratio interpretations
+    const interpretations = {
+      currentRatio:
+        ratios.liquidity.currentRatio > 2
+          ? "Strong"
+          : ratios.liquidity.currentRatio > 1
+          ? "Adequate"
+          : "Concerning",
+      debtToEquity:
+        ratios.leverage.debtToEquity < 0.3
+          ? "Conservative"
+          : ratios.leverage.debtToEquity < 1
+          ? "Moderate"
+          : "High",
+      profitability:
+        ratios.profitability.netProfitMargin > 10
+          ? "Excellent"
+          : ratios.profitability.netProfitMargin > 5
+          ? "Good"
+          : ratios.profitability.netProfitMargin > 0
+          ? "Break-even"
+          : "Loss",
+    };
+
+    res.json({
+      tenantId: req.params.tenantId,
+      tenantName: tokenData.tenantName,
+      reportDate,
+      ratios,
+      interpretations,
+      dataSource: {
+        totalAssets: totals.totalAssets,
+        totalLiabilities: totals.totalLiabilities,
+        totalEquity: totals.totalEquity,
+        totalRevenue: plSummary.totalRevenue,
+        totalExpenses: plSummary.totalExpenses,
+        netProfit: plSummary.netProfit,
+      },
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error calculating financial ratios:", error);
+    res.status(500).json({
+      error: "Failed to calculate financial ratios",
+      details: error.message,
+    });
+  }
+});
+
 // Initialize database and start server
 async function startServer() {
   try {

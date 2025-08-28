@@ -413,6 +413,131 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
       },
+      {
+        name: "get_profit_loss_summary",
+        description: "Get profit & loss summary for a specific organization",
+        inputSchema: {
+          type: "object",
+          properties: {
+            tenantId: {
+              type: "string",
+              description:
+                "Xero tenant ID (optional if organizationName provided)",
+            },
+            organizationName: {
+              type: "string",
+              description: "Organization name",
+            },
+            date: {
+              type: "string",
+              description:
+                "Report date in YYYY-MM-DD format (optional, defaults to today)",
+            },
+            periodMonths: {
+              type: "number",
+              description: "Number of months to analyze (default 12)",
+            },
+          },
+        },
+      },
+      {
+        name: "get_aged_receivables",
+        description:
+          "Get aged receivables analysis showing customer payment aging",
+        inputSchema: {
+          type: "object",
+          properties: {
+            tenantId: {
+              type: "string",
+              description:
+                "Xero tenant ID (optional if organizationName provided)",
+            },
+            organizationName: {
+              type: "string",
+              description: "Organization name",
+            },
+            date: {
+              type: "string",
+              description:
+                "Report date in YYYY-MM-DD format (optional, defaults to today)",
+            },
+          },
+        },
+      },
+      {
+        name: "analyze_expense_categories",
+        description: "Analyze expense breakdown and trends by category",
+        inputSchema: {
+          type: "object",
+          properties: {
+            tenantId: {
+              type: "string",
+              description:
+                "Xero tenant ID (optional if organizationName provided)",
+            },
+            organizationName: {
+              type: "string",
+              description: "Organization name",
+            },
+            date: {
+              type: "string",
+              description:
+                "Report date in YYYY-MM-DD format (optional, defaults to today)",
+            },
+            periodMonths: {
+              type: "number",
+              description: "Number of months to analyze (default 12)",
+            },
+          },
+        },
+      },
+      {
+        name: "get_intercompany_transactions",
+        description:
+          "Analyze intercompany transactions and balances between RAC entities",
+        inputSchema: {
+          type: "object",
+          properties: {
+            tenantId: {
+              type: "string",
+              description:
+                "Xero tenant ID (optional if organizationName provided)",
+            },
+            organizationName: {
+              type: "string",
+              description: "Organization name",
+            },
+            date: {
+              type: "string",
+              description:
+                "Report date in YYYY-MM-DD format (optional, defaults to today)",
+            },
+          },
+        },
+      },
+      {
+        name: "get_financial_ratios",
+        description: "Calculate key financial ratios for performance analysis",
+        inputSchema: {
+          type: "object",
+          properties: {
+            tenantId: {
+              type: "string",
+              description:
+                "Xero tenant ID (optional if organizationName provided)",
+            },
+            organizationName: {
+              type: "string",
+              description: "Organization name",
+            },
+            date: {
+              type: "string",
+              description:
+                "Report date in YYYY-MM-DD format (optional, defaults to today)",
+            },
+          },
+        },
+      },
     ],
   };
 });
@@ -1235,6 +1360,307 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }: $${change.change.toLocaleString()} (${change.changeType})\n`;
         });
       }
+
+      return { content: [{ type: "text", text: result }] };
+    }
+
+    if (name === "get_profit_loss_summary") {
+      const { tenantId, organizationName, date, periodMonths } = args;
+
+      let actualTenantId = tenantId;
+      if (!actualTenantId && organizationName) {
+        actualTenantId = await getTenantIdFromName(organizationName);
+      }
+      if (!actualTenantId) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "❌ Error: Must provide either tenantId or organizationName",
+            },
+          ],
+        };
+      }
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (date) params.append("date", date);
+      if (periodMonths) params.append("periodMonths", periodMonths.toString());
+      const queryParams = params.toString() ? "?" + params.toString() : "";
+
+      const plData = await callRailwayAPI(
+        `/api/profit-loss/${actualTenantId}${queryParams}`
+      );
+
+      let result = `📈 PROFIT & LOSS SUMMARY\n\n`;
+      result += `Organization: ${plData.tenantName}\n`;
+      result += `Period: ${plData.period.from} to ${plData.period.to} (${plData.period.months} months)\n\n`;
+
+      result += `💰 FINANCIAL PERFORMANCE:\n`;
+      result += `• Total Revenue: $${plData.summary.totalRevenue.toLocaleString()}\n`;
+      result += `• Total Expenses: $${plData.summary.totalExpenses.toLocaleString()}\n`;
+      result += `• Net Profit: $${plData.summary.netProfit.toLocaleString()}\n`;
+      result += `• Profit Margin: ${(
+        (plData.summary.netProfit / plData.summary.totalRevenue) *
+        100
+      ).toFixed(1)}%\n\n`;
+
+      if (plData.summary.revenueAccounts.length > 0) {
+        result += `📊 TOP REVENUE SOURCES:\n`;
+        plData.summary.revenueAccounts.slice(0, 5).forEach((account) => {
+          result += `• ${account.name}: $${account.amount.toLocaleString()}\n`;
+        });
+        result += `\n`;
+      }
+
+      if (plData.summary.expenseAccounts.length > 0) {
+        result += `💳 TOP EXPENSES:\n`;
+        plData.summary.expenseAccounts.slice(0, 5).forEach((account) => {
+          result += `• ${account.name}: $${account.amount.toLocaleString()}\n`;
+        });
+      }
+
+      return { content: [{ type: "text", text: result }] };
+    }
+
+    if (name === "get_aged_receivables") {
+      const { tenantId, organizationName, date } = args;
+
+      let actualTenantId = tenantId;
+      if (!actualTenantId && organizationName) {
+        actualTenantId = await getTenantIdFromName(organizationName);
+      }
+      if (!actualTenantId) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "❌ Error: Must provide either tenantId or organizationName",
+            },
+          ],
+        };
+      }
+
+      const params = new URLSearchParams();
+      if (date) params.append("date", date);
+      const queryParams = params.toString() ? "?" + params.toString() : "";
+
+      const agedData = await callRailwayAPI(
+        `/api/aged-receivables/${actualTenantId}${queryParams}`
+      );
+
+      let result = `📅 AGED RECEIVABLES ANALYSIS\n\n`;
+      result += `Organization: ${agedData.tenantName}\n`;
+      result += `Report Date: ${agedData.reportDate}\n`;
+      result += `Total Outstanding: $${agedData.summary.totalOutstanding.toLocaleString()}\n\n`;
+
+      result += `⏰ AGING BREAKDOWN:\n`;
+      result += `• Current: $${agedData.summary.current.toLocaleString()}\n`;
+      result += `• 1-30 days: $${agedData.summary.days1to30.toLocaleString()}\n`;
+      result += `• 31-60 days: $${agedData.summary.days31to60.toLocaleString()}\n`;
+      result += `• 61-90 days: $${agedData.summary.days61to90.toLocaleString()}\n`;
+      result += `• Over 90 days: $${agedData.summary.over90days.toLocaleString()}\n\n`;
+
+      result += `🚨 RISK ANALYSIS:\n`;
+      result += `• High Risk Customers: ${agedData.riskAnalysis.highRiskCustomers}\n`;
+      result += `• Over 90 Days %: ${agedData.riskAnalysis.over90DaysPercentage}%\n\n`;
+
+      if (agedData.summary.contactBreakdown.length > 0) {
+        result += `👥 TOP OUTSTANDING CUSTOMERS:\n`;
+        agedData.summary.contactBreakdown.slice(0, 10).forEach((contact) => {
+          result += `\n• ${contact.contactName} (${contact.riskLevel} risk)\n`;
+          result += `  Total: $${contact.total.toLocaleString()}\n`;
+          result += `  Current: $${contact.current.toLocaleString()}\n`;
+          result += `  Over 90 days: $${contact.over90days.toLocaleString()}\n`;
+        });
+      }
+
+      return { content: [{ type: "text", text: result }] };
+    }
+
+    if (name === "analyze_expense_categories") {
+      const { tenantId, organizationName, date, periodMonths } = args;
+
+      let actualTenantId = tenantId;
+      if (!actualTenantId && organizationName) {
+        actualTenantId = await getTenantIdFromName(organizationName);
+      }
+      if (!actualTenantId) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "❌ Error: Must provide either tenantId or organizationName",
+            },
+          ],
+        };
+      }
+
+      const params = new URLSearchParams();
+      if (date) params.append("date", date);
+      if (periodMonths) params.append("periodMonths", periodMonths.toString());
+      const queryParams = params.toString() ? "?" + params.toString() : "";
+
+      const expenseData = await callRailwayAPI(
+        `/api/expense-analysis/${actualTenantId}${queryParams}`
+      );
+
+      let result = `💳 EXPENSE CATEGORY ANALYSIS\n\n`;
+      result += `Organization: ${expenseData.tenantName}\n`;
+      result += `Period: ${expenseData.period.from} to ${expenseData.period.to} (${expenseData.period.months} months)\n`;
+      result += `Total Expenses: $${expenseData.analysis.totalExpenses.toLocaleString()}\n`;
+      result += `Monthly Average: $${expenseData.analysis.monthlyAverage.toLocaleString()}\n\n`;
+
+      if (expenseData.analysis.categoryBreakdown) {
+        result += `📊 EXPENSE BY CATEGORY:\n`;
+        expenseData.analysis.categoryBreakdown.forEach((category) => {
+          result += `• ${
+            category.category
+          }: $${category.total.toLocaleString()} (${category.percentage}%)\n`;
+        });
+        result += `\n`;
+      }
+
+      if (expenseData.analysis.topExpenses.length > 0) {
+        result += `🔝 TOP EXPENSE ACCOUNTS:\n`;
+        expenseData.analysis.topExpenses
+          .slice(0, 10)
+          .forEach((expense, index) => {
+            result += `${index + 1}. ${
+              expense.accountName
+            }: $${expense.amount.toLocaleString()}\n`;
+            result += `   Category: ${
+              expense.category
+            } | Monthly: $${expense.monthlyAverage.toLocaleString()}\n`;
+          });
+      }
+
+      return { content: [{ type: "text", text: result }] };
+    }
+
+    if (name === "get_intercompany_transactions") {
+      const { tenantId, organizationName, date } = args;
+
+      let actualTenantId = tenantId;
+      if (!actualTenantId && organizationName) {
+        actualTenantId = await getTenantIdFromName(organizationName);
+      }
+      if (!actualTenantId) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "❌ Error: Must provide either tenantId or organizationName",
+            },
+          ],
+        };
+      }
+
+      const params = new URLSearchParams();
+      if (date) params.append("date", date);
+      const queryParams = params.toString() ? "?" + params.toString() : "";
+
+      const intercompanyData = await callRailwayAPI(
+        `/api/intercompany/${actualTenantId}${queryParams}`
+      );
+
+      let result = `🏢 INTERCOMPANY TRANSACTION ANALYSIS\n\n`;
+      result += `Organization: ${intercompanyData.tenantName}\n`;
+      result += `Report Date: ${intercompanyData.reportDate}\n`;
+      result += `Intercompany Accounts Found: ${intercompanyData.analysis.accountCount}\n\n`;
+
+      result += `💰 INTERCOMPANY BALANCES:\n`;
+      result += `• Total IC Assets: $${intercompanyData.analysis.totalIntercompanyAssets.toLocaleString()}\n`;
+      result += `• Total IC Liabilities: $${intercompanyData.analysis.totalIntercompanyLiabilities.toLocaleString()}\n`;
+      result += `• Net Position: $${(
+        intercompanyData.analysis.totalIntercompanyAssets -
+        intercompanyData.analysis.totalIntercompanyLiabilities
+      ).toLocaleString()}\n\n`;
+
+      if (intercompanyData.analysis.accounts.length > 0) {
+        result += `📋 INTERCOMPANY ACCOUNTS:\n`;
+        intercompanyData.analysis.accounts.forEach((account) => {
+          result += `\n• ${account.accountName}\n`;
+          result += `  Balance: $${account.balance.toLocaleString()}\n`;
+          result += `  Section: ${account.section}\n`;
+          result += `  Related Entity: ${account.relatedEntity || "Unknown"}\n`;
+        });
+      } else {
+        result += `No intercompany accounts found.\n`;
+      }
+
+      return { content: [{ type: "text", text: result }] };
+    }
+
+    if (name === "get_financial_ratios") {
+      const { tenantId, organizationName, date } = args;
+
+      let actualTenantId = tenantId;
+      if (!actualTenantId && organizationName) {
+        actualTenantId = await getTenantIdFromName(organizationName);
+      }
+      if (!actualTenantId) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "❌ Error: Must provide either tenantId or organizationName",
+            },
+          ],
+        };
+      }
+
+      const params = new URLSearchParams();
+      if (date) params.append("date", date);
+      const queryParams = params.toString() ? "?" + params.toString() : "";
+
+      const ratiosData = await callRailwayAPI(
+        `/api/financial-ratios/${actualTenantId}${queryParams}`
+      );
+
+      let result = `📊 FINANCIAL RATIOS ANALYSIS\n\n`;
+      result += `Organization: ${ratiosData.tenantName}\n`;
+      result += `Report Date: ${ratiosData.reportDate}\n\n`;
+
+      result += `💧 LIQUIDITY RATIOS:\n`;
+      result += `• Current Ratio: ${ratiosData.ratios.liquidity.currentRatio.toFixed(
+        2
+      )} (${ratiosData.interpretations.currentRatio})\n`;
+      result += `• Working Capital: $${ratiosData.ratios.liquidity.workingCapital.toLocaleString()}\n\n`;
+
+      result += `⚖️ LEVERAGE RATIOS:\n`;
+      result += `• Debt-to-Equity: ${ratiosData.ratios.leverage.debtToEquity.toFixed(
+        2
+      )} (${ratiosData.interpretations.debtToEquity})\n`;
+      result += `• Equity Ratio: ${(
+        ratiosData.ratios.leverage.equityRatio * 100
+      ).toFixed(1)}%\n\n`;
+
+      result += `💰 PROFITABILITY RATIOS:\n`;
+      result += `• Net Profit Margin: ${ratiosData.ratios.profitability.netProfitMargin.toFixed(
+        1
+      )}% (${ratiosData.interpretations.profitability})\n`;
+      result += `• Return on Assets: ${ratiosData.ratios.profitability.returnOnAssets.toFixed(
+        1
+      )}%\n`;
+      result += `• Return on Equity: ${ratiosData.ratios.profitability.returnOnEquity.toFixed(
+        1
+      )}%\n\n`;
+
+      result += `⚡ EFFICIENCY RATIOS:\n`;
+      result += `• Asset Turnover: ${ratiosData.ratios.efficiency.assetTurnover.toFixed(
+        2
+      )}\n`;
+      result += `• Expense Ratio: ${ratiosData.ratios.efficiency.expenseRatio.toFixed(
+        1
+      )}%\n\n`;
+
+      result += `📈 DATA SUMMARY:\n`;
+      result += `• Total Assets: $${ratiosData.dataSource.totalAssets.toLocaleString()}\n`;
+      result += `• Total Liabilities: $${ratiosData.dataSource.totalLiabilities.toLocaleString()}\n`;
+      result += `• Total Equity: $${ratiosData.dataSource.totalEquity.toLocaleString()}\n`;
+      result += `• Revenue: $${ratiosData.dataSource.totalRevenue.toLocaleString()}\n`;
+      result += `• Net Profit: $${ratiosData.dataSource.netProfit.toLocaleString()}\n`;
 
       return { content: [{ type: "text", text: result }] };
     }
