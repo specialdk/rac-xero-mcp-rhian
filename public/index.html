@@ -840,6 +840,103 @@
       </div>
     </div>
 
+    <!-- AI Chat Side Panel -->
+    <div class="ai-chat-panel" id="aiChatPanel">
+      <div class="chat-header">
+        <h3>RAC AI Assistant</h3>
+        <button class="close-chat-btn" onclick="closeAIChat()">×</button>
+      </div>
+
+      <div class="organization-selector">
+        <select id="orgSelector" onchange="updateSelectedOrg()">
+          <option value="Rirratjingu Aboriginal Corporation 8538">
+            RAC Aboriginal Corporation
+          </option>
+          <option value="Rirratjingu Mining Pty Ltd 7168">RAC Mining</option>
+          <option value="Rirratjingu Enterprises Pty Ltd">
+            RAC Enterprises
+          </option>
+          <option
+            value="Rirratjingu Property Management & Maintenance Services Pty Ltd"
+          >
+            RAC Property
+          </option>
+          <option value="Rirratjingu Invest P/ L ATF Miliditjpi Trust">
+            RAC Invest Trust
+          </option>
+          <option value="Ngarrkuwuy Developments Pty Ltd">
+            Ngarrkuwuy Developments
+          </option>
+          <option value="Marrin Square Developments Pty Ltd">
+            Marrin Square
+          </option>
+        </select>
+      </div>
+
+      <div class="quick-actions">
+        <div class="quick-actions-grid">
+          <div class="quick-action-btn" onclick="quickAction('trial balance')">
+            Trial Balance
+          </div>
+          <div class="quick-action-btn" onclick="quickAction('cash position')">
+            Cash Position
+          </div>
+          <div
+            class="quick-action-btn"
+            onclick="quickAction('outstanding invoices')"
+          >
+            Outstanding Invoices
+          </div>
+          <div
+            class="quick-action-btn"
+            onclick="quickAction('financial ratios')"
+          >
+            Financial Ratios
+          </div>
+          <div
+            class="quick-action-btn"
+            onclick="quickAction('equity movements')"
+          >
+            Equity Analysis
+          </div>
+          <div class="quick-action-btn" onclick="quickAction('profit loss')">
+            P&L Summary
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="message assistant">
+          <div>
+            Hello! I'm your RAC Financial AI Assistant. I can help you analyze
+            data from your Xero accounts using 23+ specialized tools.
+          </div>
+          <div class="message-time" id="welcomeTime"></div>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <div class="chat-input-container">
+          <textarea
+            id="chatInput"
+            class="chat-input"
+            placeholder="Ask me about trial balance, cash position, ratios, or any financial analysis..."
+            rows="1"
+            onkeypress="handleChatKeyPress(event)"
+            oninput="autoResize(this)"
+          ></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+            <span>➤</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Toggle Button -->
+    <button class="chat-toggle-btn" id="chatToggleBtn" onclick="toggleAIChat()">
+      AI
+    </button>
+
     <script>
       console.log("=== PAGE LOAD DEBUG ===");
       console.log("Current URL:", window.location.href);
