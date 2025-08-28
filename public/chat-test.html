@@ -14,8 +14,14 @@
     <div id="root"></div>
     <script type="text/babel">
       const { useState, useRef, useEffect } = React;
-      const { Send, DollarSign, TrendingUp, FileText, AlertCircle, Loader2 } =
-        lucide;
+
+      // Lucide icons for browser
+      const Send = lucide.Send;
+      const DollarSign = lucide.DollarSign;
+      const TrendingUp = lucide.TrendingUp;
+      const FileText = lucide.FileText;
+      const AlertCircle = lucide.AlertCircle;
+      const Loader2 = lucide.Loader2;
 
       const RACXeroChat = () => {
         const [messages, setMessages] = useState([
