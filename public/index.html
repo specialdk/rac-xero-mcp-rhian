@@ -175,6 +175,14 @@
         font-size: 1rem;
       }
 
+      .disconnect-btn:hover {
+  background: #c82333 !important;
+}
+
+.company-item:hover .disconnect-btn {
+  display: block;
+}
+
       .selection-summary {
         background: #f8f9fa;
         padding: 1rem;
@@ -744,87 +752,70 @@
 
                   <div
                     class="company-item"
-                    onclick="toggleCompany('mining', event)"
+                    onclick="toggleCompany('rac', event)"
                   >
                     <input
                       type="checkbox"
                       class="company-checkbox"
-                      id="company-mining"
+                      id="company-rac"
                     />
                     <div class="company-name">
                       Rirratjingu Mining Pty Ltd 7168
                     </div>
                   </div>
+                      
+                  <div class="company-item" onclick="toggleCompany('rac', event)">
+  <input type="checkbox" class="company-checkbox" id="company-rac" />
+  <div class="company-name">Rirratjingu Property Management & Maintenance Services Pty
+                      Ltd</div>
+  <button onclick="disconnectCompany('rac'); event.stopPropagation();" 
+          class="disconnect-btn" 
+          style="margin-left: auto; background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; display: none;">
+    Disconnect
+  </button>
+</div>
+                      
+<div class="company-item" onclick="toggleCompany('rac', event)">
+  <input type="checkbox" class="company-checkbox" id="company-rac" />
+  <div class="company-name">Rirratjingu Enterprises Pty Ltd</div>
+  <button onclick="disconnectCompany('rac'); event.stopPropagation();" 
+          class="disconnect-btn" 
+          style="margin-left: auto; background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; display: none;">
+    Disconnect
+  </button>
+</div>
+                     
+                  <div class="company-item" onclick="toggleCompany('rac', event)">
+  <input type="checkbox" class="company-checkbox" id="company-rac" />
+  <div class="company-name">Rirratjingu Invest P/ L ATF Miliditjpi Trust</div>
+  <button onclick="disconnectCompany('rac'); event.stopPropagation();" 
+          class="disconnect-btn" 
+          style="margin-left: auto; background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; display: none;">
+    Disconnect
+  </button>
+</div>
+                      
 
-                  <div
-                    class="company-item"
-                    onclick="toggleCompany('property', event)"
-                  >
-                    <input
-                      type="checkbox"
-                      class="company-checkbox"
-                      id="company-property"
-                    />
-                    <div class="company-name">
-                      Rirratjingu Property Management & Maintenance Services Pty
-                      Ltd
-                    </div>
-                  </div>
-
-                  <div
-                    class="company-item"
-                    onclick="toggleCompany('enterprises', event)"
-                  >
-                    <input
-                      type="checkbox"
-                      class="company-checkbox"
-                      id="company-enterprises"
-                    />
-                    <div class="company-name">
-                      Rirratjingu Enterprises Pty Ltd
-                    </div>
-                  </div>
-
-                  <div
-                    class="company-item"
-                    onclick="toggleCompany('invest', event)"
-                  >
-                    <input
-                      type="checkbox"
-                      class="company-checkbox"
-                      id="company-invest"
-                    />
-                    <div class="company-name">
-                      Rirratjingu Invest P/ L ATF Miliditjpi Trust
-                    </div>
-                  </div>
-
-                  <div
-                    class="company-item"
-                    onclick="toggleCompany('ngarrkuwuy', event)"
-                  >
-                    <input
-                      type="checkbox"
-                      class="company-checkbox"
-                      id="company-ngarrkuwuy"
-                    />
-                    <div class="company-name">
-                      Ngarrkuwuy Developments Pty Ltd
-                    </div>
-                  </div>
-
-                  <div
-                    class="company-item"
-                    onclick="toggleCompany('marrin', event)"
-                  >
-                    <input
-                      type="checkbox"
-                      class="company-checkbox"
-                      id="company-marrin"
-                    />
-                    <div class="company-name">
-                      Marrin Square Developments Pty Ltd
-                    </div>
+                  <div class="company-item" onclick="toggleCompany('rac', event)">
+  <input type="checkbox" class="company-checkbox" id="company-rac" />
+  <div class="company-name">Ngarrkuwuy Developments Pty Ltd</div>
+  <button onclick="disconnectCompany('rac'); event.stopPropagation();" 
+          class="disconnect-btn" 
+          style="margin-left: auto; background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; display: none;">
+    Disconnect
+  </button>
+</div>
+                      
+                  <div class="company-item" onclick="toggleCompany('rac', event)">
+  <input type="checkbox" class="company-checkbox" id="company-rac" />
+  <div class="company-name">Marrin Square Developments Pty Ltd</div>
+  <button onclick="disconnectCompany('rac'); event.stopPropagation();" 
+          class="disconnect-btn" 
+          style="margin-left: auto; background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; display: none;">
+    Disconnect
+  </button>
+</div>
+                      
                   </div>
                 </div>
 
@@ -1931,15 +1922,78 @@
       }
 
       function backToLoginManager() {
+        // Don't clear connections, just show the login manager for editing
+        document.getElementById("mainDashboard").style.display = "none";
+        document.getElementById("loginManager").style.display = "block";
+
+        // Load current connections instead of resetting
+        loadCurrentConnections();
+      }
+
+      async function loadCurrentConnections() {
+        try {
+          const response = await fetch("/api/connection-status");
+          const connections = await response.json();
+
+          // Show connected companies in the selection interface
+          const connectedCompanyIds = [];
+          connections.forEach((conn) => {
+            if (conn.connected) {
+              // Map tenant names back to company IDs
+              const companyId = Object.keys(companies).find(
+                (id) => companies[id] === conn.tenantName
+              );
+              if (companyId) {
+                connectedCompanyIds.push(companyId);
+                document.getElementById(`company-${companyId}`).checked = true;
+              }
+            }
+          });
+
+          selectedCompanies = connectedCompanyIds;
+          updateSelectionSummary();
+
+          // Update button text to reflect this is connection management
+          document.getElementById("continueBtn").textContent =
+            "Update Company Connections";
+        } catch (error) {
+          console.error("Error loading current connections:", error);
+        }
+      }
+
+      async function disconnectCompany(companyId) {
+        const companyName = companies[companyId];
+
         if (
           confirm(
-            "Return to login manager? This will clear your current session."
+            `Disconnect from ${companyName}? This will remove access to its financial data.`
           )
         ) {
-          localStorage.removeItem("racCompaniesConnected");
-          document.getElementById("mainDashboard").style.display = "none";
-          document.getElementById("loginManager").style.display = "block";
-          resetLoginManager();
+          try {
+            // You'll need to add a disconnect endpoint to your server
+            const response = await fetch(`/api/disconnect/${companyId}`, {
+              method: "POST",
+            });
+
+            if (response.ok) {
+              // Remove from UI
+              document.getElementById(`company-${companyId}`).checked = false;
+              selectedCompanies = selectedCompanies.filter(
+                (id) => id !== companyId
+              );
+              updateSelectionSummary();
+
+              // Update organization selector in chat
+              updateOrgSelectorOptions();
+
+              alert(`Disconnected from ${companyName}`);
+            } else {
+              alert("Failed to disconnect. Please try again.");
+            }
+          } catch (error) {
+            console.error("Disconnect error:", error);
+            alert("Error disconnecting. Please try again.");
+          }
         }
       }
 

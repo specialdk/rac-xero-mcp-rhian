@@ -371,7 +371,7 @@
             </div>
 
             <!-- Individual Companies -->
-            <div class="company-item" onclick="toggleCompany('rac')">
+            <div class="company-item" onclick="toggleCompany('rac', event)">
               <input
                 type="checkbox"
                 class="company-checkbox"
@@ -380,6 +380,20 @@
               <div class="company-name">
                 Rirratjingu Aboriginal Corporation 8538
               </div>
+              <button
+                onclick="disconnectCompany('rac')"
+                style="
+                  margin-left: auto;
+                  background: #dc3545;
+                  color: white;
+                  border: none;
+                  padding: 4px 8px;
+                  border-radius: 4px;
+                  font-size: 0.8rem;
+                "
+              >
+                Disconnect
+              </button>
             </div>
 
             <div class="company-item" onclick="toggleCompany('mining')">
