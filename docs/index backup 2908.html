@@ -19,32 +19,45 @@
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         height: 100vh;
         overflow: hidden;
+        margin: 0;
+        padding: 0;
       }
 
-      /* Main layout container - flex row */
+      /* Main layout container - FORCE flex row layout */
       .main-container {
-        display: flex;
-        height: 100vh;
+        display: flex !important;
+        flex-direction: row !important;
+        height: 100vh !important;
+        width: 100vw !important;
         background: white;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        position: fixed;
+        top: 0;
+        left: 0;
       }
 
       /* Dashboard area - takes remaining space */
       .dashboard-area {
-        flex: 1;
+        flex: 1 1 auto !important;
+        min-width: 0;
         overflow-y: auto;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        height: 100vh;
       }
 
-      /* Fixed right AI chat panel */
+      /* Fixed right AI chat panel - FORCE to right side */
       .ai-chat-panel {
-        width: 400px;
-        background: white;
+        width: 400px !important;
+        min-width: 400px !important;
+        max-width: 400px !important;
+        background: white !important;
         border-left: 2px solid #ddd;
         box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-        display: flex;
-        flex-direction: column;
-        flex-shrink: 0;
+        display: flex !important;
+        flex-direction: column !important;
+        flex-shrink: 0 !important;
+        height: 100vh !important;
+        position: relative;
       }
 
       .container {
@@ -694,45 +707,118 @@
 
                 <div class="company-list">
                   <!-- ALL Companies Option -->
-                  <div class="company-item all-companies" onclick="toggleAllCompanies(event)">
-                    <input type="checkbox" class="company-checkbox" id="all-companies" />
-                    <div class="company-name">🚀 ALL COMPANIES (Quick Connect)</div>
+                  <div
+                    class="company-item all-companies"
+                    onclick="toggleAllCompanies(event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="all-companies"
+                    />
+                    <div class="company-name">
+                      🚀 ALL COMPANIES (Quick Connect)
+                    </div>
                   </div>
 
                   <!-- Individual Companies -->
-                  <div class="company-item" onclick="toggleCompany('rac', event)">
-                    <input type="checkbox" class="company-checkbox" id="company-rac" />
-                    <div class="company-name">Rirratjingu Aboriginal Corporation 8538</div>
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('rac', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-rac"
+                    />
+                    <div class="company-name">
+                      Rirratjingu Aboriginal Corporation 8538
+                    </div>
                   </div>
 
-                  <div class="company-item" onclick="toggleCompany('mining', event)">
-                    <input type="checkbox" class="company-checkbox" id="company-mining" />
-                    <div class="company-name">Rirratjingu Mining Pty Ltd 7168</div>
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('mining', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-mining"
+                    />
+                    <div class="company-name">
+                      Rirratjingu Mining Pty Ltd 7168
+                    </div>
                   </div>
 
-                  <div class="company-item" onclick="toggleCompany('property', event)">
-                    <input type="checkbox" class="company-checkbox" id="company-property" />
-                    <div class="company-name">Rirratjingu Property Management & Maintenance Services Pty Ltd</div>
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('property', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-property"
+                    />
+                    <div class="company-name">
+                      Rirratjingu Property Management & Maintenance Services Pty
+                      Ltd
+                    </div>
                   </div>
 
-                  <div class="company-item" onclick="toggleCompany('enterprises', event)">
-                    <input type="checkbox" class="company-checkbox" id="company-enterprises" />
-                    <div class="company-name">Rirratjingu Enterprises Pty Ltd</div>
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('enterprises', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-enterprises"
+                    />
+                    <div class="company-name">
+                      Rirratjingu Enterprises Pty Ltd
+                    </div>
                   </div>
 
-                  <div class="company-item" onclick="toggleCompany('invest', event)">
-                    <input type="checkbox" class="company-checkbox" id="company-invest" />
-                    <div class="company-name">Rirratjingu Invest P/ L ATF Miliditjpi Trust</div>
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('invest', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-invest"
+                    />
+                    <div class="company-name">
+                      Rirratjingu Invest P/ L ATF Miliditjpi Trust
+                    </div>
                   </div>
 
-                  <div class="company-item" onclick="toggleCompany('ngarrkuwuy', event)">
-                    <input type="checkbox" class="company-checkbox" id="company-ngarrkuwuy" />
-                    <div class="company-name">Ngarrkuwuy Developments Pty Ltd</div>
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('ngarrkuwuy', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-ngarrkuwuy"
+                    />
+                    <div class="company-name">
+                      Ngarrkuwuy Developments Pty Ltd
+                    </div>
                   </div>
 
-                  <div class="company-item" onclick="toggleCompany('marrin', event)">
-                    <input type="checkbox" class="company-checkbox" id="company-marrin" />
-                    <div class="company-name">Marrin Square Developments Pty Ltd</div>
+                  <div
+                    class="company-item"
+                    onclick="toggleCompany('marrin', event)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="company-checkbox"
+                      id="company-marrin"
+                    />
+                    <div class="company-name">
+                      Marrin Square Developments Pty Ltd
+                    </div>
                   </div>
                 </div>
 
@@ -740,7 +826,12 @@
                   <strong>Selected: 0 companies</strong>
                 </div>
 
-                <button class="continue-btn" id="continueBtn" onclick="startOAuthFlow()" disabled>
+                <button
+                  class="continue-btn"
+                  id="continueBtn"
+                  onclick="startOAuthFlow()"
+                  disabled
+                >
                   Continue with Selected Companies
                 </button>
               </div>
@@ -752,17 +843,26 @@
                 <div class="current-connection">
                   <h3 id="currentCompanyName">Ready to connect...</h3>
                   <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                    <div
+                      class="progress-fill"
+                      id="progressFill"
+                      style="width: 0%"
+                    ></div>
                   </div>
                   <div id="progressText">Preparing connections...</div>
                 </div>
 
                 <div class="success-box" id="oauthInstructions">
-                  <strong>Ready to start:</strong> Click "Start OAuth Flow" to begin connecting to your selected companies.
+                  <strong>Ready to start:</strong> Click "Start OAuth Flow" to
+                  begin connecting to your selected companies.
                 </div>
 
                 <div id="oauthButtons">
-                  <button class="oauth-btn primary" onclick="startNextOAuth()" id="startOAuthBtn">
+                  <button
+                    class="oauth-btn primary"
+                    onclick="startNextOAuth()"
+                    id="startOAuthBtn"
+                  >
                     🔗 Start OAuth Flow
                   </button>
                 </div>
@@ -781,9 +881,13 @@
               <!-- Step 3: Completion -->
               <div class="completion" id="step3">
                 <h2>🎉 All Companies Connected!</h2>
-                <div class="connected-companies" id="connectedCompaniesList"></div>
+                <div
+                  class="connected-companies"
+                  id="connectedCompaniesList"
+                ></div>
                 <div class="success-box">
-                  <strong>Ready to launch!</strong> All selected companies are now connected.
+                  <strong>Ready to launch!</strong> All selected companies are
+                  now connected.
                 </div>
                 <button class="launch-btn" onclick="showMainDashboard()">
                   🚀 Launch Financial Dashboard
@@ -801,13 +905,52 @@
                 <div class="live-dot"></div>
                 Connected to Xero • Live Data
               </div>
-              <button onclick="backgroundRefreshAllCompanies(event)" style="margin-top: 10px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+              <button
+                onclick="backgroundRefreshAllCompanies(event)"
+                style="
+                  margin-top: 10px;
+                  padding: 8px 16px;
+                  background: #007bff;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-size: 0.9rem;
+                "
+              >
                 🔄 Refresh Tokens
               </button>
-              <button onclick="backToLoginManager()" style="margin-top: 10px; margin-left: 10px; padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+              <button
+                onclick="backToLoginManager()"
+                style="
+                  margin-top: 10px;
+                  margin-left: 10px;
+                  padding: 8px 16px;
+                  background: #6c757d;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-size: 0.9rem;
+                "
+              >
                 🔙 Back to Login Manager
               </button>
-              <button id="refresh-toggle-btn" onclick="toggleRefreshPanel()" style="margin-top: 10px; margin-left: 10px; padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+              <button
+                id="refresh-toggle-btn"
+                onclick="toggleRefreshPanel()"
+                style="
+                  margin-top: 10px;
+                  margin-left: 10px;
+                  padding: 8px 16px;
+                  background: #28a745;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-size: 0.9rem;
+                "
+              >
                 👁️ Show Refresh Status
               </button>
               <div id="token-status-display"></div>
@@ -816,38 +959,142 @@
             <!-- Refresh Status Panel -->
             <div id="refresh-status-panel">
               <div style="padding: 15px">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                  "
+                >
                   <h4 style="margin: 0; color: #333">OAuth Refresh Monitor</h4>
-                  <button onclick="toggleRefreshPanel()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">×</button>
+                  <button
+                    onclick="toggleRefreshPanel()"
+                    style="
+                      background: none;
+                      border: none;
+                      font-size: 1.2rem;
+                      cursor: pointer;
+                    "
+                  >
+                    ×
+                  </button>
                 </div>
-                <div id="refresh-log" style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.8rem; height: 120px; overflow-y: auto; border: 1px solid #eee;">
+                <div
+                  id="refresh-log"
+                  style="
+                    background: #f8f9fa;
+                    padding: 10px;
+                    border-radius: 4px;
+                    font-family: monospace;
+                    font-size: 0.8rem;
+                    height: 120px;
+                    overflow-y: auto;
+                    border: 1px solid #eee;
+                  "
+                >
                   Ready to refresh OAuth connections...
                 </div>
-                <iframe id="oauth-iframe" style="width: 100%; height: 120px; border: 1px solid #ddd; border-radius: 4px; margin-top: 10px;"></iframe>
+                <iframe
+                  id="oauth-iframe"
+                  style="
+                    width: 100%;
+                    height: 120px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    margin-top: 10px;
+                  "
+                ></iframe>
               </div>
             </div>
 
             <!-- Dashboard Controls -->
             <div class="controls" id="dashboard-controls">
               <h3>📊 Trial Balance Controls</h3>
-              <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+              <div
+                style="
+                  display: flex;
+                  gap: 20px;
+                  align-items: center;
+                  flex-wrap: wrap;
+                "
+              >
                 <div style="display: flex; align-items: center; gap: 10px">
-                  <label for="report-date" style="font-weight: bold; color: #13547a">📅 Report Date:</label>
-                  <input type="date" id="report-date" onchange="updateReportDate(this.value)" style="padding: 8px 12px; border: 2px solid #13547a; border-radius: 6px; font-size: 1rem; background: white; color: #333; cursor: pointer;" />
+                  <label
+                    for="report-date"
+                    style="font-weight: bold; color: #13547a"
+                    >📅 Report Date:</label
+                  >
+                  <input
+                    type="date"
+                    id="report-date"
+                    onchange="updateReportDate(this.value)"
+                    style="
+                      padding: 8px 12px;
+                      border: 2px solid #13547a;
+                      border-radius: 6px;
+                      font-size: 1rem;
+                      background: white;
+                      color: #333;
+                      cursor: pointer;
+                    "
+                  />
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center">
                   <span style="font-size: 0.9rem; color: #666">Quick:</span>
-                  <button onclick="setQuickDate('today')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Today</button>
-                  <button onclick="setQuickDate('monthEnd')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Month End</button>
+                  <button
+                    onclick="setQuickDate('today')"
+                    style="
+                      padding: 6px 12px;
+                      border: 1px solid #ccc;
+                      background: white;
+                      border-radius: 4px;
+                      font-size: 0.85rem;
+                      cursor: pointer;
+                    "
+                  >
+                    Today
+                  </button>
+                  <button
+                    onclick="setQuickDate('monthEnd')"
+                    style="
+                      padding: 6px 12px;
+                      border: 1px solid #ccc;
+                      background: white;
+                      border-radius: 4px;
+                      font-size: 0.85rem;
+                      cursor: pointer;
+                    "
+                  >
+                    Month End
+                  </button>
                 </div>
-                <div class="toggle-btn active" onclick="setView('overview', event)">Overview</div>
-                <div class="toggle-btn" onclick="setView('detailed', event)">Detailed</div>
+                <div
+                  class="toggle-btn active"
+                  onclick="setView('overview', event)"
+                >
+                  Overview
+                </div>
+                <div class="toggle-btn" onclick="setView('detailed', event)">
+                  Detailed
+                </div>
               </div>
-              <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #13547a;">
+              <div
+                style="
+                  margin-top: 15px;
+                  padding: 10px;
+                  background: #f8f9fa;
+                  border-radius: 6px;
+                  border-left: 4px solid #13547a;
+                "
+              >
                 <div style="font-size: 0.9rem; color: #666">
                   <span style="font-weight: bold">Viewing:</span>
                   Trial Balance as at
-                  <span style="font-weight: bold; color: #13547a" id="display-date"></span>
+                  <span
+                    style="font-weight: bold; color: #13547a"
+                    id="display-date"
+                  ></span>
                 </div>
               </div>
             </div>
@@ -857,7 +1104,8 @@
             </div>
 
             <div class="last-updated">
-              Last updated: <span id="timestamp"></span> • Data sources: Live RAC Xero Accounts
+              Last updated: <span id="timestamp"></span> • Data sources: Live
+              RAC Xero Accounts
             </div>
           </div>
         </div>
@@ -871,31 +1119,73 @@
 
         <div class="organization-selector">
           <select id="orgSelector" onchange="updateSelectedOrg()">
-            <option value="Rirratjingu Aboriginal Corporation 8538">RAC Aboriginal Corporation</option>
+            <option value="Rirratjingu Aboriginal Corporation 8538">
+              RAC Aboriginal Corporation
+            </option>
             <option value="Rirratjingu Mining Pty Ltd 7168">RAC Mining</option>
-            <option value="Rirratjingu Enterprises Pty Ltd">RAC Enterprises</option>
-            <option value="Rirratjingu Property Management & Maintenance Services Pty Ltd">RAC Property</option>
-            <option value="Rirratjingu Invest P/ L ATF Miliditjpi Trust">RAC Invest Trust</option>
-            <option value="Ngarrkuwuy Developments Pty Ltd">Ngarrkuwuy Developments</option>
-            <option value="Marrin Square Developments Pty Ltd">Marrin Square</option>
+            <option value="Rirratjingu Enterprises Pty Ltd">
+              RAC Enterprises
+            </option>
+            <option
+              value="Rirratjingu Property Management & Maintenance Services Pty Ltd"
+            >
+              RAC Property
+            </option>
+            <option value="Rirratjingu Invest P/ L ATF Miliditjpi Trust">
+              RAC Invest Trust
+            </option>
+            <option value="Ngarrkuwuy Developments Pty Ltd">
+              Ngarrkuwuy Developments
+            </option>
+            <option value="Marrin Square Developments Pty Ltd">
+              Marrin Square
+            </option>
           </select>
         </div>
 
         <div class="quick-actions">
           <div class="quick-actions-grid">
-            <div class="quick-action-btn" onclick="quickAction('trial balance')">Trial Balance</div>
-            <div class="quick-action-btn" onclick="quickAction('cash position')">Cash Position</div>
-            <div class="quick-action-btn" onclick="quickAction('outstanding invoices')">Outstanding Invoices</div>
-            <div class="quick-action-btn" onclick="quickAction('financial ratios')">Financial Ratios</div>
-            <div class="quick-action-btn" onclick="quickAction('equity movements')">Equity Analysis</div>
-            <div class="quick-action-btn" onclick="quickAction('profit loss')">P&L Summary</div>
+            <div
+              class="quick-action-btn"
+              onclick="quickAction('trial balance')"
+            >
+              Trial Balance
+            </div>
+            <div
+              class="quick-action-btn"
+              onclick="quickAction('cash position')"
+            >
+              Cash Position
+            </div>
+            <div
+              class="quick-action-btn"
+              onclick="quickAction('outstanding invoices')"
+            >
+              Outstanding Invoices
+            </div>
+            <div
+              class="quick-action-btn"
+              onclick="quickAction('financial ratios')"
+            >
+              Financial Ratios
+            </div>
+            <div
+              class="quick-action-btn"
+              onclick="quickAction('equity movements')"
+            >
+              Equity Analysis
+            </div>
+            <div class="quick-action-btn" onclick="quickAction('profit loss')">
+              P&L Summary
+            </div>
           </div>
         </div>
 
         <div class="chat-messages" id="chatMessages">
           <div class="message assistant">
             <div>
-              Hello! I'm your RAC Financial AI Assistant. I can help you analyze data from your Xero accounts using 23+ specialized tools.
+              Hello! I'm your RAC Financial AI Assistant. I can help you analyze
+              data from your Xero accounts using 23+ specialized tools.
             </div>
             <div class="message-time" id="welcomeTime"></div>
           </div>
@@ -903,7 +1193,14 @@
 
         <div class="chat-input-area">
           <div class="chat-input-container">
-            <textarea id="chatInput" class="chat-input" placeholder="Ask me about trial balance, cash position, ratios, or any financial analysis..." rows="1" onkeypress="handleChatKeyPress(event)" oninput="autoResize(this)"></textarea>
+            <textarea
+              id="chatInput"
+              class="chat-input"
+              placeholder="Ask me about trial balance, cash position, ratios, or any financial analysis..."
+              rows="1"
+              onkeypress="handleChatKeyPress(event)"
+              oninput="autoResize(this)"
+            ></textarea>
             <button class="send-btn" id="sendBtn" onclick="sendMessage()">
               <span>➤</span>
             </button>
@@ -916,16 +1213,31 @@
     <script>
       console.log("=== PAGE LOAD DEBUG ===");
       console.log("Current URL:", window.location.href);
-      console.log("URL params:", new URLSearchParams(window.location.search).toString());
+      console.log(
+        "URL params:",
+        new URLSearchParams(window.location.search).toString()
+      );
       console.log("Refresh mode:", localStorage.getItem("oauthRefreshMode"));
       console.log("OAuth companies:", localStorage.getItem("oauthCompanies"));
 
       // Track what's visible
       setTimeout(() => {
-        console.log("Login manager display:", document.getElementById("loginManager")?.style.display);
-        console.log("Main dashboard display:", document.getElementById("mainDashboard")?.style.display);
-        console.log("Login manager exists:", !!document.getElementById("loginManager"));
-        console.log("Main dashboard exists:", !!document.getElementById("mainDashboard"));
+        console.log(
+          "Login manager display:",
+          document.getElementById("loginManager")?.style.display
+        );
+        console.log(
+          "Main dashboard display:",
+          document.getElementById("mainDashboard")?.style.display
+        );
+        console.log(
+          "Login manager exists:",
+          !!document.getElementById("loginManager")
+        );
+        console.log(
+          "Main dashboard exists:",
+          !!document.getElementById("mainDashboard")
+        );
       }, 100);
 
       // ====== GLOBAL VARIABLES ======
@@ -940,12 +1252,20 @@
       // Organization selector
       function updateSelectedOrg() {
         selectedOrganization = document.getElementById("orgSelector").value;
-        addMessage("assistant", `Switched to analyzing data for: ${selectedOrganization.replace("Rirratjingu ", "RAC ")}`);
+        addMessage(
+          "assistant",
+          `Switched to analyzing data for: ${selectedOrganization.replace(
+            "Rirratjingu ",
+            "RAC "
+          )}`
+        );
       }
 
       // Quick actions
       function quickAction(query) {
-        document.getElementById("chatInput").value = `Show me the ${query} for ${selectedOrganization}`;
+        document.getElementById(
+          "chatInput"
+        ).value = `Show me the ${query} for ${selectedOrganization}`;
         sendMessage();
       }
 
@@ -979,12 +1299,19 @@
         updateSendButton();
 
         try {
-          const response = await processFinancialQuery(message, selectedOrganization);
+          const response = await processFinancialQuery(
+            message,
+            selectedOrganization
+          );
           removeTypingIndicator();
           addMessage("assistant", response);
         } catch (error) {
           removeTypingIndicator();
-          addMessage("assistant", `Sorry, I encountered an error: ${error.message}`, "error");
+          addMessage(
+            "assistant",
+            `Sorry, I encountered an error: ${error.message}`,
+            "error"
+          );
         }
 
         isLoading = false;
@@ -999,8 +1326,14 @@
 
         let formattedContent = content;
 
-        if (type === "assistant" && messageType !== "error" && content.includes("$")) {
-          formattedContent = `<div class="financial-data">${formatFinancialResponse(content)}</div>`;
+        if (
+          type === "assistant" &&
+          messageType !== "error" &&
+          content.includes("$")
+        ) {
+          formattedContent = `<div class="financial-data">${formatFinancialResponse(
+            content
+          )}</div>`;
         } else if (messageType === "error") {
           formattedContent = `<div class="error-box">${content}</div>`;
         }
@@ -1055,14 +1388,18 @@
       // Placeholder for MCP integration - you'll replace this
       async function processFinancialQuery(query, organization) {
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        return `**Mock Response for ${organization.replace("Rirratjingu ", "RAC ")}**\n\nQuery: "${query}"\n\nThis is a placeholder. Replace this function with your actual MCP server integration.`;
+        return `**Mock Response for ${organization.replace(
+          "Rirratjingu ",
+          "RAC "
+        )}**\n\nQuery: "${query}"\n\nThis is a placeholder. Replace this function with your actual MCP server integration.`;
       }
 
       // Multi-Company Login Manager Variables
       const companies = {
         rac: "Rirratjingu Aboriginal Corporation 8538",
         mining: "Rirratjingu Mining Pty Ltd 7168",
-        property: "Rirratjingu Property Management & Maintenance Services Pty Ltd",
+        property:
+          "Rirratjingu Property Management & Maintenance Services Pty Ltd",
         enterprises: "Rirratjingu Enterprises Pty Ltd",
         invest: "Rirratjingu Invest P/ L ATF Miliditjpi Trust",
         ngarrkuwuy: "Ngarrkuwuy Developments Pty Ltd",
@@ -1085,7 +1422,9 @@
             try {
               selectedCompanies = JSON.parse(saved);
               selectedCompanies.forEach((companyId) => {
-                const checkbox = document.getElementById(`company-${companyId}`);
+                const checkbox = document.getElementById(
+                  `company-${companyId}`
+                );
                 if (checkbox) checkbox.checked = true;
               });
               updateSelectionSummary();
@@ -1112,7 +1451,10 @@
       }
 
       function savePreferences() {
-        localStorage.setItem("racCompanyPreferences", JSON.stringify(selectedCompanies));
+        localStorage.setItem(
+          "racCompanyPreferences",
+          JSON.stringify(selectedCompanies)
+        );
       }
 
       function toggleCompany(companyId, event) {
@@ -1125,7 +1467,9 @@
             selectedCompanies.push(companyId);
           }
         } else {
-          selectedCompanies = selectedCompanies.filter((id) => id !== companyId);
+          selectedCompanies = selectedCompanies.filter(
+            (id) => id !== companyId
+          );
           document.getElementById("all-companies").checked = false;
         }
 
@@ -1183,13 +1527,17 @@
 
         oauthProgress = 0;
         connectedCompanies = [];
-        localStorage.setItem("oauthCompanies", JSON.stringify(selectedCompanies));
+        localStorage.setItem(
+          "oauthCompanies",
+          JSON.stringify(selectedCompanies)
+        );
         localStorage.setItem("oauthProgress", "0");
         updateOAuthProgress();
       }
 
       function updateOAuthProgress() {
-        const currentCompanyName = document.getElementById("currentCompanyName");
+        const currentCompanyName =
+          document.getElementById("currentCompanyName");
         const progressFill = document.getElementById("progressFill");
         const progressText = document.getElementById("progressText");
 
@@ -1197,10 +1545,15 @@
           const companyId = selectedCompanies[oauthProgress];
           const companyName = companies[companyId];
 
-          currentCompanyName.textContent = `Ready to connect: ${companyName} (${oauthProgress + 1}/${selectedCompanies.length})`;
-          const progressPercent = (oauthProgress / selectedCompanies.length) * 100;
+          currentCompanyName.textContent = `Ready to connect: ${companyName} (${
+            oauthProgress + 1
+          }/${selectedCompanies.length})`;
+          const progressPercent =
+            (oauthProgress / selectedCompanies.length) * 100;
           progressFill.style.width = progressPercent + "%";
-          progressText.textContent = `Step ${oauthProgress + 1} of ${selectedCompanies.length}`;
+          progressText.textContent = `Step ${oauthProgress + 1} of ${
+            selectedCompanies.length
+          }`;
 
           document.getElementById("oauthInstructions").innerHTML = `
             <strong>Next Company:</strong> ${companyName}<br>
@@ -1233,7 +1586,9 @@
           const response = await fetch("/api/connection-status");
           const connections = await response.json();
 
-          const currentCompanyName = localStorage.getItem("currentOAuthCompanyName");
+          const currentCompanyName = localStorage.getItem(
+            "currentOAuthCompanyName"
+          );
           const currentCompanyId = localStorage.getItem("currentOAuthCompany");
 
           const newConnection = connections.find(
@@ -1251,26 +1606,35 @@
             localStorage.setItem("oauthProgress", oauthProgress.toString());
 
             isOAuthInProgress = false;
-            document.getElementById("startOAuthBtn").style.display = "inline-block";
+            document.getElementById("startOAuthBtn").style.display =
+              "inline-block";
             document.getElementById("waitingMessage").style.display = "none";
 
             if (oauthProgress < selectedCompanies.length) {
               updateOAuthProgress();
-              document.getElementById("startOAuthBtn").textContent = `🔗 Connect Next Company (${oauthProgress + 1}/${selectedCompanies.length})`;
+              document.getElementById(
+                "startOAuthBtn"
+              ).textContent = `🔗 Connect Next Company (${oauthProgress + 1}/${
+                selectedCompanies.length
+              })`;
             } else {
               showCompletion();
             }
           } else {
-            alert(`❌ Failed to connect ${currentCompanyName}. Please try again.`);
+            alert(
+              `❌ Failed to connect ${currentCompanyName}. Please try again.`
+            );
             isOAuthInProgress = false;
-            document.getElementById("startOAuthBtn").style.display = "inline-block";
+            document.getElementById("startOAuthBtn").style.display =
+              "inline-block";
             document.getElementById("waitingMessage").style.display = "none";
           }
         } catch (error) {
           console.error("❌ Error checking OAuth status:", error);
           alert("❌ Error checking connection status. Please try again.");
           isOAuthInProgress = false;
-          document.getElementById("startOAuthBtn").style.display = "inline-block";
+          document.getElementById("startOAuthBtn").style.display =
+            "inline-block";
           document.getElementById("waitingMessage").style.display = "none";
         }
       }
@@ -1325,7 +1689,11 @@
       }
 
       function backToLoginManager() {
-        if (confirm("Return to login manager? This will clear your current session.")) {
+        if (
+          confirm(
+            "Return to login manager? This will clear your current session."
+          )
+        ) {
           localStorage.removeItem("racCompaniesConnected");
           document.getElementById("mainDashboard").style.display = "none";
           document.getElementById("loginManager").style.display = "block";
@@ -1347,7 +1715,9 @@
         document.getElementById("step2Indicator").className = "step";
         document.getElementById("step3Indicator").className = "step";
 
-        document.querySelectorAll(".company-checkbox").forEach((cb) => (cb.checked = false));
+        document
+          .querySelectorAll(".company-checkbox")
+          .forEach((cb) => (cb.checked = false));
         updateSelectionSummary();
         loadSavedPreferences();
       }
@@ -1380,19 +1750,23 @@
       // ====== MAIN DASHBOARD FUNCTIONS ======
       function initializeMainDashboard() {
         document.getElementById("report-date").value = selectedReportDate;
-        document.getElementById("display-date").textContent = formatDisplayDate(selectedReportDate);
+        document.getElementById("display-date").textContent =
+          formatDisplayDate(selectedReportDate);
         loadTrialBalanceData();
         startTokenMonitoring();
         updateTimestamp();
         setInterval(updateTimestamp, 30000);
 
         // Add this line:
-        document.getElementById("welcomeTime").textContent = new Date().toLocaleTimeString();
+        document.getElementById("welcomeTime").textContent =
+          new Date().toLocaleTimeString();
       }
 
       async function loadTrialBalanceData() {
         try {
-          const response = await fetch(`/api/consolidated-trial-balance?date=${selectedReportDate}`);
+          const response = await fetch(
+            `/api/consolidated-trial-balance?date=${selectedReportDate}`
+          );
           const data = await response.json();
           dashboardData = data;
           renderTrialBalanceView(data);
@@ -1412,7 +1786,9 @@
           <div class="demo-card financial-overview">
               <div class="card-header">
                   <h3>⚖️ RAC Consolidated Trial Balance</h3>
-                  <p>Financial position across ${data.companies.length} RAC entities</p>
+                  <p>Financial position across ${
+                    data.companies.length
+                  } RAC entities</p>
               </div>
               <div class="card-content">
                   <div class="dashboard-mockup">
@@ -1422,7 +1798,11 @@
                           : "background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;"
                       }">
                           <div style="font-weight: bold; margin-bottom: 5px;">
-                              ${balanceCheck.debitsEqualCredits ? "✅ Books are BALANCED" : "⚠️ Books are OUT OF BALANCE"}
+                              ${
+                                balanceCheck.debitsEqualCredits
+                                  ? "✅ Books are BALANCED"
+                                  : "⚠️ Books are OUT OF BALANCE"
+                              }
                           </div>
                           <div style="font-size: 0.9rem;">
                               Debits: $${totals.totalDebits.toLocaleString()} | Credits: $${totals.totalCredits.toLocaleString()}
@@ -1446,8 +1826,16 @@
 
                       <!-- Company breakdown would go here -->
                   </div>
-                  <div class="${balanceCheck.debitsEqualCredits ? "success-box" : "alert-box"}">
-                      ${balanceCheck.debitsEqualCredits ? "✅ Trial Balance is accurate" : "⚠️ Trial Balance shows discrepancies"}
+                  <div class="${
+                    balanceCheck.debitsEqualCredits
+                      ? "success-box"
+                      : "alert-box"
+                  }">
+                      ${
+                        balanceCheck.debitsEqualCredits
+                          ? "✅ Trial Balance is accurate"
+                          : "⚠️ Trial Balance shows discrepancies"
+                      }
                   </div>
               </div>
           </div>
@@ -1461,15 +1849,21 @@
                   <div class="dashboard-mockup">
                       <div class="metric-row">
                           <span class="metric-label">Total Portfolio Value</span>
-                          <span class="metric-value large">$${(totals.totalAssets - totals.totalLiabilities).toLocaleString()}</span>
+                          <span class="metric-value large">$${(
+                            totals.totalAssets - totals.totalLiabilities
+                          ).toLocaleString()}</span>
                       </div>
                       <div class="metric-row">
                           <span class="metric-label">Connected Entities</span>
-                          <span class="metric-value">${summary.totalCompanies} companies</span>
+                          <span class="metric-value">${
+                            summary.totalCompanies
+                          } companies</span>
                       </div>
                       <div class="metric-row">
                           <span class="metric-label">Total Accounts</span>
-                          <span class="metric-value">${summary.totalAccounts} accounts</span>
+                          <span class="metric-value">${
+                            summary.totalAccounts
+                          } accounts</span>
                       </div>
                   </div>
               </div>
@@ -1483,24 +1877,35 @@
         console.log("🔄 Starting background OAuth refresh...");
 
         try {
-          const connectedCompanies = JSON.parse(localStorage.getItem("racCompanyPreferences") || "[]");
+          const connectedCompanies = JSON.parse(
+            localStorage.getItem("racCompanyPreferences") || "[]"
+          );
 
           if (connectedCompanies.length === 0) {
             updateRefreshLog("No companies to refresh", "error");
             return;
           }
 
-          updateRefreshLog(`Starting refresh for ${connectedCompanies.length} companies...`);
-          document.getElementById("refresh-status-panel").style.display = "block";
+          updateRefreshLog(
+            `Starting refresh for ${connectedCompanies.length} companies...`
+          );
+          document.getElementById("refresh-status-panel").style.display =
+            "block";
 
           for (let i = 0; i < connectedCompanies.length; i++) {
             const company = connectedCompanies[i];
-            updateRefreshLog(`🔄 Refreshing ${company} (${i + 1}/${connectedCompanies.length})...`);
+            updateRefreshLog(
+              `🔄 Refreshing ${company} (${i + 1}/${
+                connectedCompanies.length
+              })...`
+            );
             await refreshCompanyInPopup(company);
             await new Promise((resolve) => setTimeout(resolve, 2000));
           }
 
-          updateRefreshLog("✅ All companies refreshed! Checking token times...");
+          updateRefreshLog(
+            "✅ All companies refreshed! Checking token times..."
+          );
           checkTokenTimes();
         } catch (error) {
           console.error("❌ Background refresh error:", error);
@@ -1518,7 +1923,9 @@
         const timestamp = new Date().toLocaleTimeString();
         const icon = type === "error" ? "❌" : type === "success" ? "✅" : "🔄";
 
-        log.innerHTML += `<div style="color: ${type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#666"};">
+        log.innerHTML += `<div style="color: ${
+          type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#666"
+        };">
           [${timestamp}] ${icon} ${message}
         </div>`;
 
@@ -1529,7 +1936,11 @@
         const companyName = companies[companyId];
         updateRefreshLog(`Opening popup for ${companyName}...`);
 
-        const popup = window.open("/auth", "xero-oauth", "width=500,height=600,scrollbars=yes");
+        const popup = window.open(
+          "/auth",
+          "xero-oauth",
+          "width=500,height=600,scrollbars=yes"
+        );
 
         if (!popup) {
           updateRefreshLog(`❌ Popup blocked for ${companyName}`, "error");
@@ -1544,10 +1955,15 @@
 
           const dropdown = popupDoc.querySelector("select");
           if (dropdown) {
-            updateRefreshLog(`Found dropdown with ${dropdown.options.length} options`);
+            updateRefreshLog(
+              `Found dropdown with ${dropdown.options.length} options`
+            );
 
             for (let option of dropdown.options) {
-              if (option.textContent.includes(companyName) || option.textContent.includes("7168")) {
+              if (
+                option.textContent.includes(companyName) ||
+                option.textContent.includes("7168")
+              ) {
                 dropdown.value = option.value;
                 dropdown.dispatchEvent(new Event("change", { bubbles: true }));
                 updateRefreshLog(`✅ Selected: ${option.textContent}`);
@@ -1565,7 +1981,9 @@
             allowButton.click();
             updateRefreshLog(`✅ Clicked Allow button for ${companyName}`);
           } else {
-            updateRefreshLog(`⚠️ Allow button not found - please click manually`);
+            updateRefreshLog(
+              `⚠️ Allow button not found - please click manually`
+            );
           }
         } catch (error) {
           updateRefreshLog(`❌ Automation failed: ${error.message}`, "error");
@@ -1581,7 +1999,10 @@
 
           const checkSuccess = setInterval(() => {
             try {
-              if (popup.location.href.includes("success") || popup.location.href.includes("/dashboard")) {
+              if (
+                popup.location.href.includes("success") ||
+                popup.location.href.includes("/dashboard")
+              ) {
                 popup.close();
                 updateRefreshLog(`✅ OAuth success detected - popup closed`);
                 clearInterval(checkSuccess);
@@ -1615,216 +2036,205 @@
       }
 
       async function checkTokenTimes() {
-  try {
-    const response = await fetch("/api/debug/database");
-    const data = await response.json();
+        try {
+          const response = await fetch("/api/debug/database");
+          const data = await response.json();
 
-    updateRefreshLog("Checking token expiry times...");
+          updateRefreshLog("Checking token expiry times...");
 
-    data.tokens.forEach((token) => {
-      if (!token.expired) {
-        const status = token.expires_in_minutes > 27 ? "✅" : "⚠️";
-        updateRefreshLog(`${status} ${token.tenant_name}: ${token.expires_in_minutes} minutes remaining`);
+          data.tokens.forEach((token) => {
+            if (!token.expired) {
+              const status = token.expires_in_minutes > 27 ? "✅" : "⚠️";
+              updateRefreshLog(
+                `${status} ${token.tenant_name}: ${token.expires_in_minutes} minutes remaining`
+              );
+            }
+          });
+        } catch (error) {
+          updateRefreshLog(`Error checking tokens: ${error.message}`, "error");
+        }
       }
-    });
-  } catch (error) {
-    updateRefreshLog(`Error checking tokens: ${error.message}`, "error");
-  }
-}
 
-function showTokenRefreshStatus(message, type = "success") {
-  console.log("📢 Status:", message);
-  
-  let statusElement = document.querySelector(".token-refresh-status");
-  if (!statusElement) {
-    const banner = document.querySelector(".text-green-600")?.parentElement;
-    if (banner) {
-      statusElement = document.createElement("div");
-      statusElement.className = "token-refresh-status";
-      statusElement.style.cssText = "margin-top: 5px; font-size: 0.9rem; font-weight: bold;";
-      banner.appendChild(statusElement);
-    }
-  }
+      function showTokenRefreshStatus(message, type = "success") {
+        console.log("📢 Status:", message);
 
-  if (statusElement) {
-    statusElement.textContent = message;
-    statusElement.style.color = type === "error" ? "#dc3545" : "#28a745";
-    setTimeout(() => {
-      statusElement.textContent = "";
-    }, 5000);
-  }
-}
+        let statusElement = document.querySelector(".token-refresh-status");
+        if (!statusElement) {
+          const banner =
+            document.querySelector(".text-green-600")?.parentElement;
+          if (banner) {
+            statusElement = document.createElement("div");
+            statusElement.className = "token-refresh-status";
+            statusElement.style.cssText =
+              "margin-top: 5px; font-size: 0.9rem; font-weight: bold;";
+            banner.appendChild(statusElement);
+          }
+        }
 
-async function startTokenMonitoring() {
-  const checkTokens = async () => {
-    try {
-      const response = await fetch("/api/token-status");
-      const tokenStatus = await response.json();
-      updateTokenStatusDisplay(tokenStatus);
-    } catch (error) {
-      console.error("Error monitoring tokens:", error);
-    }
-  };
+        if (statusElement) {
+          statusElement.textContent = message;
+          statusElement.style.color = type === "error" ? "#dc3545" : "#28a745";
+          setTimeout(() => {
+            statusElement.textContent = "";
+          }, 5000);
+        }
+      }
 
-  checkTokens();
-  tokenStatusInterval = setInterval(checkTokens, 2 * 60 * 1000);
-}
+      async function startTokenMonitoring() {
+        const checkTokens = async () => {
+          try {
+            const response = await fetch("/api/token-status");
+            const tokenStatus = await response.json();
+            updateTokenStatusDisplay(tokenStatus);
+          } catch (error) {
+            console.error("Error monitoring tokens:", error);
+          }
+        };
 
-function updateTokenStatusDisplay(tokenStatus) {
-  let statusHtml = "";
-  if (tokenStatus.expiringTokens > 0) {
-    statusHtml = `
-      <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
-          ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
-      </div>
-    `;
-  } else if (tokenStatus.connectedTokens > 0) {
-    statusHtml = `
-      <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
-          ✅ ${tokenStatus.connectedTokens} connection(s) active
-      </div>
-    `;
-  }
+        checkTokens();
+        tokenStatusInterval = setInterval(checkTokens, 2 * 60 * 1000);
+      }
 
-  let statusDiv = document.getElementById("token-status-display");
-  if (!statusDiv && statusHtml) {
-    statusDiv = document.createElement("div");
-    statusDiv.id = "token-status-display";
-    document.querySelector(".header").appendChild(statusDiv);
-  }
-  if (statusDiv) {
-    statusDiv.innerHTML = statusHtml;
-  }
-}
+      function updateTokenStatusDisplay(tokenStatus) {
+        let statusHtml = "";
+        if (tokenStatus.expiringTokens > 0) {
+          statusHtml = `
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
+                ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
+            </div>
+          `;
+        } else if (tokenStatus.connectedTokens > 0) {
+          statusHtml = `
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
+                ✅ ${tokenStatus.connectedTokens} connection(s) active
+            </div>
+          `;
+        }
 
-function showNotification(message) {
-  const notification = document.createElement("div");
-  notification.style.cssText = `
-    position: fixed; top: 20px; right: 20px; z-index: 9999;
-    background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
-    border: 1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"};
-    color: ${message.includes("✅") ? "#155724" : "#721c24"};
-    padding: 12px 20px; border-radius: 6px; font-weight: bold;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  `;
-  notification.textContent = message;
-  document.body.appendChild(notification);
-  setTimeout(() => document.body.removeChild(notification), 5000);
-}
+        let statusDiv = document.getElementById("token-status-display");
+        if (!statusDiv && statusHtml) {
+          statusDiv = document.createElement("div");
+          statusDiv.id = "token-status-display";
+          document.querySelector(".header").appendChild(statusDiv);
+        }
+        if (statusDiv) {
+          statusDiv.innerHTML = statusHtml;
+        }
+      }
 
-// Date functions
-function updateReportDate(newDate) {
-  selectedReportDate = newDate;
-  document.getElementById("display-date").textContent = formatDisplayDate(newDate);
-  loadTrialBalanceData();
-}
+      function showNotification(message) {
+        const notification = document.createElement("div");
+        notification.style.cssText = `
+          position: fixed; top: 20px; right: 20px; z-index: 9999;
+          background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
+          border: 1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"};
+          color: ${message.includes("✅") ? "#155724" : "#721c24"};
+          padding: 12px 20px; border-radius: 6px; font-weight: bold;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        setTimeout(() => document.body.removeChild(notification), 5000);
+      }
 
-function setQuickDate(option) {
-  const today = new Date();
-  let newDate = today;
+      // Date functions
+      function updateReportDate(newDate) {
+        selectedReportDate = newDate;
+        document.getElementById("display-date").textContent =
+          formatDisplayDate(newDate);
+        loadTrialBalanceData();
+      }
 
-  if (option === "monthEnd") {
-    newDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-  }
+      function setQuickDate(option) {
+        const today = new Date();
+        let newDate = today;
 
-  const dateString = newDate.toISOString().split("T")[0];
-  selectedReportDate = dateString;
-  document.getElementById("report-date").value = dateString;
-  document.getElementById("display-date").textContent = formatDisplayDate(dateString);
-  loadTrialBalanceData();
-}
+        if (option === "monthEnd") {
+          newDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        }
 
-function formatDisplayDate(dateString) {
-  const date = new Date(dateString + "T00:00:00");
-  return date.toLocaleDateString("en-AU", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "long",
-  });
-}
+        const dateString = newDate.toISOString().split("T")[0];
+        selectedReportDate = dateString;
+        document.getElementById("report-date").value = dateString;
+        document.getElementById("display-date").textContent =
+          formatDisplayDate(dateString);
+        loadTrialBalanceData();
+      }
 
-function setView(viewType, event) {
-  currentView = viewType;
-  document.querySelectorAll(".toggle-btn").forEach((btn) => btn.classList.remove("active"));
-  event.target.classList.add("active");
-  loadTrialBalanceData();
-}
+      function formatDisplayDate(dateString) {
+        const date = new Date(dateString + "T00:00:00");
+        return date.toLocaleDateString("en-AU", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          weekday: "long",
+        });
+      }
 
-function showError(message) {
-  document.getElementById("dashboard-content").innerHTML = `<div class="error">❌ ${message}</div>`;
-}
+      function setView(viewType, event) {
+        currentView = viewType;
+        document
+          .querySelectorAll(".toggle-btn")
+          .forEach((btn) => btn.classList.remove("active"));
+        event.target.classList.add("active");
+        loadTrialBalanceData();
+      }
 
-function updateTimestamp() {
-  const timestampElement = document.getElementById("timestamp");
-  if (timestampElement) {
-    timestampElement.textContent = new Date().toLocaleString();
-  }
-}
+      function showError(message) {
+        document.getElementById(
+          "dashboard-content"
+        ).innerHTML = `<div class="error">❌ ${message}</div>`;
+      }
 
-// Company expansion functions (for detailed view)
-function toggleCompanyExpansion(companyIndex) {
-  const sectionsDiv = document.getElementById(`company-sections-${companyIndex}`);
-  const toggleIcon = document.getElementById(`company-toggle-${companyIndex}`);
+      function updateTimestamp() {
+        const timestampElement = document.getElementById("timestamp");
+        if (timestampElement) {
+          timestampElement.textContent = new Date().toLocaleString();
+        }
+      }
 
-  if (sectionsDiv.style.display === "none") {
-    sectionsDiv.style.display = "block";
-    toggleIcon.textContent = "▼";
-  } else {
-    sectionsDiv.style.display = "none";
-    toggleIcon.textContent = "▶";
-  }
-}
+      // Initialization
+      async function initializePage() {
+        handleOAuthReturn();
 
-function toggleSection(companyIndex, sectionKey) {
-  const accountsDiv = document.getElementById(`section-accounts-${companyIndex}-${sectionKey}`);
-  const toggleIcon = document.getElementById(`section-toggle-${companyIndex}-${sectionKey}`);
+        if (localStorage.getItem("oauthCompanies")) {
+          return;
+        }
 
-  if (accountsDiv.style.display === "none") {
-    accountsDiv.style.display = "block";
-    toggleIcon.textContent = "▼";
-  } else {
-    accountsDiv.style.display = "none";
-    toggleIcon.textContent = "▶";
-  }
-}
+        try {
+          const response = await fetch("/api/connection-status");
+          const connections = await response.json();
+          const connectedCount = connections.filter(
+            (conn) => conn.connected
+          ).length;
 
-// Initialization
-async function initializePage() {
-  handleOAuthReturn();
+          if (connectedCount > 0) {
+            document.getElementById("loginManager").style.display = "none";
+            document.getElementById("mainDashboard").style.display = "block";
+            initializeMainDashboard();
+          } else {
+            document.getElementById("loginManager").style.display = "block";
+            document.getElementById("mainDashboard").style.display = "none";
+            loadSavedPreferences();
+          }
+        } catch (error) {
+          document.getElementById("loginManager").style.display = "block";
+          document.getElementById("mainDashboard").style.display = "none";
+          loadSavedPreferences();
+        }
+      }
 
-  if (localStorage.getItem("oauthCompanies")) {
-    return;
-  }
+      // Event listeners
+      document.addEventListener("DOMContentLoaded", function () {
+        initializePage();
+        document.getElementById("welcomeTime").textContent =
+          new Date().toLocaleTimeString();
+      });
 
-  try {
-    const response = await fetch("/api/connection-status");
-    const connections = await response.json();
-    const connectedCount = connections.filter((conn) => conn.connected).length;
-
-    if (connectedCount > 0) {
-      document.getElementById("loginManager").style.display = "none";
-      document.getElementById("mainDashboard").style.display = "block";
-      initializeMainDashboard();
-    } else {
-      document.getElementById("loginManager").style.display = "block";
-      document.getElementById("mainDashboard").style.display = "none";
-      loadSavedPreferences();
-    }
-  } catch (error) {
-    document.getElementById("loginManager").style.display = "block";
-    document.getElementById("mainDashboard").style.display = "none";
-    loadSavedPreferences();
-  }
-}
-
-// Event listeners
-document.addEventListener("DOMContentLoaded", function() {
-  initializePage();
-  document.getElementById("welcomeTime").textContent = new Date().toLocaleTimeString();
-});
-
-window.addEventListener("popstate", handleOAuthReturn);
-window.addEventListener("beforeunload", () => {
-  if (tokenStatusInterval) clearInterval(tokenStatusInterval);
-});
+      window.addEventListener("popstate", handleOAuthReturn);
+      window.addEventListener("beforeunload", () => {
+        if (tokenStatusInterval) clearInterval(tokenStatusInterval);
+      });
+    </script>
+  </body>
+</html>
