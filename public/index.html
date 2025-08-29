@@ -402,7 +402,7 @@
       .main-container {
         display: flex;
         height: 100vh;
-        max-width: 1400px;
+        max-width: 100%; /* Use full width instead of 1400px */
         margin: 0 auto;
         background: white;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
@@ -410,35 +410,29 @@
 
       .dashboard-area {
         flex: 1;
+        min-width: 0; /* Allow flex shrinking */
         overflow-y: auto;
-        transition: margin-right 0.3s ease;
+        transition: none; /* Remove the margin transition */
       }
 
-      .dashboard-area.with-chat {
-        margin-right: 400px;
-      }
-
+      /* Redesigned chat panel - part of the flex layout, not fixed */
       .ai-chat-panel {
-        position: fixed;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        width: 400px;
+        width: 420px; /* Slightly wider for better readability */
         background: white;
-        border-left: 1px solid #ddd;
+        border-left: 2px solid #ddd;
         box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-        transform: translateX(100%);
-        transition: transform 0.3s ease;
-        z-index: 1000;
         display: flex;
         flex-direction: column;
-        font-size: 14px; /* Increase base font size */
+        flex-shrink: 0; /* Don't shrink smaller than 420px */
+        /* Remove transform and transition - always visible when open */
       }
 
-      .ai-chat-panel.open {
-        transform: translateX(0);
+      /* Make dashboard content use reasonable width */
+      .container {
+        max-width: 1200px; /* Reasonable max width for dashboard content */
+        margin: 0 auto;
+        padding: 20px;
       }
-
       .chat-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -1157,7 +1151,7 @@
     </div>
 
     <!-- AI Chat Side Panel -->
-    <div class="ai-chat-panel" id="aiChatPanel">
+    <div class="ai-chat-panel" id="aiChatPanel" style="display: none">
       <div class="chat-header">
         <h3>RAC AI Assistant</h3>
         <button class="close-chat-btn" onclick="closeAIChat()">×</button>
@@ -1306,17 +1300,18 @@
         }
 
         isChatOpen = true;
-        chatPanel.classList.add("open");
-        dashboardArea.classList.add("with-chat");
+        chatPanel.style.display = "flex"; // Show the panel
         if (chatToggleBtn) chatToggleBtn.style.display = "none";
         if (chatInput) chatInput.focus();
       }
 
       function closeAIChat() {
+        const chatPanel = document.getElementById("aiChatPanel");
+        const chatToggleBtn = document.getElementById("chatToggleBtn");
+
         isChatOpen = false;
-        document.getElementById("aiChatPanel").classList.remove("open");
-        document.getElementById("dashboardArea").classList.remove("with-chat");
-        document.getElementById("chatToggleBtn").style.display = "block";
+        chatPanel.style.display = "none"; // Hide the panel
+        if (chatToggleBtn) chatToggleBtn.style.display = "block";
       }
 
       function toggleAIChat() {
