@@ -611,7 +611,6 @@
         resize: none;
         font-family: inherit;
         font-size: 1rem;
-        color: #155293;
         max-height: 200px; /* Increased from 100px to 200px (4x the original ~50px) */
         min-height: 120px; /* Increased from 48px to 120px for better visibility */
       }
@@ -1346,9 +1345,9 @@
         }
 
         messageDiv.innerHTML = `
-          <div>${formattedContent}</div>
-          <div class="message-time">${new Date().toLocaleTimeString()}</div>
-        `;
+                <div>${formattedContent}</div>
+                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+              `;
 
         messagesContainer.appendChild(messageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -1361,13 +1360,13 @@
         typingDiv.className = "typing-indicator";
         typingDiv.id = "typingIndicator";
         typingDiv.innerHTML = `
-          <div class="typing-dots">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-          <span>Analyzing financial data...</span>
-        `;
+                <div class="typing-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <span>Analyzing financial data...</span>
+              `;
         messagesContainer.appendChild(typingDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
@@ -1392,13 +1391,249 @@
           .replace(/(\$[\d,]+)/g, "<strong>$1</strong>");
       }
 
-      // Placeholder for MCP integration - you'll replace this
+      // Real MCP integration - replace the placeholder
       async function processFinancialQuery(query, organization) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        return `**Mock Response for ${organization.replace(
-          "Rirratjingu ",
-          "RAC "
-        )}**\n\nQuery: "${query}"\n\nThis is a placeholder. Replace this function with your actual MCP server integration.`;
+        const API_BASE_URL =
+          "https://rac-financial-dashboard-production.up.railway.app/api";
+
+        try {
+          let endpoint = "";
+          let params = { organizationName: organization };
+
+          // Parse the query to determine which MCP tool to use
+          const queryLower = query.toLowerCase();
+
+          if (queryLower.includes("trial balance")) {
+            endpoint = "/trial-balance";
+            // Add date parameter if specified
+            if (queryLower.includes("as at") || queryLower.includes("date")) {
+              const reportDate = document.getElementById("report-date").value;
+              params.reportDate = reportDate;
+            }
+          } else if (
+            queryLower.includes("cash") ||
+            queryLower.includes("bank")
+          ) {
+            endpoint = "/cash-position";
+          } else if (
+            queryLower.includes("outstanding") ||
+            queryLower.includes("invoice")
+          ) {
+            endpoint = "/outstanding-invoices";
+          } else if (
+            queryLower.includes("profit") ||
+            queryLower.includes("loss") ||
+            queryLower.includes("p&l")
+          ) {
+            endpoint = "/profit-loss-summary";
+            params.periodMonths = 12;
+          } else if (
+            queryLower.includes("ratio") ||
+            queryLower.includes("financial ratio")
+          ) {
+            endpoint = "/financial-ratios";
+          } else if (
+            queryLower.includes("equity") ||
+            queryLower.includes("future fund")
+          ) {
+            endpoint = "/equity-analysis";
+            if (queryLower.includes("future fund")) {
+              params.equityAccountName = "Future Fund";
+            }
+          } else if (
+            queryLower.includes("aged receivable") ||
+            queryLower.includes("receivable")
+          ) {
+            endpoint = "/aged-receivables";
+          } else if (
+            queryLower.includes("expense") ||
+            queryLower.includes("spending")
+          ) {
+            endpoint = "/expense-analysis";
+            params.periodMonths = 12;
+          } else if (
+            queryLower.includes("journal") ||
+            queryLower.includes("manual journal")
+          ) {
+            endpoint = "/journal-entries";
+          } else if (
+            queryLower.includes("account history") ||
+            queryLower.includes("transaction history")
+          ) {
+            endpoint = "/account-history";
+            // Extract account name from query if possible
+            const accountMatch = query.match(/account[:\s]+"?([^"]+)"?/i);
+            if (accountMatch) {
+              params.accountName = accountMatch[1];
+            }
+          } else if (
+            queryLower.includes("unbalanced") ||
+            queryLower.includes("imbalance")
+          ) {
+            endpoint = "/find-unbalanced";
+            params.minimumAmount = 10000;
+          } else if (
+            queryLower.includes("chart of accounts") ||
+            queryLower.includes("accounts list")
+          ) {
+            endpoint = "/chart-of-accounts";
+          } else if (queryLower.includes("intercompany")) {
+            endpoint = "/intercompany-transactions";
+          } else if (
+            queryLower.includes("investigate") ||
+            queryLower.includes("analysis")
+          ) {
+            endpoint = "/investigate-imbalance";
+          } else {
+            // Default to trial balance for general queries
+            endpoint = "/trial-balance";
+          }
+
+          console.log(
+            `Making MCP API call to: ${API_BASE_URL}${endpoint}`,
+            params
+          );
+
+          const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(params),
+          });
+
+          if (!response.ok) {
+            throw new Error(
+              `API Error: ${response.status} - ${response.statusText}`
+            );
+          }
+
+          const data = await response.json();
+          return formatMCPResponse(data, endpoint, organization);
+        } catch (error) {
+          console.error("MCP API Error:", error);
+          return `I encountered an error accessing the financial data: ${error.message}. Please check your connection and try again.`;
+        }
+      }
+
+      // Format MCP responses for chat display
+      function formatMCPResponse(data, endpoint, organization) {
+        const orgDisplay = organization.replace("Rirratjingu ", "RAC ");
+
+        if (endpoint === "/trial-balance") {
+          const tb = data.trialBalance;
+          const totals = tb.totals;
+          const balanced = data.balanceCheck.debitsEqualCredits
+            ? "BALANCED"
+            : "OUT OF BALANCE";
+
+          return `**Trial Balance Analysis - ${data.tenantName}**
+      Report Date: ${data.reportDate}
+
+      **Status: ${balanced}**
+      ${
+        !data.balanceCheck.debitsEqualCredits
+          ? `Difference: ${Math.abs(
+              data.balanceCheck.difference
+            ).toLocaleString()}`
+          : ""
+      }
+
+      **Financial Position:**
+      • Total Assets: ${totals.totalAssets.toLocaleString()}
+      • Total Liabilities: ${totals.totalLiabilities.toLocaleString()}
+      • Total Equity: ${totals.totalEquity.toLocaleString()}
+
+      **Account Summary:**
+      • ${tb.assets.length} Asset accounts
+      • ${tb.liabilities.length} Liability accounts
+      • ${tb.equity.length} Equity accounts`;
+        } else if (endpoint === "/cash-position") {
+          return `**Cash Position - ${orgDisplay}**
+      Total Cash: ${data.totalCash.toLocaleString()}
+      Bank Accounts: ${data.bankAccounts.length}
+
+      **Bank Account Details:**
+      ${data.bankAccounts
+        .map((acc) => `• ${acc.name}: ${acc.balance.toLocaleString()}`)
+        .join("\n")}`;
+        } else if (endpoint === "/outstanding-invoices") {
+          if (data.length === 0) {
+            return `**Outstanding Invoices - ${orgDisplay}**
+      No outstanding invoices found.`;
+          }
+
+          const total = data.reduce((sum, inv) => sum + inv.amountDue, 0);
+          return `**Outstanding Invoices - ${orgDisplay}**
+      Total Outstanding: ${total.toLocaleString()}
+      Number of Invoices: ${data.length}
+
+      **Recent Invoices:**
+      ${data
+        .slice(0, 5)
+        .map(
+          (inv) =>
+            `• Invoice ${
+              inv.invoiceNumber
+            }: ${inv.amountDue.toLocaleString()} (${inv.contact})`
+        )
+        .join("\n")}`;
+        } else if (endpoint === "/financial-ratios") {
+          const ratios = data.ratios;
+          return `**Financial Ratios - ${orgDisplay}**
+      Report Date: ${data.reportDate}
+
+      **Liquidity:**
+      • Current Ratio: ${ratios.liquidity.currentRatio.toFixed(2)}
+      • Working Capital: ${ratios.liquidity.workingCapital.toLocaleString()}
+
+      **Profitability:**
+      • Net Profit Margin: ${ratios.profitability.netProfitMargin.toFixed(1)}%
+      • Return on Assets: ${ratios.profitability.returnOnAssets.toFixed(1)}%
+
+      **Leverage:**
+      • Debt-to-Equity: ${ratios.leverage.debtToEquity.toFixed(2)}`;
+        } else if (endpoint === "/equity-analysis") {
+          if (data.accounts && data.accounts.length > 0) {
+            const account = data.accounts[0];
+            return `**Equity Analysis - ${data.searchTerm}**
+      Organization: ${data.tenantName}
+      Analysis Period: ${data.monthsAnalyzed} months
+
+      **${account.accountName}:**
+      • Current Balance: ${account.currentBalance?.toLocaleString() || 0}
+      • Transaction Count: ${account.transactionCount || 0}
+      • Total Movements: ${account.totalMovements?.toLocaleString() || 0}
+
+      This analysis helps identify unusual equity movements and potential imbalances.`;
+          } else {
+            return `**Equity Analysis**
+      No equity accounts found matching "${data.searchTerm}" for ${data.tenantName}.`;
+          }
+        } else if (endpoint === "/find-unbalanced") {
+          return `**Unbalanced Transactions Analysis**
+      Organization: ${data.tenantName}
+      Analysis Period: ${data.criteria.dateRange}
+
+      **Summary:**
+      • Total Journals Analyzed: ${data.summary.totalJournalsAnalyzed}
+      • Unbalanced Found: ${data.summary.unbalancedFound}
+      • Critical Issues: ${data.summary.criticalIssues}
+      • Future Fund Related: ${data.summary.futureFundRelated}
+
+      ${
+        data.summary.criticalIssues > 0
+          ? "Critical imbalances detected requiring immediate attention."
+          : "No critical imbalances found."
+      }`;
+        } else {
+          // Generic response for other endpoints
+          return `**Financial Analysis Complete - ${orgDisplay}**
+
+      Data retrieved successfully from ${endpoint}. The analysis shows current financial information as requested.
+
+      For detailed breakdowns, try asking specific questions about accounts, ratios, or time periods.`;
+        }
       }
 
       // Multi-Company Login Manager Variables
@@ -1563,9 +1798,9 @@
           }`;
 
           document.getElementById("oauthInstructions").innerHTML = `
-            <strong>Next Company:</strong> ${companyName}<br>
-            <small>When the Xero login opens, select "${companyName}" from the dropdown and authorize access.</small>
-          `;
+                  <strong>Next Company:</strong> ${companyName}<br>
+                  <small>When the Xero login opens, select "${companyName}" from the dropdown and authorize access.</small>
+                `;
         }
       }
 
@@ -1657,14 +1892,14 @@
         connectedList.innerHTML = connectedCompanies
           .map(
             (company) => `
-              <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid #28a745; background: #f8fff9; border-radius: 6px; margin-bottom: 0.5rem;">
-                  <div style="display: flex; align-items: center; gap: 0.5rem;">
-                      <div style="width: 12px; height: 12px; border-radius: 50%; background: #28a745;"></div>
-                      <strong>${company.name}</strong>
-                  </div>
-                  <div style="color: #28a745; font-size: 0.9rem;">✅ Connected</div>
-              </div>
-            `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid #28a745; background: #f8fff9; border-radius: 6px; margin-bottom: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 12px; height: 12px; border-radius: 50%; background: #28a745;"></div>
+                            <strong>${company.name}</strong>
+                        </div>
+                        <div style="color: #28a745; font-size: 0.9rem;">✅ Connected</div>
+                    </div>
+                  `
           )
           .join("");
 
@@ -1790,170 +2025,176 @@
         const summary = data.summary;
 
         content.innerHTML = `
-          <div class="demo-card financial-overview">
-              <div class="card-header">
-                  <h3>⚖️ RAC Consolidated Trial Balance</h3>
-                  <p>Financial position across ${
-                    data.companies.length
-                  } RAC entities</p>
-              </div>
-              <div class="card-content">
-                  <div class="dashboard-mockup">
-                      <div style="margin-bottom: 20px; padding: 15px; border-radius: 8px; ${
-                        balanceCheck.debitsEqualCredits
-                          ? "background: #d4edda; border: 1px solid #c3e6cb; color: #155724;"
-                          : "background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;"
-                      }">
-                          <div style="font-weight: bold; margin-bottom: 5px;">
-                              ${
-                                balanceCheck.debitsEqualCredits
-                                  ? "✅ Books are BALANCED"
-                                  : "⚠️ Books are OUT OF BALANCE"
-                              }
-                          </div>
-                          <div style="font-size: 0.9rem;">
-                              Debits: ${totals.totalDebits.toLocaleString()} | Credits: ${totals.totalCredits.toLocaleString()}
-                          </div>
-                      </div>
+                <div class="demo-card financial-overview">
+                    <div class="card-header">
+                        <h3>⚖️ RAC Consolidated Trial Balance</h3>
+                        <p>Financial position across ${
+                          data.companies.length
+                        } RAC entities</p>
+                    </div>
+                    <div class="card-content">
+                        <div class="dashboard-mockup">
+                            <div style="margin-bottom: 20px; padding: 15px; border-radius: 8px; ${
+                              balanceCheck.debitsEqualCredits
+                                ? "background: #d4edda; border: 1px solid #c3e6cb; color: #155724;"
+                                : "background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;"
+                            }">
+                                <div style="font-weight: bold; margin-bottom: 5px;">
+                                    ${
+                                      balanceCheck.debitsEqualCredits
+                                        ? "✅ Books are BALANCED"
+                                        : "⚠️ Books are OUT OF BALANCE"
+                                    }
+                                </div>
+                                <div style="font-size: 0.9rem;">
+                                    Debits: ${totals.totalDebits.toLocaleString()} | Credits: ${totals.totalCredits.toLocaleString()}
+                                </div>
+                            </div>
 
-                      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                          <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                              <div style="font-size: 1.4rem; font-weight: bold; color: #28a745;">${totals.totalAssets.toLocaleString()}</div>
-                              <div style="font-size: 1rem; color: #666;">Total Assets</div>
-                          </div>
-                          <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                              <div style="font-size: 1.4rem; font-weight: bold; color: #dc3545;">${totals.totalLiabilities.toLocaleString()}</div>
-                              <div style="font-size: 1rem; color: #666;">Total Liabilities</div>
-                          </div>
-                          <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                              <div style="font-size: 1.4rem; font-weight: bold; color: #17a2b8;">${totals.totalEquity.toLocaleString()}</div>
-                              <div style="font-size: 1rem; color: #666;">Total Equity</div>
-                          </div>
-                      </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                                <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                    <div style="font-size: 1.4rem; font-weight: bold; color: #28a745;">${totals.totalAssets.toLocaleString()}</div>
+                                    <div style="font-size: 1rem; color: #666;">Total Assets</div>
+                                </div>
+                                <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                    <div style="font-size: 1.4rem; font-weight: bold; color: #dc3545;">${totals.totalLiabilities.toLocaleString()}</div>
+                                    <div style="font-size: 1rem; color: #666;">Total Liabilities</div>
+                                </div>
+                                <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                    <div style="font-size: 1.4rem; font-weight: bold; color: #17a2b8;">${totals.totalEquity.toLocaleString()}</div>
+                                    <div style="font-size: 1rem; color: #666;">Total Equity</div>
+                                </div>
+                            </div>
 
-                      <div id="companies-breakdown">
-                          ${data.companies
-                            .map(
-                              (company, companyIndex) => `
-                              <div class="company-card" style="margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-                                  <div onclick="toggleCompanyExpansion(${companyIndex})" style="background: #f8f9fa; padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-                                      <div>
-                                          <span id="company-toggle-${companyIndex}" style="margin-right: 8px;">▶</span>
-                                          <strong>${company.tenantName}</strong>
-                                          <span style="margin-left: 10px; color: #666;">(${
-                                            company.accountCounts
-                                              ?.totalAccounts || 0
-                                          } accounts)</span>
-                                      </div>
-                                      <div style="text-align: right; font-size: 0.9rem; color: #666;">
-                                          Assets: ${company.totals.totalAssets.toLocaleString()}
-                                      </div>
-                                  </div>
-                                  <div id="company-sections-${companyIndex}" style="display: none; padding: 10px;">
-                                      ${Object.entries(company.sections || {})
-                                        .filter(
-                                          ([key, section]) =>
-                                            section.accounts &&
-                                            section.accounts.length > 0
-                                        )
-                                        .map(
-                                          ([sectionKey, section]) => `
-                                          <div style="margin-bottom: 10px;">
-                                              <div onclick="toggleSection(${companyIndex}, '${sectionKey}')" style="background: #f1f3f4; padding: 8px; cursor: pointer; display: flex; justify-content: space-between;">
-                                                  <span>
-                                                      <span id="section-toggle-${companyIndex}-${sectionKey}">▶</span>
-                                                      <strong>${
-                                                        section.title
-                                                      }</strong> (${
-                                            section.accounts.length
-                                          })
-                                                  </span>
-                                                  <strong>${section.total.toLocaleString()}</strong>
-                                              </div>
-                                              <div id="section-accounts-${companyIndex}-${sectionKey}" style="display: none; padding: 5px;">
-                                                  <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 5px; font-weight: bold; font-size: 0.9rem; background: #f8f9fa;">
-                                                      <div>Account</div>
-                                                      <div style="text-align: right;">Debit</div>
-                                                      <div style="text-align: right;">Credit</div>
-                                                  </div>
-                                                  ${section.accounts
-                                                    .map(
-                                                      (account) => `
-                                                      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 5px; border-bottom: 1px solid #eee; font-size: 0.85rem;">
-                                                          <div>${
-                                                            account.name
-                                                          }</div>
-                                                          <div style="text-align: right;">${
-                                                            account.debit > 0
-                                                              ? "$" +
-                                                                account.debit.toLocaleString()
-                                                              : "-"
-                                                          }</div>
-                                                          <div style="text-align: right;">${
-                                                            account.credit > 0
-                                                              ? "$" +
-                                                                account.credit.toLocaleString()
-                                                              : "-"
-                                                          }</div>
-                                                      </div>
-                                                  `
-                                                    )
-                                                    .join("")}
-                                              </div>
-                                          </div>
-                                      `
-                                        )
-                                        .join("")}
-                                  </div>
-                              </div>
-                          `
-                            )
-                            .join("")}
-                      </div>
-                  </div>
-                  <div class="${
-                    balanceCheck.debitsEqualCredits
-                      ? "success-box"
-                      : "alert-box"
-                  }">
-                      ${
-                        balanceCheck.debitsEqualCredits
-                          ? "✅ Trial Balance is accurate"
-                          : "⚠️ Trial Balance shows discrepancies"
-                      }
-                  </div>
-              </div>
-          </div>
+                            <div id="companies-breakdown">
+                                ${data.companies
+                                  .map(
+                                    (company, companyIndex) => `
+                                    <div class="company-card" style="margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                                        <div onclick="toggleCompanyExpansion(${companyIndex})" style="background: #f8f9fa; padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                                            <div>
+                                                <span id="company-toggle-${companyIndex}" style="margin-right: 8px;">▶</span>
+                                                <strong>${
+                                                  company.tenantName
+                                                }</strong>
+                                                <span style="margin-left: 10px; color: #666;">(${
+                                                  company.accountCounts
+                                                    ?.totalAccounts || 0
+                                                } accounts)</span>
+                                            </div>
+                                            <div style="text-align: right; font-size: 0.9rem; color: #666;">
+                                                Assets: ${company.totals.totalAssets.toLocaleString()}
+                                            </div>
+                                        </div>
+                                        <div id="company-sections-${companyIndex}" style="display: none; padding: 10px;">
+                                            ${Object.entries(
+                                              company.sections || {}
+                                            )
+                                              .filter(
+                                                ([key, section]) =>
+                                                  section.accounts &&
+                                                  section.accounts.length > 0
+                                              )
+                                              .map(
+                                                ([sectionKey, section]) => `
+                                                <div style="margin-bottom: 10px;">
+                                                    <div onclick="toggleSection(${companyIndex}, '${sectionKey}')" style="background: #f1f3f4; padding: 8px; cursor: pointer; display: flex; justify-content: space-between;">
+                                                        <span>
+                                                            <span id="section-toggle-${companyIndex}-${sectionKey}">▶</span>
+                                                            <strong>${
+                                                              section.title
+                                                            }</strong> (${
+                                                  section.accounts.length
+                                                })
+                                                        </span>
+                                                        <strong>${section.total.toLocaleString()}</strong>
+                                                    </div>
+                                                    <div id="section-accounts-${companyIndex}-${sectionKey}" style="display: none; padding: 5px;">
+                                                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 5px; font-weight: bold; font-size: 0.9rem; background: #f8f9fa;">
+                                                            <div>Account</div>
+                                                            <div style="text-align: right;">Debit</div>
+                                                            <div style="text-align: right;">Credit</div>
+                                                        </div>
+                                                        ${section.accounts
+                                                          .map(
+                                                            (account) => `
+                                                            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 5px; border-bottom: 1px solid #eee; font-size: 0.85rem;">
+                                                                <div>${
+                                                                  account.name
+                                                                }</div>
+                                                                <div style="text-align: right;">${
+                                                                  account.debit >
+                                                                  0
+                                                                    ? "$" +
+                                                                      account.debit.toLocaleString()
+                                                                    : "-"
+                                                                }</div>
+                                                                <div style="text-align: right;">${
+                                                                  account.credit >
+                                                                  0
+                                                                    ? "$" +
+                                                                      account.credit.toLocaleString()
+                                                                    : "-"
+                                                                }</div>
+                                                            </div>
+                                                        `
+                                                          )
+                                                          .join("")}
+                                                    </div>
+                                                </div>
+                                            `
+                                              )
+                                              .join("")}
+                                        </div>
+                                    </div>
+                                `
+                                  )
+                                  .join("")}
+                            </div>
+                        </div>
+                        <div class="${
+                          balanceCheck.debitsEqualCredits
+                            ? "success-box"
+                            : "alert-box"
+                        }">
+                            ${
+                              balanceCheck.debitsEqualCredits
+                                ? "✅ Trial Balance is accurate"
+                                : "⚠️ Trial Balance shows discrepancies"
+                            }
+                        </div>
+                    </div>
+                </div>
 
-          <div class="demo-card">
-              <div class="card-header">
-                  <h3>📈 Portfolio Overview</h3>
-                  <p>RAC financial portfolio summary</p>
-              </div>
-              <div class="card-content">
-                  <div class="dashboard-mockup">
-                      <div class="metric-row">
-                          <span class="metric-label">Total Portfolio Value</span>
-                          <span class="metric-value large">${(
-                            totals.totalAssets - totals.totalLiabilities
-                          ).toLocaleString()}</span>
-                      </div>
-                      <div class="metric-row">
-                          <span class="metric-label">Connected Entities</span>
-                          <span class="metric-value">${
-                            summary.totalCompanies
-                          } companies</span>
-                      </div>
-                      <div class="metric-row">
-                          <span class="metric-label">Total Accounts</span>
-                          <span class="metric-value">${
-                            summary.totalAccounts
-                          } accounts</span>
-                      </div>
-                  </div>
-              </div>
-          </div>
-        `;
+                <div class="demo-card">
+                    <div class="card-header">
+                        <h3>📈 Portfolio Overview</h3>
+                        <p>RAC financial portfolio summary</p>
+                    </div>
+                    <div class="card-content">
+                        <div class="dashboard-mockup">
+                            <div class="metric-row">
+                                <span class="metric-label">Total Portfolio Value</span>
+                                <span class="metric-value large">${(
+                                  totals.totalAssets - totals.totalLiabilities
+                                ).toLocaleString()}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span class="metric-label">Connected Entities</span>
+                                <span class="metric-value">${
+                                  summary.totalCompanies
+                                } companies</span>
+                            </div>
+                            <div class="metric-row">
+                                <span class="metric-label">Total Accounts</span>
+                                <span class="metric-value">${
+                                  summary.totalAccounts
+                                } accounts</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+              `;
       }
 
       // Token refresh functionality
@@ -2011,8 +2252,8 @@
         log.innerHTML += `<div style="color: ${
           type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#666"
         };">
-          [${timestamp}] ${icon} ${message}
-        </div>`;
+                [${timestamp}] ${icon} ${message}
+              </div>`;
 
         log.scrollTop = log.scrollHeight;
       }
@@ -2184,16 +2425,16 @@
         let statusHtml = "";
         if (tokenStatus.expiringTokens > 0) {
           statusHtml = `
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
-                ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
-            </div>
-          `;
+                  <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
+                      ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
+                  </div>
+                `;
         } else if (tokenStatus.connectedTokens > 0) {
           statusHtml = `
-            <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
-                ✅ ${tokenStatus.connectedTokens} connection(s) active
-            </div>
-          `;
+                  <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
+                      ✅ ${tokenStatus.connectedTokens} connection(s) active
+                  </div>
+                `;
         }
 
         let statusDiv = document.getElementById("token-status-display");
@@ -2210,13 +2451,15 @@
       function showNotification(message) {
         const notification = document.createElement("div");
         notification.style.cssText = `
-          position: fixed; top: 20px; right: 20px; z-index: 9999;
-          background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
-          border: 1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"};
-          color: ${message.includes("✅") ? "#155724" : "#721c24"};
-          padding: 12px 20px; border-radius: 6px; font-weight: bold;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        `;
+                position: fixed; top: 20px; right: 20px; z-index: 9999;
+                background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
+                border: 1px solid ${
+                  message.includes("✅") ? "#c3e6cb" : "#f5c6cb"
+                };
+                color: ${message.includes("✅") ? "#155724" : "#721c24"};
+                padding: 12px 20px; border-radius: 6px; font-weight: bold;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+              `;
         notification.textContent = message;
         document.body.appendChild(notification);
         setTimeout(() => document.body.removeChild(notification), 5000);
