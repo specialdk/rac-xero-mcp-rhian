@@ -2271,6 +2271,51 @@
         }
       }
 
+      // ADD THESE FUNCTIONS HERE:
+      function toggleCompanyExpansion(companyIndex) {
+        const sectionsDiv = document.getElementById(
+          `company-sections-${companyIndex}`
+        );
+        const toggleIcon = document.getElementById(
+          `company-toggle-${companyIndex}`
+        );
+
+        if (sectionsDiv && toggleIcon) {
+          if (
+            sectionsDiv.style.display === "none" ||
+            sectionsDiv.style.display === ""
+          ) {
+            sectionsDiv.style.display = "block";
+            toggleIcon.textContent = "▼";
+          } else {
+            sectionsDiv.style.display = "none";
+            toggleIcon.textContent = "▶";
+          }
+        }
+      }
+
+      function toggleSection(companyIndex, sectionKey) {
+        const accountsDiv = document.getElementById(
+          `section-accounts-${companyIndex}-${sectionKey}`
+        );
+        const toggleIcon = document.getElementById(
+          `section-toggle-${companyIndex}-${sectionKey}`
+        );
+
+        if (accountsDiv && toggleIcon) {
+          if (
+            accountsDiv.style.display === "none" ||
+            accountsDiv.style.display === ""
+          ) {
+            accountsDiv.style.display = "block";
+            toggleIcon.textContent = "▼";
+          } else {
+            accountsDiv.style.display = "none";
+            toggleIcon.textContent = "▶";
+          }
+        }
+      }
+
       // Initialization
       async function initializePage() {
         handleOAuthReturn();
