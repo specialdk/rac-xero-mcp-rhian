@@ -1217,113 +1217,149 @@
 
     <!-- Insert the complete JavaScript from your original file here -->
     <script>
-            console.log("=== PAGE LOAD DEBUG ===");
-            console.log("Current URL:", window.location.href);
-            console.log("URL params:", new URLSearchParams(window.location.search).toString());
-            console.log("Refresh mode:", localStorage.getItem("oauthRefreshMode"));
-            console.log("OAuth companies:", localStorage.getItem("oauthCompanies"));
+      console.log("=== PAGE LOAD DEBUG ===");
+      console.log("Current URL:", window.location.href);
+      console.log(
+        "URL params:",
+        new URLSearchParams(window.location.search).toString()
+      );
+      console.log("Refresh mode:", localStorage.getItem("oauthRefreshMode"));
+      console.log("OAuth companies:", localStorage.getItem("oauthCompanies"));
 
-            // Track what's visible
-            setTimeout(() => {
-              console.log("Login manager display:", document.getElementById("loginManager")?.style.display);
-              console.log("Main dashboard display:", document.getElementById("mainDashboard")?.style.display);
-              console.log("Login manager exists:", !!document.getElementById("loginManager"));
-              console.log("Main dashboard exists:", !!document.getElementById("mainDashboard"));
-            }, 100);
+      // Track what's visible
+      setTimeout(() => {
+        console.log(
+          "Login manager display:",
+          document.getElementById("loginManager")?.style.display
+        );
+        console.log(
+          "Main dashboard display:",
+          document.getElementById("mainDashboard")?.style.display
+        );
+        console.log(
+          "Login manager exists:",
+          !!document.getElementById("loginManager")
+        );
+        console.log(
+          "Main dashboard exists:",
+          !!document.getElementById("mainDashboard")
+        );
+      }, 100);
 
-            // ====== GLOBAL VARIABLES ======
-            let currentView = "overview";
-            let dashboardData = {};
-            let selectedReportDate = new Date().toISOString().split("T")[0];
-            let tokenStatusInterval;
-            // Chat-related global variables
-            let selectedOrganization = "Rirratjingu Aboriginal Corporation 8538";
-            let isLoading = false;
+      // ====== GLOBAL VARIABLES ======
+      let currentView = "overview";
+      let dashboardData = {};
+      let selectedReportDate = new Date().toISOString().split("T")[0];
+      let tokenStatusInterval;
+      // Chat-related global variables
+      let selectedOrganization = "Rirratjingu Aboriginal Corporation 8538";
+      let isLoading = false;
 
-            // Organization selector
-            function updateSelectedOrg() {
-              selectedOrganization = document.getElementById("orgSelector").value;
-              addMessage("assistant", `Switched to analyzing data for: ${selectedOrganization.replace("Rirratjingu ", "RAC ")}`);
-            }
+      // Organization selector
+      function updateSelectedOrg() {
+        selectedOrganization = document.getElementById("orgSelector").value;
+        addMessage(
+          "assistant",
+          `Switched to analyzing data for: ${selectedOrganization.replace(
+            "Rirratjingu ",
+            "RAC "
+          )}`
+        );
+      }
 
-            // Quick actions
-            function quickAction(query) {
-              document.getElementById("chatInput").value = `Show me the ${query} for ${selectedOrganization}`;
-              sendMessage();
-            }
+      // Quick actions
+      function quickAction(query) {
+        document.getElementById(
+          "chatInput"
+        ).value = `Show me the ${query} for ${selectedOrganization}`;
+        sendMessage();
+      }
 
-            // Auto-resize textarea
-            function autoResize(textarea) {
-              textarea.style.height = "auto";
-              textarea.style.height = Math.min(textarea.scrollHeight, 100) + "px";
-            }
+      // Auto-resize textarea
+      function autoResize(textarea) {
+        textarea.style.height = "auto";
+        textarea.style.height = Math.min(textarea.scrollHeight, 100) + "px";
+      }
 
-            // Handle Enter key
-            function handleChatKeyPress(event) {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
-              }
-            }
+      // Handle Enter key
+      function handleChatKeyPress(event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
+      }
 
-            // Send message
-            async function sendMessage() {
-              const input = document.getElementById("chatInput");
-              const message = input.value.trim();
+      // Send message
+      async function sendMessage() {
+        const input = document.getElementById("chatInput");
+        const message = input.value.trim();
 
-              if (!message || isLoading) return;
+        if (!message || isLoading) return;
 
-              addMessage("user", message);
-              input.value = "";
-              input.style.height = "auto";
+        addMessage("user", message);
+        input.value = "";
+        input.style.height = "auto";
 
-              showTypingIndicator();
-              isLoading = true;
-              updateSendButton();
+        showTypingIndicator();
+        isLoading = true;
+        updateSendButton();
 
-              try {
-                const response = await processFinancialQuery(message, selectedOrganization);
-                removeTypingIndicator();
-                addMessage("assistant", response);
-              } catch (error) {
-                removeTypingIndicator();
-                addMessage("assistant", `Sorry, I encountered an error: ${error.message}`, "error");
-              }
+        try {
+          const response = await processFinancialQuery(
+            message,
+            selectedOrganization
+          );
+          removeTypingIndicator();
+          addMessage("assistant", response);
+        } catch (error) {
+          removeTypingIndicator();
+          addMessage(
+            "assistant",
+            `Sorry, I encountered an error: ${error.message}`,
+            "error"
+          );
+        }
 
-              isLoading = false;
-              updateSendButton();
-            }
+        isLoading = false;
+        updateSendButton();
+      }
 
-            // Add message to chat
-            function addMessage(type, content, messageType = "normal") {
-              const messagesContainer = document.getElementById("chatMessages");
-              const messageDiv = document.createElement("div");
-              messageDiv.className = `message ${type}`;
+      // Add message to chat
+      function addMessage(type, content, messageType = "normal") {
+        const messagesContainer = document.getElementById("chatMessages");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${type}`;
 
-              let formattedContent = content;
+        let formattedContent = content;
 
-              if (type === "assistant" && messageType !== "error" && content.includes("$")) {
-                formattedContent = `<div class="financial-data">${formatFinancialResponse(content)}</div>`;
-              } else if (messageType === "error") {
-                formattedContent = `<div class="error-box">${content}</div>`;
-              }
+        if (
+          type === "assistant" &&
+          messageType !== "error" &&
+          content.includes("$")
+        ) {
+          formattedContent = `<div class="financial-data">${formatFinancialResponse(
+            content
+          )}</div>`;
+        } else if (messageType === "error") {
+          formattedContent = `<div class="error-box">${content}</div>`;
+        }
 
-              messageDiv.innerHTML = `
+        messageDiv.innerHTML = `
                 <div>${formattedContent}</div>
                 <div class="message-time">${new Date().toLocaleTimeString()}</div>
               `;
 
-              messagesContainer.appendChild(messageDiv);
-              messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
 
-            // Typing indicator functions
-            function showTypingIndicator() {
-              const messagesContainer = document.getElementById("chatMessages");
-              const typingDiv = document.createElement("div");
-              typingDiv.className = "typing-indicator";
-              typingDiv.id = "typingIndicator";
-              typingDiv.innerHTML = `
+      // Typing indicator functions
+      function showTypingIndicator() {
+        const messagesContainer = document.getElementById("chatMessages");
+        const typingDiv = document.createElement("div");
+        typingDiv.className = "typing-indicator";
+        typingDiv.id = "typingIndicator";
+        typingDiv.innerHTML = `
                 <div class="typing-dots">
                   <span></span>
                   <span></span>
@@ -1331,127 +1367,177 @@
                 </div>
                 <span>Analyzing financial data...</span>
               `;
-              messagesContainer.appendChild(typingDiv);
-              messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        messagesContainer.appendChild(typingDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      function removeTypingIndicator() {
+        const typingIndicator = document.getElementById("typingIndicator");
+        if (typingIndicator) {
+          typingIndicator.remove();
+        }
+      }
+
+      function updateSendButton() {
+        const sendBtn = document.getElementById("sendBtn");
+        sendBtn.disabled = isLoading;
+        sendBtn.innerHTML = isLoading ? "<span>⟳</span>" : "<span>➤</span>";
+      }
+
+      function formatFinancialResponse(content) {
+        return content
+          .replace(/\*\*(.*?)\*\*/g, "<h4>$1</h4>")
+          .replace(/\n/g, "<br>")
+          .replace(/(\$[\d,]+)/g, "<strong>$1</strong>");
+      }
+
+      // Real MCP integration - replace the placeholder
+      async function processFinancialQuery(query, organization) {
+        const API_BASE_URL =
+          "https://rac-financial-dashboard-production.up.railway.app/api";
+
+        try {
+          let endpoint = "";
+          let params = { organizationName: organization };
+
+          // Parse the query to determine which MCP tool to use
+          const queryLower = query.toLowerCase();
+
+          if (queryLower.includes("trial balance")) {
+            endpoint = "/trial-balance";
+            // Add date parameter if specified
+            if (queryLower.includes("as at") || queryLower.includes("date")) {
+              const reportDate = document.getElementById("report-date").value;
+              params.reportDate = reportDate;
             }
-
-            function removeTypingIndicator() {
-              const typingIndicator = document.getElementById("typingIndicator");
-              if (typingIndicator) {
-                typingIndicator.remove();
-              }
+          } else if (
+            queryLower.includes("cash") ||
+            queryLower.includes("bank")
+          ) {
+            endpoint = "/cash-position";
+          } else if (
+            queryLower.includes("outstanding") ||
+            queryLower.includes("invoice")
+          ) {
+            endpoint = "/outstanding-invoices";
+          } else if (
+            queryLower.includes("profit") ||
+            queryLower.includes("loss") ||
+            queryLower.includes("p&l")
+          ) {
+            endpoint = "/profit-loss-summary";
+            params.periodMonths = 12;
+          } else if (
+            queryLower.includes("ratio") ||
+            queryLower.includes("financial ratio")
+          ) {
+            endpoint = "/financial-ratios";
+          } else if (
+            queryLower.includes("equity") ||
+            queryLower.includes("future fund")
+          ) {
+            endpoint = "/equity-analysis";
+            if (queryLower.includes("future fund")) {
+              params.equityAccountName = "Future Fund";
             }
-
-            function updateSendButton() {
-              const sendBtn = document.getElementById("sendBtn");
-              sendBtn.disabled = isLoading;
-              sendBtn.innerHTML = isLoading ? "<span>⟳</span>" : "<span>➤</span>";
+          } else if (
+            queryLower.includes("aged receivable") ||
+            queryLower.includes("receivable")
+          ) {
+            endpoint = "/aged-receivables";
+          } else if (
+            queryLower.includes("expense") ||
+            queryLower.includes("spending")
+          ) {
+            endpoint = "/expense-analysis";
+            params.periodMonths = 12;
+          } else if (
+            queryLower.includes("journal") ||
+            queryLower.includes("manual journal")
+          ) {
+            endpoint = "/journal-entries";
+          } else if (
+            queryLower.includes("account history") ||
+            queryLower.includes("transaction history")
+          ) {
+            endpoint = "/account-history";
+            // Extract account name from query if possible
+            const accountMatch = query.match(/account[:\s]+"?([^"]+)"?/i);
+            if (accountMatch) {
+              params.accountName = accountMatch[1];
             }
+          } else if (
+            queryLower.includes("unbalanced") ||
+            queryLower.includes("imbalance")
+          ) {
+            endpoint = "/find-unbalanced";
+            params.minimumAmount = 10000;
+          } else if (
+            queryLower.includes("chart of accounts") ||
+            queryLower.includes("accounts list")
+          ) {
+            endpoint = "/chart-of-accounts";
+          } else if (queryLower.includes("intercompany")) {
+            endpoint = "/intercompany-transactions";
+          } else if (
+            queryLower.includes("investigate") ||
+            queryLower.includes("analysis")
+          ) {
+            endpoint = "/investigate-imbalance";
+          } else {
+            // Default to trial balance for general queries
+            endpoint = "/trial-balance";
+          }
 
-            function formatFinancialResponse(content) {
-              return content
-                .replace(/\*\*(.*?)\*\*/g, "<h4>$1</h4>")
-                .replace(/\n/g, "<br>")
-                .replace(/(\$[\d,]+)/g, "<strong>$1</strong>");
-            }
+          console.log(
+            `Making MCP API call to: ${API_BASE_URL}${endpoint}`,
+            params
+          );
 
-            // Real MCP integration - replace the placeholder
-            async function processFinancialQuery(query, organization) {
-              const API_BASE_URL = "https://rac-financial-dashboard-production.up.railway.app/api";
+          const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(params),
+          });
 
-              try {
-                let endpoint = "";
-                let params = { organizationName: organization };
+          if (!response.ok) {
+            throw new Error(
+              `API Error: ${response.status} - ${response.statusText}`
+            );
+          }
 
-                // Parse the query to determine which MCP tool to use
-                const queryLower = query.toLowerCase();
+          const data = await response.json();
+          return formatMCPResponse(data, endpoint, organization);
+        } catch (error) {
+          console.error("MCP API Error:", error);
+          return `I encountered an error accessing the financial data: ${error.message}. Please check your connection and try again.`;
+        }
+      }
 
-                if (queryLower.includes("trial balance")) {
-                  endpoint = "/trial-balance";
-                  // Add date parameter if specified
-                  if (queryLower.includes("as at") || queryLower.includes("date")) {
-                    const reportDate = document.getElementById("report-date").value;
-                    params.reportDate = reportDate;
-                  }
-                } else if (queryLower.includes("cash") || queryLower.includes("bank")) {
-                  endpoint = "/cash-position";
-                } else if (queryLower.includes("outstanding") || queryLower.includes("invoice")) {
-                  endpoint = "/outstanding-invoices";
-                } else if (queryLower.includes("profit") || queryLower.includes("loss") || queryLower.includes("p&l")) {
-                  endpoint = "/profit-loss-summary";
-                  params.periodMonths = 12;
-                } else if (queryLower.includes("ratio") || queryLower.includes("financial ratio")) {
-                  endpoint = "/financial-ratios";
-                } else if (queryLower.includes("equity") || queryLower.includes("future fund")) {
-                  endpoint = "/equity-analysis";
-                  if (queryLower.includes("future fund")) {
-                    params.equityAccountName = "Future Fund";
-                  }
-                } else if (queryLower.includes("aged receivable") || queryLower.includes("receivable")) {
-                  endpoint = "/aged-receivables";
-                } else if (queryLower.includes("expense") || queryLower.includes("spending")) {
-                  endpoint = "/expense-analysis";
-                  params.periodMonths = 12;
-                } else if (queryLower.includes("journal") || queryLower.includes("manual journal")) {
-                  endpoint = "/journal-entries";
-                } else if (queryLower.includes("account history") || queryLower.includes("transaction history")) {
-                  endpoint = "/account-history";
-                  // Extract account name from query if possible
-                  const accountMatch = query.match(/account[:\s]+"?([^"]+)"?/i);
-                  if (accountMatch) {
-                    params.accountName = accountMatch[1];
-                  }
-                } else if (queryLower.includes("unbalanced") || queryLower.includes("imbalance")) {
-                  endpoint = "/find-unbalanced";
-                  params.minimumAmount = 10000;
-                } else if (queryLower.includes("chart of accounts") || queryLower.includes("accounts list")) {
-                  endpoint = "/chart-of-accounts";
-                } else if (queryLower.includes("intercompany")) {
-                  endpoint = "/intercompany-transactions";
-                } else if (queryLower.includes("investigate") || queryLower.includes("analysis")) {
-                  endpoint = "/investigate-imbalance";
-                } else {
-                  // Default to trial balance for general queries
-                  endpoint = "/trial-balance";
-                }
+      // Format MCP responses for chat display
+      function formatMCPResponse(data, endpoint, organization) {
+        const orgDisplay = organization.replace("Rirratjingu ", "RAC ");
 
-                console.log(`Making MCP API call to: ${API_BASE_URL}${endpoint}`, params);
+        if (endpoint === "/trial-balance") {
+          const tb = data.trialBalance;
+          const totals = tb.totals;
+          const balanced = data.balanceCheck.debitsEqualCredits
+            ? "BALANCED"
+            : "OUT OF BALANCE";
 
-                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify(params),
-                });
-
-                if (!response.ok) {
-                  throw new Error(`API Error: ${response.status} - ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                return formatMCPResponse(data, endpoint, organization);
-
-              } catch (error) {
-                console.error("MCP API Error:", error);
-                return `I encountered an error accessing the financial data: ${error.message}. Please check your connection and try again.`;
-              }
-            }
-
-            // Format MCP responses for chat display
-            function formatMCPResponse(data, endpoint, organization) {
-              const orgDisplay = organization.replace("Rirratjingu ", "RAC ");
-
-              if (endpoint === "/trial-balance") {
-                const tb = data.trialBalance;
-                const totals = tb.totals;
-                const balanced = data.balanceCheck.debitsEqualCredits ? "BALANCED" : "OUT OF BALANCE";
-
-                return `**Trial Balance Analysis - ${data.tenantName}**
+          return `**Trial Balance Analysis - ${data.tenantName}**
       Report Date: ${data.reportDate}
 
       **Status: ${balanced}**
-      ${!data.balanceCheck.debitsEqualCredits ? `Difference: ${Math.abs(data.balanceCheck.difference).toLocaleString()}` : ''}
+      ${
+        !data.balanceCheck.debitsEqualCredits
+          ? `Difference: ${Math.abs(
+              data.balanceCheck.difference
+            ).toLocaleString()}`
+          : ""
+      }
 
       **Financial Position:**
       • Total Assets: ${totals.totalAssets.toLocaleString()}
@@ -1462,34 +1548,39 @@
       • ${tb.assets.length} Asset accounts
       • ${tb.liabilities.length} Liability accounts
       • ${tb.equity.length} Equity accounts`;
-
-              } else if (endpoint === "/cash-position") {
-                return `**Cash Position - ${orgDisplay}**
+        } else if (endpoint === "/cash-position") {
+          return `**Cash Position - ${orgDisplay}**
       Total Cash: ${data.totalCash.toLocaleString()}
       Bank Accounts: ${data.bankAccounts.length}
 
       **Bank Account Details:**
-      ${data.bankAccounts.map(acc => `• ${acc.name}: ${acc.balance.toLocaleString()}`).join('\n')}`;
-
-              } else if (endpoint === "/outstanding-invoices") {
-                if (data.length === 0) {
-                  return `**Outstanding Invoices - ${orgDisplay}**
+      ${data.bankAccounts
+        .map((acc) => `• ${acc.name}: ${acc.balance.toLocaleString()}`)
+        .join("\n")}`;
+        } else if (endpoint === "/outstanding-invoices") {
+          if (data.length === 0) {
+            return `**Outstanding Invoices - ${orgDisplay}**
       No outstanding invoices found.`;
-                }
+          }
 
-                const total = data.reduce((sum, inv) => sum + inv.amountDue, 0);
-                return `**Outstanding Invoices - ${orgDisplay}**
+          const total = data.reduce((sum, inv) => sum + inv.amountDue, 0);
+          return `**Outstanding Invoices - ${orgDisplay}**
       Total Outstanding: ${total.toLocaleString()}
       Number of Invoices: ${data.length}
 
       **Recent Invoices:**
-      ${data.slice(0, 5).map(inv =>
-        `• Invoice ${inv.invoiceNumber}: ${inv.amountDue.toLocaleString()} (${inv.contact})`
-      ).join('\n')}`;
-
-              } else if (endpoint === "/financial-ratios") {
-                const ratios = data.ratios;
-                return `**Financial Ratios - ${orgDisplay}**
+      ${data
+        .slice(0, 5)
+        .map(
+          (inv) =>
+            `• Invoice ${
+              inv.invoiceNumber
+            }: ${inv.amountDue.toLocaleString()} (${inv.contact})`
+        )
+        .join("\n")}`;
+        } else if (endpoint === "/financial-ratios") {
+          const ratios = data.ratios;
+          return `**Financial Ratios - ${orgDisplay}**
       Report Date: ${data.reportDate}
 
       **Liquidity:**
@@ -1502,11 +1593,10 @@
 
       **Leverage:**
       • Debt-to-Equity: ${ratios.leverage.debtToEquity.toFixed(2)}`;
-
-              } else if (endpoint === "/equity-analysis") {
-                if (data.accounts && data.accounts.length > 0) {
-                  const account = data.accounts[0];
-                  return `**Equity Analysis - ${data.searchTerm}**
+        } else if (endpoint === "/equity-analysis") {
+          if (data.accounts && data.accounts.length > 0) {
+            const account = data.accounts[0];
+            return `**Equity Analysis - ${data.searchTerm}**
       Organization: ${data.tenantName}
       Analysis Period: ${data.monthsAnalyzed} months
 
@@ -1516,13 +1606,12 @@
       • Total Movements: ${account.totalMovements?.toLocaleString() || 0}
 
       This analysis helps identify unusual equity movements and potential imbalances.`;
-                } else {
-                  return `**Equity Analysis**
+          } else {
+            return `**Equity Analysis**
       No equity accounts found matching "${data.searchTerm}" for ${data.tenantName}.`;
-                }
-
-              } else if (endpoint === "/find-unbalanced") {
-                return `**Unbalanced Transactions Analysis**
+          }
+        } else if (endpoint === "/find-unbalanced") {
+          return `**Unbalanced Transactions Analysis**
       Organization: ${data.tenantName}
       Analysis Period: ${data.criteria.dateRange}
 
@@ -1532,247 +1621,277 @@
       • Critical Issues: ${data.summary.criticalIssues}
       • Future Fund Related: ${data.summary.futureFundRelated}
 
-      ${data.summary.criticalIssues > 0 ? 'Critical imbalances detected requiring immediate attention.' : 'No critical imbalances found.'}`;
-
-              } else {
-                // Generic response for other endpoints
-                return `**Financial Analysis Complete - ${orgDisplay}**
+      ${
+        data.summary.criticalIssues > 0
+          ? "Critical imbalances detected requiring immediate attention."
+          : "No critical imbalances found."
+      }`;
+        } else {
+          // Generic response for other endpoints
+          return `**Financial Analysis Complete - ${orgDisplay}**
 
       Data retrieved successfully from ${endpoint}. The analysis shows current financial information as requested.
 
       For detailed breakdowns, try asking specific questions about accounts, ratios, or time periods.`;
-              }
+        }
+      }
+
+      // Multi-Company Login Manager Variables
+      const companies = {
+        rac: "Rirratjingu Aboriginal Corporation 8538",
+        mining: "Rirratjingu Mining Pty Ltd 7168",
+        property:
+          "Rirratjingu Property Management & Maintenance Services Pty Ltd",
+        enterprises: "Rirratjingu Enterprises Pty Ltd",
+        invest: "Rirratjingu Invest P/ L ATF Miliditjpi Trust",
+        ngarrkuwuy: "Ngarrkuwuy Developments Pty Ltd",
+        marrin: "Marrin Square Developments Pty Ltd",
+      };
+
+      let selectedCompanies = [];
+      let oauthProgress = 0;
+      let connectedCompanies = [];
+      let isOAuthInProgress = false;
+
+      // ====== LOGIN MANAGER FUNCTIONS ======
+      function loadSavedPreferences() {
+        const saved = localStorage.getItem("racCompanyPreferences");
+        const refreshMode = localStorage.getItem("oauthRefreshMode");
+
+        if (refreshMode === "true") {
+          console.log("🔄 Detected OAuth refresh mode");
+          if (saved) {
+            try {
+              selectedCompanies = JSON.parse(saved);
+              selectedCompanies.forEach((companyId) => {
+                const checkbox = document.getElementById(
+                  `company-${companyId}`
+                );
+                if (checkbox) checkbox.checked = true;
+              });
+              updateSelectionSummary();
+              console.log("🚀 Auto-starting OAuth refresh...");
+              setTimeout(() => {
+                startOAuthFlow();
+              }, 1000);
+            } catch (error) {
+              console.log("Error in refresh mode:", error);
             }
-            
-
-            // Multi-Company Login Manager Variables
-            const companies = {
-              rac: "Rirratjingu Aboriginal Corporation 8538",
-              mining: "Rirratjingu Mining Pty Ltd 7168",
-              property: "Rirratjingu Property Management & Maintenance Services Pty Ltd",
-              enterprises: "Rirratjingu Enterprises Pty Ltd",
-              invest: "Rirratjingu Invest P/ L ATF Miliditjpi Trust",
-              ngarrkuwuy: "Ngarrkuwuy Developments Pty Ltd",
-              marrin: "Marrin Square Developments Pty Ltd",
-            };
-
-            let selectedCompanies = [];
-            let oauthProgress = 0;
-            let connectedCompanies = [];
-            let isOAuthInProgress = false;
-
-            // ====== LOGIN MANAGER FUNCTIONS ======
-            function loadSavedPreferences() {
-              const saved = localStorage.getItem("racCompanyPreferences");
-              const refreshMode = localStorage.getItem("oauthRefreshMode");
-
-              if (refreshMode === "true") {
-                console.log("🔄 Detected OAuth refresh mode");
-                if (saved) {
-                  try {
-                    selectedCompanies = JSON.parse(saved);
-                    selectedCompanies.forEach((companyId) => {
-                      const checkbox = document.getElementById(`company-${companyId}`);
-                      if (checkbox) checkbox.checked = true;
-                    });
-                    updateSelectionSummary();
-                    console.log("🚀 Auto-starting OAuth refresh...");
-                    setTimeout(() => {
-                      startOAuthFlow();
-                    }, 1000);
-                  } catch (error) {
-                    console.log("Error in refresh mode:", error);
-                  }
-                }
-              } else if (saved) {
-                try {
-                  selectedCompanies = JSON.parse(saved);
-                  selectedCompanies.forEach((companyId) => {
-                    const checkbox = document.getElementById(`company-${companyId}`);
-                    if (checkbox) checkbox.checked = true;
-                  });
-                  updateSelectionSummary();
-                } catch (error) {
-                  console.log("No valid saved preferences");
-                }
-              }
-            }
-
-            function savePreferences() {
-              localStorage.setItem("racCompanyPreferences", JSON.stringify(selectedCompanies));
-            }
-
-            function toggleCompany(companyId, event) {
-              event.stopPropagation();
+          }
+        } else if (saved) {
+          try {
+            selectedCompanies = JSON.parse(saved);
+            selectedCompanies.forEach((companyId) => {
               const checkbox = document.getElementById(`company-${companyId}`);
-              checkbox.checked = !checkbox.checked;
+              if (checkbox) checkbox.checked = true;
+            });
+            updateSelectionSummary();
+          } catch (error) {
+            console.log("No valid saved preferences");
+          }
+        }
+      }
 
-              if (checkbox.checked) {
-                if (!selectedCompanies.includes(companyId)) {
-                  selectedCompanies.push(companyId);
-                }
-              } else {
-                selectedCompanies = selectedCompanies.filter((id) => id !== companyId);
-                document.getElementById("all-companies").checked = false;
-              }
+      function savePreferences() {
+        localStorage.setItem(
+          "racCompanyPreferences",
+          JSON.stringify(selectedCompanies)
+        );
+      }
 
-              updateSelectionSummary();
-              savePreferences();
-            }
+      function toggleCompany(companyId, event) {
+        event.stopPropagation();
+        const checkbox = document.getElementById(`company-${companyId}`);
+        checkbox.checked = !checkbox.checked;
 
-            function toggleAllCompanies(event) {
-              event.stopPropagation();
-              const allCheckbox = document.getElementById("all-companies");
-              allCheckbox.checked = !allCheckbox.checked;
+        if (checkbox.checked) {
+          if (!selectedCompanies.includes(companyId)) {
+            selectedCompanies.push(companyId);
+          }
+        } else {
+          selectedCompanies = selectedCompanies.filter(
+            (id) => id !== companyId
+          );
+          document.getElementById("all-companies").checked = false;
+        }
 
-              if (allCheckbox.checked) {
-                selectedCompanies = Object.keys(companies);
-                Object.keys(companies).forEach((companyId) => {
-                  document.getElementById(`company-${companyId}`).checked = true;
-                });
-              } else {
-                selectedCompanies = [];
-                Object.keys(companies).forEach((companyId) => {
-                  document.getElementById(`company-${companyId}`).checked = false;
-                });
-              }
+        updateSelectionSummary();
+        savePreferences();
+      }
 
-              updateSelectionSummary();
-              savePreferences();
-            }
+      function toggleAllCompanies(event) {
+        event.stopPropagation();
+        const allCheckbox = document.getElementById("all-companies");
+        allCheckbox.checked = !allCheckbox.checked;
 
-            function updateSelectionSummary() {
-              const summary = document.getElementById("selectionSummary");
-              const continueBtn = document.getElementById("continueBtn");
+        if (allCheckbox.checked) {
+          selectedCompanies = Object.keys(companies);
+          Object.keys(companies).forEach((companyId) => {
+            document.getElementById(`company-${companyId}`).checked = true;
+          });
+        } else {
+          selectedCompanies = [];
+          Object.keys(companies).forEach((companyId) => {
+            document.getElementById(`company-${companyId}`).checked = false;
+          });
+        }
 
-              summary.innerHTML = `<strong>Selected: ${selectedCompanies.length} companies</strong>`;
+        updateSelectionSummary();
+        savePreferences();
+      }
 
-              if (selectedCompanies.length > 0) {
-                const companyNames = selectedCompanies.map((id) => companies[id]);
-                summary.innerHTML += `<br><small>${companyNames.join(", ")}</small>`;
-                continueBtn.disabled = false;
-              } else {
-                continueBtn.disabled = true;
-              }
-            }
+      function updateSelectionSummary() {
+        const summary = document.getElementById("selectionSummary");
+        const continueBtn = document.getElementById("continueBtn");
 
-            function startOAuthFlow() {
-              if (selectedCompanies.length === 0) {
-                alert("Please select at least one company to continue.");
-                return;
-              }
+        summary.innerHTML = `<strong>Selected: ${selectedCompanies.length} companies</strong>`;
 
-              document.getElementById("step1").style.display = "none";
-              document.getElementById("step2").style.display = "block";
-              document.getElementById("step1Indicator").classList.add("completed");
-              document.getElementById("step1Indicator").classList.remove("active");
-              document.getElementById("step2Indicator").classList.add("active");
+        if (selectedCompanies.length > 0) {
+          const companyNames = selectedCompanies.map((id) => companies[id]);
+          summary.innerHTML += `<br><small>${companyNames.join(", ")}</small>`;
+          continueBtn.disabled = false;
+        } else {
+          continueBtn.disabled = true;
+        }
+      }
 
-              oauthProgress = 0;
-              connectedCompanies = [];
-              localStorage.setItem("oauthCompanies", JSON.stringify(selectedCompanies));
-              localStorage.setItem("oauthProgress", "0");
-              updateOAuthProgress();
-            }
+      function startOAuthFlow() {
+        if (selectedCompanies.length === 0) {
+          alert("Please select at least one company to continue.");
+          return;
+        }
 
-            function updateOAuthProgress() {
-              const currentCompanyName = document.getElementById("currentCompanyName");
-              const progressFill = document.getElementById("progressFill");
-              const progressText = document.getElementById("progressText");
+        document.getElementById("step1").style.display = "none";
+        document.getElementById("step2").style.display = "block";
+        document.getElementById("step1Indicator").classList.add("completed");
+        document.getElementById("step1Indicator").classList.remove("active");
+        document.getElementById("step2Indicator").classList.add("active");
 
-              if (oauthProgress < selectedCompanies.length) {
-                const companyId = selectedCompanies[oauthProgress];
-                const companyName = companies[companyId];
+        oauthProgress = 0;
+        connectedCompanies = [];
+        localStorage.setItem(
+          "oauthCompanies",
+          JSON.stringify(selectedCompanies)
+        );
+        localStorage.setItem("oauthProgress", "0");
+        updateOAuthProgress();
+      }
 
-                currentCompanyName.textContent = `Ready to connect: ${companyName} (${oauthProgress + 1}/${selectedCompanies.length})`;
-                const progressPercent = (oauthProgress / selectedCompanies.length) * 100;
-                progressFill.style.width = progressPercent + "%";
-                progressText.textContent = `Step ${oauthProgress + 1} of ${selectedCompanies.length}`;
+      function updateOAuthProgress() {
+        const currentCompanyName =
+          document.getElementById("currentCompanyName");
+        const progressFill = document.getElementById("progressFill");
+        const progressText = document.getElementById("progressText");
 
-                document.getElementById("oauthInstructions").innerHTML = `
+        if (oauthProgress < selectedCompanies.length) {
+          const companyId = selectedCompanies[oauthProgress];
+          const companyName = companies[companyId];
+
+          currentCompanyName.textContent = `Ready to connect: ${companyName} (${
+            oauthProgress + 1
+          }/${selectedCompanies.length})`;
+          const progressPercent =
+            (oauthProgress / selectedCompanies.length) * 100;
+          progressFill.style.width = progressPercent + "%";
+          progressText.textContent = `Step ${oauthProgress + 1} of ${
+            selectedCompanies.length
+          }`;
+
+          document.getElementById("oauthInstructions").innerHTML = `
                   <strong>Next Company:</strong> ${companyName}<br>
                   <small>When the Xero login opens, select "${companyName}" from the dropdown and authorize access.</small>
                 `;
-              }
+        }
+      }
+
+      function startNextOAuth() {
+        if (oauthProgress >= selectedCompanies.length) {
+          showCompletion();
+          return;
+        }
+
+        const companyId = selectedCompanies[oauthProgress];
+        const companyName = companies[companyId];
+
+        localStorage.setItem("currentOAuthCompany", companyId);
+        localStorage.setItem("currentOAuthCompanyName", companyName);
+
+        isOAuthInProgress = true;
+        document.getElementById("startOAuthBtn").style.display = "none";
+        document.getElementById("waitingMessage").style.display = "block";
+
+        window.location.href = "/auth";
+      }
+
+      async function checkOAuthStatus() {
+        try {
+          const response = await fetch("/api/connection-status");
+          const connections = await response.json();
+
+          const currentCompanyName = localStorage.getItem(
+            "currentOAuthCompanyName"
+          );
+          const currentCompanyId = localStorage.getItem("currentOAuthCompany");
+
+          const newConnection = connections.find(
+            (conn) => conn.tenantName === currentCompanyName && conn.connected
+          );
+
+          if (newConnection) {
+            connectedCompanies.push({
+              id: currentCompanyId,
+              name: currentCompanyName,
+              tenantId: newConnection.tenantId,
+            });
+
+            oauthProgress++;
+            localStorage.setItem("oauthProgress", oauthProgress.toString());
+
+            isOAuthInProgress = false;
+            document.getElementById("startOAuthBtn").style.display =
+              "inline-block";
+            document.getElementById("waitingMessage").style.display = "none";
+
+            if (oauthProgress < selectedCompanies.length) {
+              updateOAuthProgress();
+              document.getElementById(
+                "startOAuthBtn"
+              ).textContent = `🔗 Connect Next Company (${oauthProgress + 1}/${
+                selectedCompanies.length
+              })`;
+            } else {
+              showCompletion();
             }
+          } else {
+            alert(
+              `❌ Failed to connect ${currentCompanyName}. Please try again.`
+            );
+            isOAuthInProgress = false;
+            document.getElementById("startOAuthBtn").style.display =
+              "inline-block";
+            document.getElementById("waitingMessage").style.display = "none";
+          }
+        } catch (error) {
+          console.error("❌ Error checking OAuth status:", error);
+          alert("❌ Error checking connection status. Please try again.");
+          isOAuthInProgress = false;
+          document.getElementById("startOAuthBtn").style.display =
+            "inline-block";
+          document.getElementById("waitingMessage").style.display = "none";
+        }
+      }
 
-            function startNextOAuth() {
-              if (oauthProgress >= selectedCompanies.length) {
-                showCompletion();
-                return;
-              }
+      function showCompletion() {
+        document.getElementById("step2").style.display = "none";
+        document.getElementById("step3").style.display = "block";
+        document.getElementById("step2Indicator").classList.add("completed");
+        document.getElementById("step2Indicator").classList.remove("active");
+        document.getElementById("step3Indicator").classList.add("active");
 
-              const companyId = selectedCompanies[oauthProgress];
-              const companyName = companies[companyId];
-
-              localStorage.setItem("currentOAuthCompany", companyId);
-              localStorage.setItem("currentOAuthCompanyName", companyName);
-
-              isOAuthInProgress = true;
-              document.getElementById("startOAuthBtn").style.display = "none";
-              document.getElementById("waitingMessage").style.display = "block";
-
-              window.location.href = "/auth";
-            }
-
-            async function checkOAuthStatus() {
-              try {
-                const response = await fetch("/api/connection-status");
-                const connections = await response.json();
-
-                const currentCompanyName = localStorage.getItem("currentOAuthCompanyName");
-                const currentCompanyId = localStorage.getItem("currentOAuthCompany");
-
-                const newConnection = connections.find(
-                  (conn) => conn.tenantName === currentCompanyName && conn.connected
-                );
-
-                if (newConnection) {
-                  connectedCompanies.push({
-                    id: currentCompanyId,
-                    name: currentCompanyName,
-                    tenantId: newConnection.tenantId,
-                  });
-
-                  oauthProgress++;
-                  localStorage.setItem("oauthProgress", oauthProgress.toString());
-
-                  isOAuthInProgress = false;
-                  document.getElementById("startOAuthBtn").style.display = "inline-block";
-                  document.getElementById("waitingMessage").style.display = "none";
-
-                  if (oauthProgress < selectedCompanies.length) {
-                    updateOAuthProgress();
-                    document.getElementById("startOAuthBtn").textContent = `🔗 Connect Next Company (${oauthProgress + 1}/${selectedCompanies.length})`;
-                  } else {
-                    showCompletion();
-                  }
-                } else {
-                  alert(`❌ Failed to connect ${currentCompanyName}. Please try again.`);
-                  isOAuthInProgress = false;
-                  document.getElementById("startOAuthBtn").style.display = "inline-block";
-                  document.getElementById("waitingMessage").style.display = "none";
-                }
-              } catch (error) {
-                console.error("❌ Error checking OAuth status:", error);
-                alert("❌ Error checking connection status. Please try again.");
-                isOAuthInProgress = false;
-                document.getElementById("startOAuthBtn").style.display = "inline-block";
-                document.getElementById("waitingMessage").style.display = "none";
-              }
-            }
-
-            function showCompletion() {
-              document.getElementById("step2").style.display = "none";
-              document.getElementById("step3").style.display = "block";
-              document.getElementById("step2Indicator").classList.add("completed");
-              document.getElementById("step2Indicator").classList.remove("active");
-              document.getElementById("step3Indicator").classList.add("active");
-
-              const connectedList = document.getElementById("connectedCompaniesList");
-              connectedList.innerHTML = connectedCompanies
-                .map(
-                  (company) => `
+        const connectedList = document.getElementById("connectedCompaniesList");
+        connectedList.innerHTML = connectedCompanies
+          .map(
+            (company) => `
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid #28a745; background: #f8fff9; border-radius: 6px; margin-bottom: 0.5rem;">
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <div style="width: 12px; height: 12px; border-radius: 50%; background: #28a745;"></div>
@@ -1781,125 +1900,137 @@
                         <div style="color: #28a745; font-size: 0.9rem;">✅ Connected</div>
                     </div>
                   `
-                )
-                .join("");
+          )
+          .join("");
 
-              // Auto-launch after 3 seconds
-              setTimeout(() => showMainDashboard(), 3000);
-            }
+        // Auto-launch after 3 seconds
+        setTimeout(() => showMainDashboard(), 3000);
+      }
 
-            function showMainDashboard() {
-              // Check if this is completing an OAuth refresh
-              const refreshMode = localStorage.getItem("oauthRefreshMode");
-              if (refreshMode === "true") {
-                console.log("✅ OAuth refresh completed, cleaning up...");
-                localStorage.removeItem("oauthRefreshMode");
-                localStorage.removeItem("oauthProgress");
-                showTokenRefreshStatus("🎉 All connections refreshed successfully!");
-                console.log("🎉 OAuth refresh cycle completed!");
-              }
+      function showMainDashboard() {
+        // Check if this is completing an OAuth refresh
+        const refreshMode = localStorage.getItem("oauthRefreshMode");
+        if (refreshMode === "true") {
+          console.log("✅ OAuth refresh completed, cleaning up...");
+          localStorage.removeItem("oauthRefreshMode");
+          localStorage.removeItem("oauthProgress");
+          showTokenRefreshStatus("🎉 All connections refreshed successfully!");
+          console.log("🎉 OAuth refresh cycle completed!");
+        }
 
-              localStorage.removeItem("oauthCompanies");
-              localStorage.removeItem("oauthProgress");
-              localStorage.removeItem("currentOAuthCompany");
-              localStorage.removeItem("currentOAuthCompanyName");
-              localStorage.setItem("racCompaniesConnected", "true");
+        localStorage.removeItem("oauthCompanies");
+        localStorage.removeItem("oauthProgress");
+        localStorage.removeItem("currentOAuthCompany");
+        localStorage.removeItem("currentOAuthCompanyName");
+        localStorage.setItem("racCompaniesConnected", "true");
 
-              document.getElementById("loginManager").style.display = "none";
-              document.getElementById("mainDashboard").style.display = "block";
+        document.getElementById("loginManager").style.display = "none";
+        document.getElementById("mainDashboard").style.display = "block";
 
-              initializeMainDashboard();
-            }
+        initializeMainDashboard();
+      }
 
-            function backToLoginManager() {
-              if (confirm("Return to login manager? This will clear your current session.")) {
-                localStorage.removeItem("racCompaniesConnected");
-                document.getElementById("mainDashboard").style.display = "none";
-                document.getElementById("loginManager").style.display = "block";
-                resetLoginManager();
-              }
-            }
+      function backToLoginManager() {
+        if (
+          confirm(
+            "Return to login manager? This will clear your current session."
+          )
+        ) {
+          localStorage.removeItem("racCompaniesConnected");
+          document.getElementById("mainDashboard").style.display = "none";
+          document.getElementById("loginManager").style.display = "block";
+          resetLoginManager();
+        }
+      }
 
-            function resetLoginManager() {
-              selectedCompanies = [];
-              oauthProgress = 0;
-              connectedCompanies = [];
-              isOAuthInProgress = false;
+      function resetLoginManager() {
+        selectedCompanies = [];
+        oauthProgress = 0;
+        connectedCompanies = [];
+        isOAuthInProgress = false;
 
-              document.getElementById("step1").style.display = "block";
-              document.getElementById("step2").style.display = "none";
-              document.getElementById("step3").style.display = "none";
+        document.getElementById("step1").style.display = "block";
+        document.getElementById("step2").style.display = "none";
+        document.getElementById("step3").style.display = "none";
 
-              document.getElementById("step1Indicator").className = "step active";
-              document.getElementById("step2Indicator").className = "step";
-              document.getElementById("step3Indicator").className = "step";
+        document.getElementById("step1Indicator").className = "step active";
+        document.getElementById("step2Indicator").className = "step";
+        document.getElementById("step3Indicator").className = "step";
 
-              document.querySelectorAll(".company-checkbox").forEach((cb) => (cb.checked = false));
-              updateSelectionSummary();
-              loadSavedPreferences();
-            }
+        document
+          .querySelectorAll(".company-checkbox")
+          .forEach((cb) => (cb.checked = false));
+        updateSelectionSummary();
+        loadSavedPreferences();
+      }
 
-            function handleOAuthReturn() {
-              const urlParams = new URLSearchParams(window.location.search);
-              const isSuccess = urlParams.has("success");
-              const isError = urlParams.has("error");
-              const oauthCompanies = localStorage.getItem("oauthCompanies");
+      function handleOAuthReturn() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isSuccess = urlParams.has("success");
+        const isError = urlParams.has("error");
+        const oauthCompanies = localStorage.getItem("oauthCompanies");
 
-              if (isSuccess && oauthCompanies) {
-                selectedCompanies = JSON.parse(oauthCompanies);
-                oauthProgress = parseInt(localStorage.getItem("oauthProgress")) || 0;
+        if (isSuccess && oauthCompanies) {
+          selectedCompanies = JSON.parse(oauthCompanies);
+          oauthProgress = parseInt(localStorage.getItem("oauthProgress")) || 0;
 
-                document.getElementById("loginManager").style.display = "block";
-                document.getElementById("mainDashboard").style.display = "none";
-                document.getElementById("step1").style.display = "none";
-                document.getElementById("step2").style.display = "block";
-                document.getElementById("step1Indicator").classList.add("completed");
-                document.getElementById("step2Indicator").classList.add("active");
+          document.getElementById("loginManager").style.display = "block";
+          document.getElementById("mainDashboard").style.display = "none";
+          document.getElementById("step1").style.display = "none";
+          document.getElementById("step2").style.display = "block";
+          document.getElementById("step1Indicator").classList.add("completed");
+          document.getElementById("step2Indicator").classList.add("active");
 
-                setTimeout(() => checkOAuthStatus(), 1000);
-              }
+          setTimeout(() => checkOAuthStatus(), 1000);
+        }
 
-              if (isSuccess || isError) {
-                history.replaceState({}, document.title, window.location.pathname);
-              }
-            }
+        if (isSuccess || isError) {
+          history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
 
-            // ====== MAIN DASHBOARD FUNCTIONS ======
-            function initializeMainDashboard() {
-              document.getElementById("report-date").value = selectedReportDate;
-              document.getElementById("display-date").textContent = formatDisplayDate(selectedReportDate);
-              loadTrialBalanceData();
-              startTokenMonitoring();
-              updateTimestamp();
-              setInterval(updateTimestamp, 30000);
+      // ====== MAIN DASHBOARD FUNCTIONS ======
+      function initializeMainDashboard() {
+        document.getElementById("report-date").value = selectedReportDate;
+        document.getElementById("display-date").textContent =
+          formatDisplayDate(selectedReportDate);
+        loadTrialBalanceData();
+        startTokenMonitoring();
+        updateTimestamp();
+        setInterval(updateTimestamp, 30000);
 
-              // Add this line:
-              document.getElementById("welcomeTime").textContent = new Date().toLocaleTimeString();
-            }
+        // Add this line:
+        document.getElementById("welcomeTime").textContent =
+          new Date().toLocaleTimeString();
+      }
 
-            async function loadTrialBalanceData() {
-              try {
-                const response = await fetch(`/api/consolidated-trial-balance?date=${selectedReportDate}`);
-                const data = await response.json();
-                dashboardData = data;
-                renderTrialBalanceView(data);
-              } catch (error) {
-                console.error("Error loading trial balance:", error);
-                showError("Failed to load trial balance data");
-              }
-            }
+      async function loadTrialBalanceData() {
+        try {
+          const response = await fetch(
+            `/api/consolidated-trial-balance?date=${selectedReportDate}`
+          );
+          const data = await response.json();
+          dashboardData = data;
+          renderTrialBalanceView(data);
+        } catch (error) {
+          console.error("Error loading trial balance:", error);
+          showError("Failed to load trial balance data");
+        }
+      }
 
-            function renderTrialBalanceView(data) {
-              const content = document.getElementById("dashboard-content");
-              const totals = data.consolidated.totals;
-              const balanceCheck = data.consolidated.balanceCheck;
-              const summary = data.summary;
+      function renderTrialBalanceView(data) {
+        const content = document.getElementById("dashboard-content");
+        const totals = data.consolidated.totals;
+        const balanceCheck = data.consolidated.balanceCheck;
+        const summary = data.summary;
 
-              content.innerHTML = `
+        content.innerHTML = `
                 <div class="demo-card financial-overview">
                     <div class="card-header">
                         <h3>⚖️ RAC Consolidated Trial Balance</h3>
-                        <p>Financial position across ${data.companies.length} RAC entities</p>
+                        <p>Financial position across ${
+                          data.companies.length
+                        } RAC entities</p>
                     </div>
                     <div class="card-content">
                         <div class="dashboard-mockup">
@@ -1909,7 +2040,11 @@
                                 : "background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;"
                             }">
                                 <div style="font-weight: bold; margin-bottom: 5px;">
-                                    ${balanceCheck.debitsEqualCredits ? "✅ Books are BALANCED" : "⚠️ Books are OUT OF BALANCE"}
+                                    ${
+                                      balanceCheck.debitsEqualCredits
+                                        ? "✅ Books are BALANCED"
+                                        : "⚠️ Books are OUT OF BALANCE"
+                                    }
                                 </div>
                                 <div style="font-size: 0.9rem;">
                                     Debits: ${totals.totalDebits.toLocaleString()} | Credits: ${totals.totalCredits.toLocaleString()}
@@ -1939,9 +2074,12 @@
                                         <div onclick="toggleCompanyExpansion(${companyIndex})" style="background: #f8f9fa; padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
                                             <div>
                                                 <span id="company-toggle-${companyIndex}" style="margin-right: 8px;">▶</span>
-                                                <strong>${company.tenantName}</strong>
+                                                <strong>${
+                                                  company.tenantName
+                                                }</strong>
                                                 <span style="margin-left: 10px; color: #666;">(${
-                                                  company.accountCounts?.totalAccounts || 0
+                                                  company.accountCounts
+                                                    ?.totalAccounts || 0
                                                 } accounts)</span>
                                             </div>
                                             <div style="text-align: right; font-size: 0.9rem; color: #666;">
@@ -1949,10 +2087,13 @@
                                             </div>
                                         </div>
                                         <div id="company-sections-${companyIndex}" style="display: none; padding: 10px;">
-                                            ${Object.entries(company.sections || {})
+                                            ${Object.entries(
+                                              company.sections || {}
+                                            )
                                               .filter(
                                                 ([key, section]) =>
-                                                  section.accounts && section.accounts.length > 0
+                                                  section.accounts &&
+                                                  section.accounts.length > 0
                                               )
                                               .map(
                                                 ([sectionKey, section]) => `
@@ -1960,7 +2101,9 @@
                                                     <div onclick="toggleSection(${companyIndex}, '${sectionKey}')" style="background: #f1f3f4; padding: 8px; cursor: pointer; display: flex; justify-content: space-between;">
                                                         <span>
                                                             <span id="section-toggle-${companyIndex}-${sectionKey}">▶</span>
-                                                            <strong>${section.title}</strong> (${
+                                                            <strong>${
+                                                              section.title
+                                                            }</strong> (${
                                                   section.accounts.length
                                                 })
                                                         </span>
@@ -1976,15 +2119,21 @@
                                                           .map(
                                                             (account) => `
                                                             <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 5px; border-bottom: 1px solid #eee; font-size: 0.85rem;">
-                                                                <div>${account.name}</div>
+                                                                <div>${
+                                                                  account.name
+                                                                }</div>
                                                                 <div style="text-align: right;">${
-                                                                  account.debit > 0
-                                                                    ? "$" + account.debit.toLocaleString()
+                                                                  account.debit >
+                                                                  0
+                                                                    ? "$" +
+                                                                      account.debit.toLocaleString()
                                                                     : "-"
                                                                 }</div>
                                                                 <div style="text-align: right;">${
-                                                                  account.credit > 0
-                                                                    ? "$" + account.credit.toLocaleString()
+                                                                  account.credit >
+                                                                  0
+                                                                    ? "$" +
+                                                                      account.credit.toLocaleString()
                                                                     : "-"
                                                                 }</div>
                                                             </div>
@@ -2003,8 +2152,16 @@
                                   .join("")}
                             </div>
                         </div>
-                        <div class="${balanceCheck.debitsEqualCredits ? "success-box" : "alert-box"}">
-                            ${balanceCheck.debitsEqualCredits ? "✅ Trial Balance is accurate" : "⚠️ Trial Balance shows discrepancies"}
+                        <div class="${
+                          balanceCheck.debitsEqualCredits
+                            ? "success-box"
+                            : "alert-box"
+                        }">
+                            ${
+                              balanceCheck.debitsEqualCredits
+                                ? "✅ Trial Balance is accurate"
+                                : "⚠️ Trial Balance shows discrepancies"
+                            }
                         </div>
                     </div>
                 </div>
@@ -2018,346 +2175,439 @@
                         <div class="dashboard-mockup">
                             <div class="metric-row">
                                 <span class="metric-label">Total Portfolio Value</span>
-                                <span class="metric-value large">${(totals.totalAssets - totals.totalLiabilities).toLocaleString()}</span>
+                                <span class="metric-value large">${(
+                                  totals.totalAssets - totals.totalLiabilities
+                                ).toLocaleString()}</span>
                             </div>
                             <div class="metric-row">
                                 <span class="metric-label">Connected Entities</span>
-                                <span class="metric-value">${summary.totalCompanies} companies</span>
+                                <span class="metric-value">${
+                                  summary.totalCompanies
+                                } companies</span>
                             </div>
                             <div class="metric-row">
                                 <span class="metric-label">Total Accounts</span>
-                                <span class="metric-value">${summary.totalAccounts} accounts</span>
+                                <span class="metric-value">${
+                                  summary.totalAccounts
+                                } accounts</span>
                             </div>
                         </div>
                     </div>
                 </div>
               `;
-            }
+      }
 
-            // Token refresh functionality
-            async function backgroundRefreshAllCompanies(event) {
-              if (event) event.preventDefault();
-              console.log("🔄 Starting background OAuth refresh...");
+      // Token refresh functionality
+      async function backgroundRefreshAllCompanies(event) {
+        if (event) event.preventDefault();
+        console.log("🔄 Starting background OAuth refresh...");
 
-              try {
-                const connectedCompanies = JSON.parse(localStorage.getItem("racCompanyPreferences") || "[]");
+        try {
+          const connectedCompanies = JSON.parse(
+            localStorage.getItem("racCompanyPreferences") || "[]"
+          );
 
-                if (connectedCompanies.length === 0) {
-                  updateRefreshLog("No companies to refresh", "error");
-                  return;
-                }
+          if (connectedCompanies.length === 0) {
+            updateRefreshLog("No companies to refresh", "error");
+            return;
+          }
 
-                updateRefreshLog(`Starting refresh for ${connectedCompanies.length} companies...`);
-                document.getElementById("refresh-status-panel").style.display = "block";
+          updateRefreshLog(
+            `Starting refresh for ${connectedCompanies.length} companies...`
+          );
+          document.getElementById("refresh-status-panel").style.display =
+            "block";
 
-                for (let i = 0; i < connectedCompanies.length; i++) {
-                  const company = connectedCompanies[i];
-                  updateRefreshLog(`🔄 Refreshing ${company} (${i + 1}/${connectedCompanies.length})...`);
-                  await refreshCompanyInPopup(company);
-                  await new Promise((resolve) => setTimeout(resolve, 2000));
-                }
+          for (let i = 0; i < connectedCompanies.length; i++) {
+            const company = connectedCompanies[i];
+            updateRefreshLog(
+              `🔄 Refreshing ${company} (${i + 1}/${
+                connectedCompanies.length
+              })...`
+            );
+            await refreshCompanyInPopup(company);
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
 
-                updateRefreshLog("✅ All companies refreshed! Checking token times...");
-                checkTokenTimes();
-              } catch (error) {
-                console.error("❌ Background refresh error:", error);
-                updateRefreshLog(`Refresh error: ${error.message}`, "error");
-              }
-            }
+          updateRefreshLog(
+            "✅ All companies refreshed! Checking token times..."
+          );
+          checkTokenTimes();
+        } catch (error) {
+          console.error("❌ Background refresh error:", error);
+          updateRefreshLog(`Refresh error: ${error.message}`, "error");
+        }
+      }
 
-            function toggleRefreshPanel() {
-              const panel = document.getElementById("refresh-status-panel");
-              panel.style.display = panel.style.display === "none" ? "block" : "none";
-            }
+      function toggleRefreshPanel() {
+        const panel = document.getElementById("refresh-status-panel");
+        panel.style.display = panel.style.display === "none" ? "block" : "none";
+      }
 
-            function updateRefreshLog(message, type = "info") {
-              const log = document.getElementById("refresh-log");
-              const timestamp = new Date().toLocaleTimeString();
-              const icon = type === "error" ? "❌" : type === "success" ? "✅" : "🔄";
+      function updateRefreshLog(message, type = "info") {
+        const log = document.getElementById("refresh-log");
+        const timestamp = new Date().toLocaleTimeString();
+        const icon = type === "error" ? "❌" : type === "success" ? "✅" : "🔄";
 
-              log.innerHTML += `<div style="color: ${type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#666"};">
+        log.innerHTML += `<div style="color: ${
+          type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#666"
+        };">
                 [${timestamp}] ${icon} ${message}
               </div>`;
 
-              log.scrollTop = log.scrollHeight;
-            }
+        log.scrollTop = log.scrollHeight;
+      }
 
-            async function refreshCompanyInPopup(companyId) {
-              const companyName = companies[companyId];
-              updateRefreshLog(`Opening popup for ${companyName}...`);
+      async function refreshCompanyInPopup(companyId) {
+        const companyName = companies[companyId];
+        updateRefreshLog(`Opening popup for ${companyName}...`);
 
-              const popup = window.open("/auth", "xero-oauth", "width=500,height=600,scrollbars=yes");
+        const popup = window.open(
+          "/auth",
+          "xero-oauth",
+          "width=500,height=600,scrollbars=yes"
+        );
 
-              if (!popup) {
-                updateRefreshLog(`❌ Popup blocked for ${companyName}`, "error");
-                return;
-              }
+        if (!popup) {
+          updateRefreshLog(`❌ Popup blocked for ${companyName}`, "error");
+          return;
+        }
 
-              await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 3000));
 
-              try {
-                const popupDoc = popup.document;
-                updateRefreshLog(`Attempting automation for ${companyName}...`);
+        try {
+          const popupDoc = popup.document;
+          updateRefreshLog(`Attempting automation for ${companyName}...`);
 
-                const dropdown = popupDoc.querySelector("select");
-                if (dropdown) {
-                  updateRefreshLog(`Found dropdown with ${dropdown.options.length} options`);
+          const dropdown = popupDoc.querySelector("select");
+          if (dropdown) {
+            updateRefreshLog(
+              `Found dropdown with ${dropdown.options.length} options`
+            );
 
-                  for (let option of dropdown.options) {
-                    if (option.textContent.includes(companyName) || option.textContent.includes("7168")) {
-                      dropdown.value = option.value;
-                      dropdown.dispatchEvent(new Event("change", { bubbles: true }));
-                      updateRefreshLog(`✅ Selected: ${option.textContent}`);
-                      break;
-                    }
-                  }
-                } else {
-                  updateRefreshLog(`⚠️ Dropdown not found`);
-                }
-
-                await new Promise((resolve) => setTimeout(resolve, 1000));
-
-                const allowButton = popupDoc.querySelector("button");
-                if (allowButton && allowButton.textContent.includes("Allow")) {
-                  allowButton.click();
-                  updateRefreshLog(`✅ Clicked Allow button for ${companyName}`);
-                } else {
-                  updateRefreshLog(`⚠️ Allow button not found - please click manually`);
-                }
-              } catch (error) {
-                updateRefreshLog(`❌ Automation failed: ${error.message}`, "error");
-                updateRefreshLog(`Please complete OAuth manually in popup`, "info");
-              }
-
-              await waitForPopupCompletion(popup, companyName);
-            }
-
-            async function waitForPopupCompletion(popup, companyName) {
-              return new Promise((resolve) => {
-                updateRefreshLog(`Waiting for ${companyName} OAuth completion...`);
-
-                const checkSuccess = setInterval(() => {
-                  try {
-                    if (popup.location.href.includes("success") || popup.location.href.includes("/dashboard")) {
-                      popup.close();
-                      updateRefreshLog(`✅ OAuth success detected - popup closed`);
-                      clearInterval(checkSuccess);
-                      clearInterval(checkClosed);
-                      resolve();
-                    }
-                  } catch (e) {
-                    // Cross-origin access blocked, continue checking
-                  }
-                }, 500);
-
-                const checkClosed = setInterval(() => {
-                  if (popup.closed) {
-                    updateRefreshLog(`✅ ${companyName} OAuth completed`);
-                    clearInterval(checkSuccess);
-                    clearInterval(checkClosed);
-                    resolve();
-                  }
-                }, 1000);
-
-                setTimeout(() => {
-                  if (!popup.closed) {
-                    popup.close();
-                    updateRefreshLog(`⚠️ ${companyName} timed out`, "error");
-                  }
-                  clearInterval(checkSuccess);
-                  clearInterval(checkClosed);
-                  resolve();
-                }, 60000);
-              });
-            }
-
-            async function checkTokenTimes() {
-              try {
-                const response = await fetch("/api/debug/database");
-                const data = await response.json();
-
-                updateRefreshLog("Checking token expiry times...");
-
-                data.tokens.forEach((token) => {
-                  if (!token.expired) {
-                    const status = token.expires_in_minutes > 27 ? "✅" : "⚠️";
-                    updateRefreshLog(`${status} ${token.tenant_name}: ${token.expires_in_minutes} minutes remaining`);
-                  }
-                });
-              } catch (error) {
-                updateRefreshLog(`Error checking tokens: ${error.message}`, "error");
+            for (let option of dropdown.options) {
+              if (
+                option.textContent.includes(companyName) ||
+                option.textContent.includes("7168")
+              ) {
+                dropdown.value = option.value;
+                dropdown.dispatchEvent(new Event("change", { bubbles: true }));
+                updateRefreshLog(`✅ Selected: ${option.textContent}`);
+                break;
               }
             }
+          } else {
+            updateRefreshLog(`⚠️ Dropdown not found`);
+          }
 
-            function showTokenRefreshStatus(message, type = "success") {
-              console.log("📢 Status:", message);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
 
-              let statusElement = document.querySelector(".token-refresh-status");
-              if (!statusElement) {
-                const banner = document.querySelector(".text-green-600")?.parentElement;
-                if (banner) {
-                  statusElement = document.createElement("div");
-                  statusElement.className = "token-refresh-status";
-                  statusElement.style.cssText = "margin-top: 5px; font-size: 0.9rem; font-weight: bold;";
-                  banner.appendChild(statusElement);
-                }
+          const allowButton = popupDoc.querySelector("button");
+          if (allowButton && allowButton.textContent.includes("Allow")) {
+            allowButton.click();
+            updateRefreshLog(`✅ Clicked Allow button for ${companyName}`);
+          } else {
+            updateRefreshLog(
+              `⚠️ Allow button not found - please click manually`
+            );
+          }
+        } catch (error) {
+          updateRefreshLog(`❌ Automation failed: ${error.message}`, "error");
+          updateRefreshLog(`Please complete OAuth manually in popup`, "info");
+        }
+
+        await waitForPopupCompletion(popup, companyName);
+      }
+
+      async function waitForPopupCompletion(popup, companyName) {
+        return new Promise((resolve) => {
+          updateRefreshLog(`Waiting for ${companyName} OAuth completion...`);
+
+          const checkSuccess = setInterval(() => {
+            try {
+              if (
+                popup.location.href.includes("success") ||
+                popup.location.href.includes("/dashboard")
+              ) {
+                popup.close();
+                updateRefreshLog(`✅ OAuth success detected - popup closed`);
+                clearInterval(checkSuccess);
+                clearInterval(checkClosed);
+                resolve();
               }
-
-              if (statusElement) {
-                statusElement.textContent = message;
-                statusElement.style.color = type === "error" ? "#dc3545" : "#28a745";
-                setTimeout(() => {
-                  statusElement.textContent = "";
-                }, 5000);
-              }
+            } catch (e) {
+              // Cross-origin access blocked, continue checking
             }
+          }, 500);
 
-            async function startTokenMonitoring() {
-              const checkTokens = async () => {
-                try {
-                  const response = await fetch("/api/token-status");
-                  const tokenStatus = await response.json();
-                  updateTokenStatusDisplay(tokenStatus);
-                } catch (error) {
-                  console.error("Error monitoring tokens:", error);
-                }
-              };
-
-              checkTokens();
-              tokenStatusInterval = setInterval(checkTokens, 2 * 60 * 1000);
+          const checkClosed = setInterval(() => {
+            if (popup.closed) {
+              updateRefreshLog(`✅ ${companyName} OAuth completed`);
+              clearInterval(checkSuccess);
+              clearInterval(checkClosed);
+              resolve();
             }
+          }, 1000);
 
-            function updateTokenStatusDisplay(tokenStatus) {
-              let statusHtml = "";
-              if (tokenStatus.expiringTokens > 0) {
-                statusHtml = `
+          setTimeout(() => {
+            if (!popup.closed) {
+              popup.close();
+              updateRefreshLog(`⚠️ ${companyName} timed out`, "error");
+            }
+            clearInterval(checkSuccess);
+            clearInterval(checkClosed);
+            resolve();
+          }, 60000);
+        });
+      }
+
+      async function checkTokenTimes() {
+        try {
+          const response = await fetch("/api/debug/database");
+          const data = await response.json();
+
+          updateRefreshLog("Checking token expiry times...");
+
+          data.tokens.forEach((token) => {
+            if (!token.expired) {
+              const status = token.expires_in_minutes > 27 ? "✅" : "⚠️";
+              updateRefreshLog(
+                `${status} ${token.tenant_name}: ${token.expires_in_minutes} minutes remaining`
+              );
+            }
+          });
+        } catch (error) {
+          updateRefreshLog(`Error checking tokens: ${error.message}`, "error");
+        }
+      }
+
+      function showTokenRefreshStatus(message, type = "success") {
+        console.log("📢 Status:", message);
+
+        let statusElement = document.querySelector(".token-refresh-status");
+        if (!statusElement) {
+          const banner =
+            document.querySelector(".text-green-600")?.parentElement;
+          if (banner) {
+            statusElement = document.createElement("div");
+            statusElement.className = "token-refresh-status";
+            statusElement.style.cssText =
+              "margin-top: 5px; font-size: 0.9rem; font-weight: bold;";
+            banner.appendChild(statusElement);
+          }
+        }
+
+        if (statusElement) {
+          statusElement.textContent = message;
+          statusElement.style.color = type === "error" ? "#dc3545" : "#28a745";
+          setTimeout(() => {
+            statusElement.textContent = "";
+          }, 5000);
+        }
+      }
+
+      async function startTokenMonitoring() {
+        const checkTokens = async () => {
+          try {
+            const response = await fetch("/api/token-status");
+            const tokenStatus = await response.json();
+            updateTokenStatusDisplay(tokenStatus);
+          } catch (error) {
+            console.error("Error monitoring tokens:", error);
+          }
+        };
+
+        checkTokens();
+        tokenStatusInterval = setInterval(checkTokens, 2 * 60 * 1000);
+      }
+
+      function updateTokenStatusDisplay(tokenStatus) {
+        let statusHtml = "";
+        if (tokenStatus.expiringTokens > 0) {
+          statusHtml = `
                   <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
                       ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
                   </div>
                 `;
-              } else if (tokenStatus.connectedTokens > 0) {
-                statusHtml = `
+        } else if (tokenStatus.connectedTokens > 0) {
+          statusHtml = `
                   <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
                       ✅ ${tokenStatus.connectedTokens} connection(s) active
                   </div>
                 `;
-              }
+        }
 
-              let statusDiv = document.getElementById("token-status-display");
-              if (!statusDiv && statusHtml) {
-                statusDiv = document.createElement("div");
-                statusDiv.id = "token-status-display";
-                document.querySelector(".header").appendChild(statusDiv);
-              }
-              if (statusDiv) {
-                statusDiv.innerHTML = statusHtml;
-              }
-            }
+        let statusDiv = document.getElementById("token-status-display");
+        if (!statusDiv && statusHtml) {
+          statusDiv = document.createElement("div");
+          statusDiv.id = "token-status-display";
+          document.querySelector(".header").appendChild(statusDiv);
+        }
+        if (statusDiv) {
+          statusDiv.innerHTML = statusHtml;
+        }
+      }
 
-            function showNotification(message) {
-              const notification = document.createElement("div");
-              notification.style.cssText = `
+      function showNotification(message) {
+        const notification = document.createElement("div");
+        notification.style.cssText = `
                 position: fixed; top: 20px; right: 20px; z-index: 9999;
                 background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
-                border: 1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"};
+                border: 1px solid ${
+                  message.includes("✅") ? "#c3e6cb" : "#f5c6cb"
+                };
                 color: ${message.includes("✅") ? "#155724" : "#721c24"};
                 padding: 12px 20px; border-radius: 6px; font-weight: bold;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.1);
               `;
-              notification.textContent = message;
-              document.body.appendChild(notification);
-              setTimeout(() => document.body.removeChild(notification), 5000);
-            }
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        setTimeout(() => document.body.removeChild(notification), 5000);
+      }
 
-            // Date functions
-            function updateReportDate(newDate) {
-              selectedReportDate = newDate;
-              document.getElementById("display-date").textContent = formatDisplayDate(newDate);
-              loadTrialBalanceData();
-            }
+      // Date functions
+      function updateReportDate(newDate) {
+        selectedReportDate = newDate;
+        document.getElementById("display-date").textContent =
+          formatDisplayDate(newDate);
+        loadTrialBalanceData();
+      }
 
-            function setQuickDate(option) {
-              const today = new Date();
-              let newDate = today;
+      function setQuickDate(option) {
+        const today = new Date();
+        let newDate = today;
 
-              if (option === "monthEnd") {
-                newDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-              }
+        if (option === "monthEnd") {
+          newDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        }
 
-              const dateString = newDate.toISOString().split("T")[0];
-              selectedReportDate = dateString;
-              document.getElementById("report-date").value = dateString;
-              document.getElementById("display-date").textContent = formatDisplayDate(dateString);
-              loadTrialBalanceData();
-            }
+        const dateString = newDate.toISOString().split("T")[0];
+        selectedReportDate = dateString;
+        document.getElementById("report-date").value = dateString;
+        document.getElementById("display-date").textContent =
+          formatDisplayDate(dateString);
+        loadTrialBalanceData();
+      }
 
-            function formatDisplayDate(dateString) {
-              const date = new Date(dateString + "T00:00:00");
-              return date.toLocaleDateString("en-AU", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                weekday: "long",
-              });
-            }
+      function formatDisplayDate(dateString) {
+        const date = new Date(dateString + "T00:00:00");
+        return date.toLocaleDateString("en-AU", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          weekday: "long",
+        });
+      }
 
-            function setView(viewType, event) {
-              currentView = viewType;
-              document.querySelectorAll(".toggle-btn").forEach((btn) => btn.classList.remove("active"));
-              event.target.classList.add("active");
-              loadTrialBalanceData();
-            }
+      function setView(viewType, event) {
+        currentView = viewType;
+        document
+          .querySelectorAll(".toggle-btn")
+          .forEach((btn) => btn.classList.remove("active"));
+        event.target.classList.add("active");
+        loadTrialBalanceData();
+      }
 
-            function showError(message) {
-              document.getElementById("dashboard-content").innerHTML = `<div class="error">❌ ${message}</div>`;
-            }
+      function showError(message) {
+        document.getElementById(
+          "dashboard-content"
+        ).innerHTML = `<div class="error">❌ ${message}</div>`;
+      }
 
-            function updateTimestamp() {
-              const timestampElement = document.getElementById("timestamp");
-              if (timestampElement) {
-                timestampElement.textContent = new Date().toLocaleString();
-              }
-            }
+      function updateTimestamp() {
+        const timestampElement = document.getElementById("timestamp");
+        if (timestampElement) {
+          timestampElement.textContent = new Date().toLocaleString();
+        }
+      }
 
-            // Initialization
-            async function initializePage() {
-              handleOAuthReturn();
+      // ====== EXPANSION FUNCTIONS ======
+      function toggleCompanyExpansion(companyIndex) {
+        const sectionsDiv = document.getElementById(
+          `company-sections-${companyIndex}`
+        );
+        const toggleIcon = document.getElementById(
+          `company-toggle-${companyIndex}`
+        );
 
-              if (localStorage.getItem("oauthCompanies")) {
-                return;
-              }
+        if (sectionsDiv && toggleIcon) {
+          if (
+            sectionsDiv.style.display === "none" ||
+            sectionsDiv.style.display === ""
+          ) {
+            sectionsDiv.style.display = "block";
+            toggleIcon.textContent = "▼";
+          } else {
+            sectionsDiv.style.display = "none";
+            toggleIcon.textContent = "▶";
+          }
+        }
+      }
 
-              try {
-                const response = await fetch("/api/connection-status");
-                const connections = await response.json();
-                const connectedCount = connections.filter((conn) => conn.connected).length;
+      function toggleSection(companyIndex, sectionKey) {
+        const accountsDiv = document.getElementById(
+          `section-accounts-${companyIndex}-${sectionKey}`
+        );
+        const toggleIcon = document.getElementById(
+          `section-toggle-${companyIndex}-${sectionKey}`
+        );
 
-                if (connectedCount > 0) {
-                  document.getElementById("loginManager").style.display = "none";
-                  document.getElementById("mainDashboard").style.display = "block";
-                  initializeMainDashboard();
-                } else {
-                  document.getElementById("loginManager").style.display = "block";
-                  document.getElementById("mainDashboard").style.display = "none";
-                  loadSavedPreferences();
-                }
-              } catch (error) {
-                document.getElementById("loginManager").style.display = "block";
-                document.getElementById("mainDashboard").style.display = "none";
-                loadSavedPreferences();
-              }
-            }
+        if (accountsDiv && toggleIcon) {
+          if (
+            accountsDiv.style.display === "none" ||
+            accountsDiv.style.display === ""
+          ) {
+            accountsDiv.style.display = "block";
+            toggleIcon.textContent = "▼";
+          } else {
+            accountsDiv.style.display = "none";
+            toggleIcon.textContent = "▶";
+          }
+        }
+      }
 
-            // Event listeners
-            document.addEventListener("DOMContentLoaded", function() {
-              initializePage();
-              document.getElementById("welcomeTime").textContent = new Date().toLocaleTimeString();
-            });
+      // Initialization
+      async function initializePage() {
+        handleOAuthReturn();
 
-            window.addEventListener("popstate", handleOAuthReturn);
-            window.addEventListener("beforeunload", () => {
-              if (tokenStatusInterval) clearInterval(tokenStatusInterval);
-            });
+        if (localStorage.getItem("oauthCompanies")) {
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/connection-status");
+          const connections = await response.json();
+          const connectedCount = connections.filter(
+            (conn) => conn.connected
+          ).length;
+
+          if (connectedCount > 0) {
+            document.getElementById("loginManager").style.display = "none";
+            document.getElementById("mainDashboard").style.display = "block";
+            initializeMainDashboard();
+          } else {
+            document.getElementById("loginManager").style.display = "block";
+            document.getElementById("mainDashboard").style.display = "none";
+            loadSavedPreferences();
+          }
+        } catch (error) {
+          document.getElementById("loginManager").style.display = "block";
+          document.getElementById("mainDashboard").style.display = "none";
+          loadSavedPreferences();
+        }
+      }
+
+      // Event listeners
+      document.addEventListener("DOMContentLoaded", function () {
+        initializePage();
+        document.getElementById("welcomeTime").textContent =
+          new Date().toLocaleTimeString();
+      });
+
+      window.addEventListener("popstate", handleOAuthReturn);
+      window.addEventListener("beforeunload", () => {
+        if (tokenStatusInterval) clearInterval(tokenStatusInterval);
+      });
     </script>
   </body>
 </html>
