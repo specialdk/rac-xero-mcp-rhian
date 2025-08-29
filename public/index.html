@@ -1805,26 +1805,104 @@
                               }
                           </div>
                           <div style="font-size: 0.9rem;">
-                              Debits: $${totals.totalDebits.toLocaleString()} | Credits: $${totals.totalCredits.toLocaleString()}
+                              Debits: ${totals.totalDebits.toLocaleString()} | Credits: ${totals.totalCredits.toLocaleString()}
                           </div>
                       </div>
 
                       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                           <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                              <div style="font-size: 1.4rem; font-weight: bold; color: #28a745;">$${totals.totalAssets.toLocaleString()}</div>
+                              <div style="font-size: 1.4rem; font-weight: bold; color: #28a745;">${totals.totalAssets.toLocaleString()}</div>
                               <div style="font-size: 1rem; color: #666;">Total Assets</div>
                           </div>
                           <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                              <div style="font-size: 1.4rem; font-weight: bold; color: #dc3545;">$${totals.totalLiabilities.toLocaleString()}</div>
+                              <div style="font-size: 1.4rem; font-weight: bold; color: #dc3545;">${totals.totalLiabilities.toLocaleString()}</div>
                               <div style="font-size: 1rem; color: #666;">Total Liabilities</div>
                           </div>
                           <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                              <div style="font-size: 1.4rem; font-weight: bold; color: #17a2b8;">$${totals.totalEquity.toLocaleString()}</div>
+                              <div style="font-size: 1.4rem; font-weight: bold; color: #17a2b8;">${totals.totalEquity.toLocaleString()}</div>
                               <div style="font-size: 1rem; color: #666;">Total Equity</div>
                           </div>
                       </div>
 
-                      <!-- Company breakdown would go here -->
+                      <div id="companies-breakdown">
+                          ${data.companies
+                            .map(
+                              (company, companyIndex) => `
+                              <div class="company-card" style="margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                                  <div onclick="toggleCompanyExpansion(${companyIndex})" style="background: #f8f9fa; padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                                      <div>
+                                          <span id="company-toggle-${companyIndex}" style="margin-right: 8px;">▶</span>
+                                          <strong>${company.tenantName}</strong>
+                                          <span style="margin-left: 10px; color: #666;">(${
+                                            company.accountCounts
+                                              ?.totalAccounts || 0
+                                          } accounts)</span>
+                                      </div>
+                                      <div style="text-align: right; font-size: 0.9rem; color: #666;">
+                                          Assets: ${company.totals.totalAssets.toLocaleString()}
+                                      </div>
+                                  </div>
+                                  <div id="company-sections-${companyIndex}" style="display: none; padding: 10px;">
+                                      ${Object.entries(company.sections || {})
+                                        .filter(
+                                          ([key, section]) =>
+                                            section.accounts &&
+                                            section.accounts.length > 0
+                                        )
+                                        .map(
+                                          ([sectionKey, section]) => `
+                                          <div style="margin-bottom: 10px;">
+                                              <div onclick="toggleSection(${companyIndex}, '${sectionKey}')" style="background: #f1f3f4; padding: 8px; cursor: pointer; display: flex; justify-content: space-between;">
+                                                  <span>
+                                                      <span id="section-toggle-${companyIndex}-${sectionKey}">▶</span>
+                                                      <strong>${
+                                                        section.title
+                                                      }</strong> (${
+                                            section.accounts.length
+                                          })
+                                                  </span>
+                                                  <strong>${section.total.toLocaleString()}</strong>
+                                              </div>
+                                              <div id="section-accounts-${companyIndex}-${sectionKey}" style="display: none; padding: 5px;">
+                                                  <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 5px; font-weight: bold; font-size: 0.9rem; background: #f8f9fa;">
+                                                      <div>Account</div>
+                                                      <div style="text-align: right;">Debit</div>
+                                                      <div style="text-align: right;">Credit</div>
+                                                  </div>
+                                                  ${section.accounts
+                                                    .map(
+                                                      (account) => `
+                                                      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 5px; border-bottom: 1px solid #eee; font-size: 0.85rem;">
+                                                          <div>${
+                                                            account.name
+                                                          }</div>
+                                                          <div style="text-align: right;">${
+                                                            account.debit > 0
+                                                              ? "$" +
+                                                                account.debit.toLocaleString()
+                                                              : "-"
+                                                          }</div>
+                                                          <div style="text-align: right;">${
+                                                            account.credit > 0
+                                                              ? "$" +
+                                                                account.credit.toLocaleString()
+                                                              : "-"
+                                                          }</div>
+                                                      </div>
+                                                  `
+                                                    )
+                                                    .join("")}
+                                              </div>
+                                          </div>
+                                      `
+                                        )
+                                        .join("")}
+                                  </div>
+                              </div>
+                          `
+                            )
+                            .join("")}
+                      </div>
                   </div>
                   <div class="${
                     balanceCheck.debitsEqualCredits
@@ -1849,7 +1927,7 @@
                   <div class="dashboard-mockup">
                       <div class="metric-row">
                           <span class="metric-label">Total Portfolio Value</span>
-                          <span class="metric-value large">$${(
+                          <span class="metric-value large">${(
                             totals.totalAssets - totals.totalLiabilities
                           ).toLocaleString()}</span>
                       </div>
