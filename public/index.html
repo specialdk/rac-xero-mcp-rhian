@@ -1932,15 +1932,42 @@ For detailed breakdowns, try asking specific questions about accounts, ratios, o
       }
 
       function backToLoginManager() {
-        if (
-          confirm(
-            "Return to login manager? This will clear your current session."
-          )
-        ) {
-          localStorage.removeItem("racCompaniesConnected");
-          document.getElementById("mainDashboard").style.display = "none";
-          document.getElementById("loginManager").style.display = "block";
-          resetLoginManager();
+        // Don't clear connections, just show the login manager for editing
+        document.getElementById("mainDashboard").style.display = "none";
+        document.getElementById("loginManager").style.display = "block";
+
+        // Load current connections instead of resetting
+        loadCurrentConnections();
+      }
+
+      async function loadCurrentConnections() {
+        try {
+          const response = await fetch("/api/connection-status");
+          const connections = await response.json();
+
+          // Show connected companies in the selection interface
+          const connectedCompanyIds = [];
+          connections.forEach((conn) => {
+            if (conn.connected) {
+              // Map tenant names back to company IDs
+              const companyId = Object.keys(companies).find(
+                (id) => companies[id] === conn.tenantName
+              );
+              if (companyId) {
+                connectedCompanyIds.push(companyId);
+                document.getElementById(`company-${companyId}`).checked = true;
+              }
+            }
+          });
+
+          selectedCompanies = connectedCompanyIds;
+          updateSelectionSummary();
+
+          // Update button text to reflect this is connection management
+          document.getElementById("continueBtn").textContent =
+            "Update Company Connections";
+        } catch (error) {
+          console.error("Error loading current connections:", error);
         }
       }
 
