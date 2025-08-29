@@ -17,19 +17,59 @@
         line-height: 1.6;
         color: #333;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
+        height: 100vh;
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* Main layout container - FORCE flex row layout */
+      .main-container {
+        display: flex !important;
+        flex-direction: row !important;
+        height: 100vh !important;
+        width: 100vw !important;
+        background: white;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        position: fixed;
+        top: 0;
+        left: 0;
+      }
+
+      /* Dashboard area - takes remaining space */
+      .dashboard-area {
+        flex: 1 1 auto !important;
+        min-width: 0;
+        overflow-y: auto;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        height: 100vh;
+      }
+
+      /* Fixed right AI chat panel - FORCE to right side */
+      .ai-chat-panel {
+        width: 400px !important;
+        min-width: 400px !important;
+        max-width: 400px !important;
+        background: white !important;
+        border-left: 2px solid #ddd;
+        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+        display: flex !important;
+        flex-direction: column !important;
+        flex-shrink: 0 !important;
+        height: 100vh !important;
+        position: relative;
       }
 
       .container {
-        max-width: 1200px;
-        margin: 0 auto;
+        max-width: none;
+        margin: 0;
         padding: 20px;
       }
 
       /* ====== LOGIN MANAGER STYLES ====== */
       .login-manager {
         max-width: 800px;
-        margin: 0 auto;
+        margin: 40px auto;
         background: white;
         border-radius: 12px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
@@ -207,6 +247,7 @@
       /* ====== MAIN DASHBOARD STYLES ====== */
       .main-dashboard {
         display: none;
+        height: 100%;
       }
 
       .header {
@@ -214,12 +255,12 @@
         z-index: 1;
         text-align: center;
         color: white;
-        margin-bottom: 40px;
-        padding: 40px 0;
+        margin-bottom: 30px;
+        padding: 30px 0 20px 0;
       }
 
       .header h1 {
-        font-size: 3rem;
+        font-size: 2.5rem;
         margin-bottom: 10px;
         font-weight: 700;
       }
@@ -398,41 +439,7 @@
         font-style: italic;
       }
 
-      /* Main container modifications */
-      .main-container {
-        display: flex;
-        height: 100vh;
-        max-width: 100%; /* Use full width instead of 1400px */
-        margin: 0 auto;
-        background: white;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-      }
-
-      .dashboard-area {
-        flex: 1;
-        min-width: 0; /* Allow flex shrinking */
-        overflow-y: auto;
-        transition: none; /* Remove the margin transition */
-      }
-
-      /* Redesigned chat panel - part of the flex layout, not fixed */
-      .ai-chat-panel {
-        width: 420px; /* Slightly wider for better readability */
-        background: white;
-        border-left: 2px solid #ddd;
-        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-        display: flex;
-        flex-direction: column;
-        flex-shrink: 0; /* Don't shrink smaller than 420px */
-        /* Remove transform and transition - always visible when open */
-      }
-
-      /* Make dashboard content use reasonable width */
-      .container {
-        max-width: 1200px; /* Reasonable max width for dashboard content */
-        margin: 0 auto;
-        padding: 20px;
-      }
+      /* ====== AI CHAT PANEL STYLES ====== */
       .chat-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -440,6 +447,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-shrink: 0;
       }
 
       .chat-header h3 {
@@ -448,40 +456,27 @@
         flex: 1;
       }
 
-      .close-chat-btn {
-        background: none;
-        border: none;
-        color: white;
-        font-size: 1.5rem;
-        cursor: pointer;
-        padding: 5px 10px;
-        border-radius: 4px;
-        transition: background 0.2s;
-      }
-
-      .close-chat-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
-      }
-
       .organization-selector {
         padding: 15px;
         background: #f8f9fa;
         border-bottom: 1px solid #ddd;
+        flex-shrink: 0;
       }
 
       .organization-selector select {
         width: 100%;
-        padding: 10px 14px; /* Increased padding */
+        padding: 10px 14px;
         border: 1px solid #ccc;
         border-radius: 6px;
         background: white;
-        font-size: 1rem; /* Increased from 0.9rem */
+        font-size: 1rem;
       }
 
       .quick-actions {
         padding: 15px;
         background: #f8f9fa;
         border-bottom: 1px solid #ddd;
+        flex-shrink: 0;
       }
 
       .quick-actions-grid {
@@ -491,12 +486,12 @@
       }
 
       .quick-action-btn {
-        padding: 10px 14px; /* Increased padding */
+        padding: 10px 14px;
         background: white;
         border: 1px solid #ddd;
         border-radius: 6px;
         cursor: pointer;
-        font-size: 0.9rem; /* Increased from 0.8rem */
+        font-size: 0.9rem;
         text-align: center;
         transition: all 0.2s;
       }
@@ -593,6 +588,7 @@
         padding: 20px;
         border-top: 1px solid #ddd;
         background: white;
+        flex-shrink: 0;
       }
 
       .chat-input-container {
@@ -603,14 +599,14 @@
 
       .chat-input {
         flex: 1;
-        padding: 14px 18px; /* Increased padding */
+        padding: 14px 18px;
         border: 1px solid #ddd;
         border-radius: 20px;
         resize: none;
         font-family: inherit;
-        font-size: 1rem; /* Increased from 0.9rem */
+        font-size: 1rem;
         max-height: 100px;
-        min-height: 48px; /* Increased height */
+        min-height: 48px;
       }
 
       .chat-input:focus {
@@ -642,28 +638,6 @@
         cursor: not-allowed;
       }
 
-      .chat-toggle-btn {
-        position: fixed;
-        right: 20px;
-        bottom: 20px;
-        width: 60px;
-        height: 60px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 1.2rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s ease;
-        z-index: 999;
-      }
-
-      .chat-toggle-btn:hover {
-        transform: scale(1.1);
-        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
-      }
-
       .financial-data {
         font-family: "Courier New", monospace;
         background: #f8f9fa;
@@ -680,11 +654,27 @@
         margin-bottom: 8px;
         font-family: inherit;
       }
+
+      /* Refresh panel styles */
+      #refresh-status-panel {
+        position: fixed;
+        top: 60px;
+        right: 420px; /* Positioned to not overlap with chat panel */
+        width: 350px;
+        height: 300px;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        z-index: 9999;
+        display: none;
+        overflow: auto;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
     </style>
   </head>
   <body>
     <div class="main-container">
-      <!-- Main Dashboard Area -->
+      <!-- Dashboard area - left side -->
       <div class="dashboard-area" id="dashboardArea">
         <div class="container">
           <!-- ====== MULTI-COMPANY LOGIN MANAGER ====== -->
@@ -965,24 +955,9 @@
               </button>
               <div id="token-status-display"></div>
             </div>
-            <!-- Refresh Status Panel (Initially Hidden) -->
-            <div
-              id="refresh-status-panel"
-              style="
-                position: fixed;
-                top: 60px;
-                right: 10px;
-                width: 350px;
-                height: 300px;
-                background: white;
-                border: 1px solid #ccc;
-                border-radius: 8px;
-                z-index: 9999;
-                display: none;
-                overflow: auto;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-              "
-            >
+
+            <!-- Refresh Status Panel -->
+            <div id="refresh-status-panel">
               <div style="padding: 15px">
                 <div
                   style="
@@ -1032,6 +1007,7 @@
                 ></iframe>
               </div>
             </div>
+
             <!-- Dashboard Controls -->
             <div class="controls" id="dashboard-controls">
               <h3>📊 Trial Balance Controls</h3>
@@ -1102,20 +1078,6 @@
                 <div class="toggle-btn" onclick="setView('detailed', event)">
                   Detailed
                 </div>
-                <button
-                  onclick="openAIChat()"
-                  style="
-                    background: #28a745;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    margin-left: 10px;
-                  "
-                >
-                  Open AI Assistant
-                </button>
               </div>
               <div
                 style="
@@ -1148,105 +1110,106 @@
           </div>
         </div>
       </div>
+
+      <!-- AI Chat Panel - fixed on right side -->
+      <div class="ai-chat-panel" id="aiChatPanel">
+        <div class="chat-header">
+          <h3>RAC AI Assistant</h3>
+        </div>
+
+        <div class="organization-selector">
+          <select id="orgSelector" onchange="updateSelectedOrg()">
+            <option value="Rirratjingu Aboriginal Corporation 8538">
+              RAC Aboriginal Corporation
+            </option>
+            <option value="Rirratjingu Mining Pty Ltd 7168">RAC Mining</option>
+            <option value="Rirratjingu Enterprises Pty Ltd">
+              RAC Enterprises
+            </option>
+            <option
+              value="Rirratjingu Property Management & Maintenance Services Pty Ltd"
+            >
+              RAC Property
+            </option>
+            <option value="Rirratjingu Invest P/ L ATF Miliditjpi Trust">
+              RAC Invest Trust
+            </option>
+            <option value="Ngarrkuwuy Developments Pty Ltd">
+              Ngarrkuwuy Developments
+            </option>
+            <option value="Marrin Square Developments Pty Ltd">
+              Marrin Square
+            </option>
+          </select>
+        </div>
+
+        <div class="quick-actions">
+          <div class="quick-actions-grid">
+            <div
+              class="quick-action-btn"
+              onclick="quickAction('trial balance')"
+            >
+              Trial Balance
+            </div>
+            <div
+              class="quick-action-btn"
+              onclick="quickAction('cash position')"
+            >
+              Cash Position
+            </div>
+            <div
+              class="quick-action-btn"
+              onclick="quickAction('outstanding invoices')"
+            >
+              Outstanding Invoices
+            </div>
+            <div
+              class="quick-action-btn"
+              onclick="quickAction('financial ratios')"
+            >
+              Financial Ratios
+            </div>
+            <div
+              class="quick-action-btn"
+              onclick="quickAction('equity movements')"
+            >
+              Equity Analysis
+            </div>
+            <div class="quick-action-btn" onclick="quickAction('profit loss')">
+              P&L Summary
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <div class="message assistant">
+            <div>
+              Hello! I'm your RAC Financial AI Assistant. I can help you analyze
+              data from your Xero accounts using 23+ specialized tools.
+            </div>
+            <div class="message-time" id="welcomeTime"></div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="chat-input-container">
+            <textarea
+              id="chatInput"
+              class="chat-input"
+              placeholder="Ask me about trial balance, cash position, ratios, or any financial analysis..."
+              rows="1"
+              onkeypress="handleChatKeyPress(event)"
+              oninput="autoResize(this)"
+            ></textarea>
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+              <span>➤</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- AI Chat Side Panel -->
-    <div class="ai-chat-panel" id="aiChatPanel" style="display: none">
-      <div class="chat-header">
-        <h3>RAC AI Assistant</h3>
-        <button class="close-chat-btn" onclick="closeAIChat()">×</button>
-      </div>
-
-      <div class="organization-selector">
-        <select id="orgSelector" onchange="updateSelectedOrg()">
-          <option value="Rirratjingu Aboriginal Corporation 8538">
-            RAC Aboriginal Corporation
-          </option>
-          <option value="Rirratjingu Mining Pty Ltd 7168">RAC Mining</option>
-          <option value="Rirratjingu Enterprises Pty Ltd">
-            RAC Enterprises
-          </option>
-          <option
-            value="Rirratjingu Property Management & Maintenance Services Pty Ltd"
-          >
-            RAC Property
-          </option>
-          <option value="Rirratjingu Invest P/ L ATF Miliditjpi Trust">
-            RAC Invest Trust
-          </option>
-          <option value="Ngarrkuwuy Developments Pty Ltd">
-            Ngarrkuwuy Developments
-          </option>
-          <option value="Marrin Square Developments Pty Ltd">
-            Marrin Square
-          </option>
-        </select>
-      </div>
-
-      <div class="quick-actions">
-        <div class="quick-actions-grid">
-          <div class="quick-action-btn" onclick="quickAction('trial balance')">
-            Trial Balance
-          </div>
-          <div class="quick-action-btn" onclick="quickAction('cash position')">
-            Cash Position
-          </div>
-          <div
-            class="quick-action-btn"
-            onclick="quickAction('outstanding invoices')"
-          >
-            Outstanding Invoices
-          </div>
-          <div
-            class="quick-action-btn"
-            onclick="quickAction('financial ratios')"
-          >
-            Financial Ratios
-          </div>
-          <div
-            class="quick-action-btn"
-            onclick="quickAction('equity movements')"
-          >
-            Equity Analysis
-          </div>
-          <div class="quick-action-btn" onclick="quickAction('profit loss')">
-            P&L Summary
-          </div>
-        </div>
-      </div>
-
-      <div class="chat-messages" id="chatMessages">
-        <div class="message assistant">
-          <div>
-            Hello! I'm your RAC Financial AI Assistant. I can help you analyze
-            data from your Xero accounts using 23+ specialized tools.
-          </div>
-          <div class="message-time" id="welcomeTime"></div>
-        </div>
-      </div>
-
-      <div class="chat-input-area">
-        <div class="chat-input-container">
-          <textarea
-            id="chatInput"
-            class="chat-input"
-            placeholder="Ask me about trial balance, cash position, ratios, or any financial analysis..."
-            rows="1"
-            onkeypress="handleChatKeyPress(event)"
-            oninput="autoResize(this)"
-          ></textarea>
-          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
-            <span>➤</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Chat Toggle Button -->
-    <button class="chat-toggle-btn" id="chatToggleBtn" onclick="toggleAIChat()">
-      AI
-    </button>
-
+    <!-- Insert the complete JavaScript from your original file here -->
     <script>
       console.log("=== PAGE LOAD DEBUG ===");
       console.log("Current URL:", window.location.href);
@@ -1284,43 +1247,7 @@
       let tokenStatusInterval;
       // Chat-related global variables
       let selectedOrganization = "Rirratjingu Aboriginal Corporation 8538";
-      let isChatOpen = false;
       let isLoading = false;
-
-      // Chat toggle functions
-      function openAIChat() {
-        const chatPanel = document.getElementById("aiChatPanel");
-        const dashboardArea = document.getElementById("dashboardArea");
-        const chatToggleBtn = document.getElementById("chatToggleBtn");
-        const chatInput = document.getElementById("chatInput");
-
-        if (!chatPanel || !dashboardArea) {
-          console.error("Chat elements not found in DOM");
-          return;
-        }
-
-        isChatOpen = true;
-        chatPanel.style.display = "flex"; // Show the panel
-        if (chatToggleBtn) chatToggleBtn.style.display = "none";
-        if (chatInput) chatInput.focus();
-      }
-
-      function closeAIChat() {
-        const chatPanel = document.getElementById("aiChatPanel");
-        const chatToggleBtn = document.getElementById("chatToggleBtn");
-
-        isChatOpen = false;
-        chatPanel.style.display = "none"; // Hide the panel
-        if (chatToggleBtn) chatToggleBtn.style.display = "block";
-      }
-
-      function toggleAIChat() {
-        if (isChatOpen) {
-          closeAIChat();
-        } else {
-          openAIChat();
-        }
-      }
 
       // Organization selector
       function updateSelectedOrg() {
@@ -1412,9 +1339,9 @@
         }
 
         messageDiv.innerHTML = `
-    <div>${formattedContent}</div>
-    <div class="message-time">${new Date().toLocaleTimeString()}</div>
-  `;
+          <div>${formattedContent}</div>
+          <div class="message-time">${new Date().toLocaleTimeString()}</div>
+        `;
 
         messagesContainer.appendChild(messageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -1427,13 +1354,13 @@
         typingDiv.className = "typing-indicator";
         typingDiv.id = "typingIndicator";
         typingDiv.innerHTML = `
-    <div class="typing-dots">
-      <span></span>
-      <span></span>
-      <span></span>
-    </div>
-    <span>Analyzing financial data...</span>
-  `;
+          <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span>Analyzing financial data...</span>
+        `;
         messagesContainer.appendChild(typingDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
@@ -1458,21 +1385,13 @@
           .replace(/(\$[\d,]+)/g, "<strong>$1</strong>");
       }
 
-      // Temporary placeholder for MCP integration (we'll replace this in the next step)
+      // Placeholder for MCP integration - you'll replace this
       async function processFinancialQuery(query, organization) {
-        // Simulate API delay
         await new Promise((resolve) => setTimeout(resolve, 1500));
-
         return `**Mock Response for ${organization.replace(
           "Rirratjingu ",
           "RAC "
-        )}**
-  
-Query: "${query}"
-
-This is a placeholder response. In the next step, we'll connect this to your actual MCP server endpoints to get real financial data.
-
-Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial Ratios, and 19 more analysis functions.`;
+        )}**\n\nQuery: "${query}"\n\nThis is a placeholder. Replace this function with your actual MCP server integration.`;
       }
 
       // Multi-Company Login Manager Variables
@@ -1499,8 +1418,6 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
 
         if (refreshMode === "true") {
           console.log("🔄 Detected OAuth refresh mode");
-
-          // Auto-select saved companies
           if (saved) {
             try {
               selectedCompanies = JSON.parse(saved);
@@ -1511,8 +1428,6 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
                 if (checkbox) checkbox.checked = true;
               });
               updateSelectionSummary();
-
-              // Auto-start the OAuth flow
               console.log("🚀 Auto-starting OAuth refresh...");
               setTimeout(() => {
                 startOAuthFlow();
@@ -1522,7 +1437,6 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
             }
           }
         } else if (saved) {
-          // Normal load mode
           try {
             selectedCompanies = JSON.parse(saved);
             selectedCompanies.forEach((companyId) => {
@@ -1642,9 +1556,9 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
           }`;
 
           document.getElementById("oauthInstructions").innerHTML = `
-                    <strong>Next Company:</strong> ${companyName}<br>
-                    <small>When the Xero login opens, select "${companyName}" from the dropdown and authorize access.</small>
-                `;
+            <strong>Next Company:</strong> ${companyName}<br>
+            <small>When the Xero login opens, select "${companyName}" from the dropdown and authorize access.</small>
+          `;
         }
       }
 
@@ -1736,13 +1650,13 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         connectedList.innerHTML = connectedCompanies
           .map(
             (company) => `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid #28a745; background: #f8fff9; border-radius: 6px; margin-bottom: 0.5rem;">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <div style="width: 12px; height: 12px; border-radius: 50%; background: #28a745;"></div>
-                        <strong>${company.name}</strong>
-                    </div>
-                    <div style="color: #28a745; font-size: 0.9rem;">✅ Connected</div>
-                </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid #28a745; background: #f8fff9; border-radius: 6px; margin-bottom: 0.5rem;">
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                      <div style="width: 12px; height: 12px; border-radius: 50%; background: #28a745;"></div>
+                      <strong>${company.name}</strong>
+                  </div>
+                  <div style="color: #28a745; font-size: 0.9rem;">✅ Connected</div>
+              </div>
             `
           )
           .join("");
@@ -1756,12 +1670,8 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         const refreshMode = localStorage.getItem("oauthRefreshMode");
         if (refreshMode === "true") {
           console.log("✅ OAuth refresh completed, cleaning up...");
-
-          // Clear refresh mode flags
           localStorage.removeItem("oauthRefreshMode");
           localStorage.removeItem("oauthProgress");
-
-          // Show success message
           showTokenRefreshStatus("🎉 All connections refreshed successfully!");
           console.log("🎉 OAuth refresh cycle completed!");
         }
@@ -1873,215 +1783,97 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         const summary = data.summary;
 
         content.innerHTML = `
-               <div class="demo-card financial-overview">
-                   <div class="card-header">
-                       <h3>⚖️ RAC Consolidated Trial Balance</h3>
-                       <p>Financial position across ${
-                         data.companies.length
-                       } RAC entities</p>
-                   </div>
-                   <div class="card-content">
-                       <div class="dashboard-mockup">
-                           <div style="margin-bottom: 20px; padding: 15px; border-radius: 8px; ${
-                             balanceCheck.debitsEqualCredits
-                               ? "background: #d4edda; border: 1px solid #c3e6cb; color: #155724;"
-                               : "background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;"
-                           }">
-                               <div style="font-weight: bold; margin-bottom: 5px;">
-                                   ${
-                                     balanceCheck.debitsEqualCredits
-                                       ? "✅ Books are BALANCED"
-                                       : "⚠️ Books are OUT OF BALANCE"
-                                   }
-                               </div>
-                               <div style="font-size: 0.9rem;">
-                                   Debits: $${totals.totalDebits.toLocaleString()} | Credits: $${totals.totalCredits.toLocaleString()}
-                               </div>
-                           </div>
+          <div class="demo-card financial-overview">
+              <div class="card-header">
+                  <h3>⚖️ RAC Consolidated Trial Balance</h3>
+                  <p>Financial position across ${
+                    data.companies.length
+                  } RAC entities</p>
+              </div>
+              <div class="card-content">
+                  <div class="dashboard-mockup">
+                      <div style="margin-bottom: 20px; padding: 15px; border-radius: 8px; ${
+                        balanceCheck.debitsEqualCredits
+                          ? "background: #d4edda; border: 1px solid #c3e6cb; color: #155724;"
+                          : "background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;"
+                      }">
+                          <div style="font-weight: bold; margin-bottom: 5px;">
+                              ${
+                                balanceCheck.debitsEqualCredits
+                                  ? "✅ Books are BALANCED"
+                                  : "⚠️ Books are OUT OF BALANCE"
+                              }
+                          </div>
+                          <div style="font-size: 0.9rem;">
+                              Debits: $${totals.totalDebits.toLocaleString()} | Credits: $${totals.totalCredits.toLocaleString()}
+                          </div>
+                      </div>
 
-                           <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                               <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                                   <div style="font-size: 1.4rem; font-weight: bold; color: #28a745;">$${totals.totalAssets.toLocaleString()}</div>
-                                   <div style="font-size: 1rem; color: #666;">Total Assets</div>
-                               </div>
-                               <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                                   <div style="font-size: 1.4rem; font-weight: bold; color: #dc3545;">$${totals.totalLiabilities.toLocaleString()}</div>
-                                   <div style="font-size: 1rem; color: #666;">Total Liabilities</div>
-                               </div>
-                               <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                                   <div style="font-size: 1.4rem; font-weight: bold; color: #17a2b8;">$${totals.totalEquity.toLocaleString()}</div>
-                                   <div style="font-size: 1rem; color: #666;">Total Equity</div>
-                               </div>
-                           </div>
+                      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                          <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                              <div style="font-size: 1.4rem; font-weight: bold; color: #28a745;">$${totals.totalAssets.toLocaleString()}</div>
+                              <div style="font-size: 1rem; color: #666;">Total Assets</div>
+                          </div>
+                          <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                              <div style="font-size: 1.4rem; font-weight: bold; color: #dc3545;">$${totals.totalLiabilities.toLocaleString()}</div>
+                              <div style="font-size: 1rem; color: #666;">Total Liabilities</div>
+                          </div>
+                          <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                              <div style="font-size: 1.4rem; font-weight: bold; color: #17a2b8;">$${totals.totalEquity.toLocaleString()}</div>
+                              <div style="font-size: 1rem; color: #666;">Total Equity</div>
+                          </div>
+                      </div>
 
-                           <div id="companies-breakdown">
-                               ${data.companies
-                                 .map(
-                                   (company, companyIndex) => `
-                                   <div class="company-card" style="margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-                                       <div onclick="toggleCompanyExpansion(${companyIndex})" style="background: #f8f9fa; padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-                                           <div>
-                                               <span id="company-toggle-${companyIndex}" style="margin-right: 8px;">▶</span>
-                                               <strong>${
-                                                 company.tenantName
-                                               }</strong>
-                                               <span style="margin-left: 10px; color: #666;">(${
-                                                 company.accountCounts
-                                                   .totalAccounts
-                                               } accounts)</span>
-                                           </div>
-                                           <div style="text-align: right; font-size: 0.9rem; color: #666;">
-                                               Assets: $${company.totals.totalAssets.toLocaleString()}
-                                           </div>
-                                       </div>
-                                       <div id="company-sections-${companyIndex}" style="display: none; padding: 10px;">
-                                           ${Object.entries(company.sections)
-                                             .filter(
-                                               ([key, section]) =>
-                                                 section.accounts.length > 0
-                                             )
-                                             .map(
-                                               ([sectionKey, section]) => `
-                                               <div style="margin-bottom: 10px;">
-                                                   <div onclick="toggleSection(${companyIndex}, '${sectionKey}')" style="background: #f1f3f4; padding: 8px; cursor: pointer; display: flex; justify-content: space-between;">
-                                                       <span>
-                                                           <span id="section-toggle-${companyIndex}-${sectionKey}">▶</span>
-                                                           <strong>${
-                                                             section.title
-                                                           }</strong> (${
-                                                 section.accounts.length
-                                               })
-                                                       </span>
-                                                       <strong>$${section.total.toLocaleString()}</strong>
-                                                   </div>
-                                                   <div id="section-accounts-${companyIndex}-${sectionKey}" style="display: none; padding: 5px;">
-                                                       <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 5px; font-weight: bold; font-size: 0.9rem; background: #f8f9fa;">
-                                                           <div>Account</div>
-                                                           <div style="text-align: right;">Debit</div>
-                                                           <div style="text-align: right;">Credit</div>
-                                                       </div>
-                                                       ${section.accounts
-                                                         .map(
-                                                           (account) => `
-                                                           <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 5px; border-bottom: 1px solid #eee; font-size: 0.85rem;">
-                                                               <div>${
-                                                                 account.name
-                                                               }</div>
-                                                               <div style="text-align: right;">${
-                                                                 account.debit >
-                                                                 0
-                                                                   ? "$" +
-                                                                     account.debit.toLocaleString()
-                                                                   : "-"
-                                                               }</div>
-                                                               <div style="text-align: right;">${
-                                                                 account.credit >
-                                                                 0
-                                                                   ? "$" +
-                                                                     account.credit.toLocaleString()
-                                                                   : "-"
-                                                               }</div>
-                                                           </div>
-                                                       `
-                                                         )
-                                                         .join("")}
-                                                   </div>
-                                               </div>
-                                           `
-                                             )
-                                             .join("")}
-                                       </div>
-                                   </div>
-                               `
-                                 )
-                                 .join("")}
-                           </div>
-                       </div>
-                       <div class="${
-                         balanceCheck.debitsEqualCredits
-                           ? "success-box"
-                           : "alert-box"
-                       }">
-                           ${
-                             balanceCheck.debitsEqualCredits
-                               ? "✅ Trial Balance is accurate"
-                               : "⚠️ Trial Balance shows discrepancies"
-                           }
-                       </div>
-                   </div>
-               </div>
+                      <!-- Company breakdown would go here -->
+                  </div>
+                  <div class="${
+                    balanceCheck.debitsEqualCredits
+                      ? "success-box"
+                      : "alert-box"
+                  }">
+                      ${
+                        balanceCheck.debitsEqualCredits
+                          ? "✅ Trial Balance is accurate"
+                          : "⚠️ Trial Balance shows discrepancies"
+                      }
+                  </div>
+              </div>
+          </div>
 
-               <div class="demo-card">
-                   <div class="card-header">
-                       <h3>📈 Portfolio Overview</h3>
-                       <p>RAC financial portfolio summary</p>
-                   </div>
-                   <div class="card-content">
-                       <div class="dashboard-mockup">
-                           <div class="metric-row">
-                               <span class="metric-label">Total Portfolio Value</span>
-                               <span class="metric-value large">$${(
-                                 totals.totalAssets - totals.totalLiabilities
-                               ).toLocaleString()}</span>
-                           </div>
-                           <div class="metric-row">
-                               <span class="metric-label">Connected Entities</span>
-                               <span class="metric-value">${
-                                 summary.totalCompanies
-                               } companies</span>
-                           </div>
-                           <div class="metric-row">
-                               <span class="metric-label">Total Accounts</span>
-                               <span class="metric-value">${
-                                 summary.totalAccounts
-                               } accounts</span>
-                           </div>
-                       </div>
-                   </div>
-               </div>
-           `;
+          <div class="demo-card">
+              <div class="card-header">
+                  <h3>📈 Portfolio Overview</h3>
+                  <p>RAC financial portfolio summary</p>
+              </div>
+              <div class="card-content">
+                  <div class="dashboard-mockup">
+                      <div class="metric-row">
+                          <span class="metric-label">Total Portfolio Value</span>
+                          <span class="metric-value large">$${(
+                            totals.totalAssets - totals.totalLiabilities
+                          ).toLocaleString()}</span>
+                      </div>
+                      <div class="metric-row">
+                          <span class="metric-label">Connected Entities</span>
+                          <span class="metric-value">${
+                            summary.totalCompanies
+                          } companies</span>
+                      </div>
+                      <div class="metric-row">
+                          <span class="metric-label">Total Accounts</span>
+                          <span class="metric-value">${
+                            summary.totalAccounts
+                          } accounts</span>
+                      </div>
+                  </div>
+              </div>
+          </div>
+        `;
       }
 
-      // ====== EXPANSION FUNCTIONS ======
-      function toggleCompanyExpansion(companyIndex) {
-        const sectionsDiv = document.getElementById(
-          `company-sections-${companyIndex}`
-        );
-        const toggleIcon = document.getElementById(
-          `company-toggle-${companyIndex}`
-        );
-
-        if (sectionsDiv.style.display === "none") {
-          sectionsDiv.style.display = "block";
-          toggleIcon.textContent = "▼";
-        } else {
-          sectionsDiv.style.display = "none";
-          toggleIcon.textContent = "▶";
-        }
-      }
-
-      function toggleSection(companyIndex, sectionKey) {
-        const accountsDiv = document.getElementById(
-          `section-accounts-${companyIndex}-${sectionKey}`
-        );
-        const toggleIcon = document.getElementById(
-          `section-toggle-${companyIndex}-${sectionKey}`
-        );
-
-        if (accountsDiv.style.display === "none") {
-          accountsDiv.style.display = "block";
-          toggleIcon.textContent = "▼";
-        } else {
-          accountsDiv.style.display = "none";
-          toggleIcon.textContent = "▶";
-        }
-      }
-
-      // ====== OAUTH FUNCTIONS ======
-      // ====== BACKGROUND OAUTH REFRESH FUNCTIONS ======
+      // Token refresh functionality
       async function backgroundRefreshAllCompanies(event) {
         if (event) event.preventDefault();
-
         console.log("🔄 Starting background OAuth refresh...");
 
         try {
@@ -2097,12 +1889,9 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
           updateRefreshLog(
             `Starting refresh for ${connectedCompanies.length} companies...`
           );
-
-          // Show refresh panel
           document.getElementById("refresh-status-panel").style.display =
             "block";
 
-          // Process each company in hidden iframe
           for (let i = 0; i < connectedCompanies.length; i++) {
             const company = connectedCompanies[i];
             updateRefreshLog(
@@ -2110,7 +1899,6 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
                 connectedCompanies.length
               })...`
             );
-
             await refreshCompanyInPopup(company);
             await new Promise((resolve) => setTimeout(resolve, 2000));
           }
@@ -2125,7 +1913,6 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         }
       }
 
-      // ====== REFRESH PANEL HELPER FUNCTIONS ======
       function toggleRefreshPanel() {
         const panel = document.getElementById("refresh-status-panel");
         panel.style.display = panel.style.display === "none" ? "block" : "none";
@@ -2139,19 +1926,16 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         log.innerHTML += `<div style="color: ${
           type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#666"
         };">
-    [${timestamp}] ${icon} ${message}
-  </div>`;
+          [${timestamp}] ${icon} ${message}
+        </div>`;
 
-        // Auto-scroll to bottom
         log.scrollTop = log.scrollHeight;
       }
 
       async function refreshCompanyInPopup(companyId) {
         const companyName = companies[companyId];
-
         updateRefreshLog(`Opening popup for ${companyName}...`);
 
-        // Open popup window
         const popup = window.open(
           "/auth",
           "xero-oauth",
@@ -2163,16 +1947,12 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
           return;
         }
 
-        // Wait for popup to load
         await new Promise((resolve) => setTimeout(resolve, 3000));
 
-        // Try to automate the popup content
         try {
           const popupDoc = popup.document;
-
           updateRefreshLog(`Attempting automation for ${companyName}...`);
 
-          // Find and select company dropdown
           const dropdown = popupDoc.querySelector("select");
           if (dropdown) {
             updateRefreshLog(
@@ -2194,7 +1974,6 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
             updateRefreshLog(`⚠️ Dropdown not found`);
           }
 
-          // Wait a moment then find Allow button
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           const allowButton = popupDoc.querySelector("button");
@@ -2211,7 +1990,6 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
           updateRefreshLog(`Please complete OAuth manually in popup`, "info");
         }
 
-        // Wait for completion
         await waitForPopupCompletion(popup, companyName);
       }
 
@@ -2219,10 +1997,8 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         return new Promise((resolve) => {
           updateRefreshLog(`Waiting for ${companyName} OAuth completion...`);
 
-          // Check for OAuth success (faster detection)
           const checkSuccess = setInterval(() => {
             try {
-              // If popup URL contains 'success' or redirects to dashboard, close it
               if (
                 popup.location.href.includes("success") ||
                 popup.location.href.includes("/dashboard")
@@ -2234,11 +2010,10 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
                 resolve();
               }
             } catch (e) {
-              // Cross-origin access blocked, that's fine - continue checking
+              // Cross-origin access blocked, continue checking
             }
           }, 500);
 
-          // Also check if popup closed manually
           const checkClosed = setInterval(() => {
             if (popup.closed) {
               updateRefreshLog(`✅ ${companyName} OAuth completed`);
@@ -2248,7 +2023,6 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
             }
           }, 1000);
 
-          // Timeout after 60 seconds
           setTimeout(() => {
             if (!popup.closed) {
               popup.close();
@@ -2281,86 +2055,11 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         }
       }
 
-      async function automateOAuthInIframe(iframe, companyName) {
-        try {
-          updateRefreshLog(`Automating forms for ${companyName}...`);
-
-          // Wait for iframe content to be accessible
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-
-          const iframeDoc =
-            iframe.contentDocument || iframe.contentWindow.document;
-
-          // Step 1: Wait for company dropdown to appear
-          await waitForElementInIframe(iframeDoc, "select", 3000);
-
-          // Step 2: Select the correct company
-          const dropdown = iframeDoc.querySelector("select");
-          if (dropdown) {
-            // Find option that matches company name
-            const options = dropdown.querySelectorAll("option");
-            for (let option of options) {
-              if (option.textContent.includes(companyName)) {
-                dropdown.value = option.value;
-                updateRefreshLog(`Selected company: ${companyName}`);
-                break;
-              }
-            }
-          }
-
-          // Step 3: Wait for and click "Allow access" button
-          await waitForElementInIframe(iframeDoc, "button", 2000);
-
-          const allowButton = iframeDoc.querySelector(
-            'button[contains*="Allow access"], button[contains*="Allow"]'
-          );
-          if (allowButton) {
-            allowButton.click();
-            updateRefreshLog(`Clicked Allow button for ${companyName}`);
-          } else {
-            updateRefreshLog(
-              `⚠️ Allow button not found for ${companyName}`,
-              "error"
-            );
-          }
-
-          // Wait for OAuth completion
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        } catch (error) {
-          updateRefreshLog(
-            `Automation error for ${companyName}: ${error.message}`,
-            "error"
-          );
-        }
-      }
-
-      async function waitForElementInIframe(
-        iframeDoc,
-        selector,
-        timeout = 5000
-      ) {
-        const startTime = Date.now();
-
-        while (Date.now() - startTime < timeout) {
-          const element = iframeDoc.querySelector(selector);
-          if (element) {
-            updateRefreshLog(`Found element: ${selector}`);
-            return element;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-
-        updateRefreshLog(`⚠️ Timeout waiting for: ${selector}`, "error");
-        return null;
-      }
-
       function showTokenRefreshStatus(message, type = "success") {
         console.log("📢 Status:", message);
 
-        // Find or create status display area
         let statusElement = document.querySelector(".token-refresh-status");
         if (!statusElement) {
-          // Create status element in the green banner area
           const banner =
             document.querySelector(".text-green-600")?.parentElement;
           if (banner) {
@@ -2375,13 +2074,12 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         if (statusElement) {
           statusElement.textContent = message;
           statusElement.style.color = type === "error" ? "#dc3545" : "#28a745";
-
-          // Clear message after 5 seconds
           setTimeout(() => {
             statusElement.textContent = "";
           }, 5000);
         }
       }
+
       async function startTokenMonitoring() {
         const checkTokens = async () => {
           try {
@@ -2401,16 +2099,16 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         let statusHtml = "";
         if (tokenStatus.expiringTokens > 0) {
           statusHtml = `
-                   <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
-                       ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
-                   </div>
-               `;
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
+                ⚠️ ${tokenStatus.expiringTokens} token(s) expiring soon
+            </div>
+          `;
         } else if (tokenStatus.connectedTokens > 0) {
           statusHtml = `
-                   <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
-                       ✅ ${tokenStatus.connectedTokens} connection(s) active
-                   </div>
-               `;
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 0.9rem;">
+                ✅ ${tokenStatus.connectedTokens} connection(s) active
+            </div>
+          `;
         }
 
         let statusDiv = document.getElementById("token-status-display");
@@ -2427,21 +2125,19 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
       function showNotification(message) {
         const notification = document.createElement("div");
         notification.style.cssText = `
-               position: fixed; top: 20px; right: 20px; z-index: 9999;
-               background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
-               border: 1px solid ${
-                 message.includes("✅") ? "#c3e6cb" : "#f5c6cb"
-               };
-               color: ${message.includes("✅") ? "#155724" : "#721c24"};
-               padding: 12px 20px; border-radius: 6px; font-weight: bold;
-               box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-           `;
+          position: fixed; top: 20px; right: 20px; z-index: 9999;
+          background: ${message.includes("✅") ? "#d4edda" : "#f8d7da"};
+          border: 1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"};
+          color: ${message.includes("✅") ? "#155724" : "#721c24"};
+          padding: 12px 20px; border-radius: 6px; font-weight: bold;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        `;
         notification.textContent = message;
         document.body.appendChild(notification);
         setTimeout(() => document.body.removeChild(notification), 5000);
       }
 
-      // ====== DATE FUNCTIONS ======
+      // Date functions
       function updateReportDate(newDate) {
         selectedReportDate = newDate;
         document.getElementById("display-date").textContent =
@@ -2497,7 +2193,7 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         }
       }
 
-      // ====== INITIALIZATION ======
+      // Initialization
       async function initializePage() {
         handleOAuthReturn();
 
@@ -2528,8 +2224,13 @@ Available tools: Trial Balance, Cash Position, Outstanding Invoices, Financial R
         }
       }
 
-      // ====== EVENT LISTENERS ======
-      document.addEventListener("DOMContentLoaded", initializePage);
+      // Event listeners
+      document.addEventListener("DOMContentLoaded", function () {
+        initializePage();
+        document.getElementById("welcomeTime").textContent =
+          new Date().toLocaleTimeString();
+      });
+
       window.addEventListener("popstate", handleOAuthReturn);
       window.addEventListener("beforeunload", () => {
         if (tokenStatusInterval) clearInterval(tokenStatusInterval);
