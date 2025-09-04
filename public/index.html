@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RAC MCP - Integrated Dashboard with OAuth Manager</title>
+    <title>RAC MCP - Integrated Dashboard with Enhanced Chat Filtering</title>
     <style>
       * {
         margin: 0;
@@ -286,6 +286,7 @@
         border-bottom: 1px solid #2c3e50;
       }
 
+      /* ENHANCED COMPANY FILTER BAR FOR CHAT */
       .company-filter-bar {
         background: #ecf0f1;
         padding: 12px 20px;
@@ -304,6 +305,7 @@
         display: inline-flex;
         gap: 12px;
         flex-wrap: wrap;
+        margin-bottom: 8px;
       }
 
       .company-checkbox-item {
@@ -338,6 +340,80 @@
 
       .company-checkbox-item.imbalanced label {
         color: #e74c3c;
+      }
+
+      /* QUICK FILTER BUTTONS */
+      .quick-filter-buttons {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .quick-filter-btn {
+        padding: 4px 8px;
+        border: 1px solid #bdc3c7;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        transition: all 0.2s;
+      }
+
+      .quick-filter-btn:hover {
+        background: #3498db;
+        color: white;
+        border-color: #3498db;
+      }
+
+      /* QUICK ANALYSIS GRID */
+      .chat-quick-actions {
+        padding: 12px 20px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .quick-action-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+      }
+
+      .quick-action-btn {
+        padding: 8px 10px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 11px;
+        text-align: center;
+        transition: all 0.2s;
+      }
+
+      .quick-action-btn:hover {
+        background: #3498db;
+        color: white;
+        border-color: #3498db;
+      }
+
+      /* ANALYSIS STATUS BOX */
+      .company-analysis-status {
+        background: #e8f4f8;
+        border: 1px solid #bee5eb;
+        border-radius: 4px;
+        padding: 8px 12px;
+        margin: 8px 0;
+        font-size: 12px;
+        color: #0c5460;
+      }
+
+      .filter-summary {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 8px 12px;
+        margin-top: 8px;
+        font-size: 12px;
+        color: #856404;
       }
 
       .ai-chat-content {
@@ -817,33 +893,88 @@
           </div>
 
           <div class="company-filter-bar">
-            <span class="filter-label">Active Companies:</span>
+            <span class="filter-label">Chat Analysis Scope:</span>
             <div class="company-checkboxes" id="companyFilters">
               <!-- Company filters will be populated dynamically -->
             </div>
+            <div class="filter-summary" id="filterSummary">
+              Loading connected companies...
+            </div>
+            <div class="quick-filter-buttons">
+              <button class="quick-filter-btn" onclick="selectAllCompanies()">
+                All
+              </button>
+              <button class="quick-filter-btn" onclick="selectNoCompanies()">
+                None
+              </button>
+              <button class="quick-filter-btn" onclick="selectMainEntities()">
+                Main Only
+              </button>
+            </div>
+          </div>
+
+          <div class="chat-quick-actions">
             <div
               style="
-                background: #fff3cd;
-                border: 1px solid #ffeaa7;
-                border-radius: 4px;
-                padding: 8px 12px;
-                margin-top: 8px;
+                font-weight: 600;
+                margin-bottom: 8px;
+                color: #2c3e50;
                 font-size: 12px;
-                color: #856404;
               "
-              id="filterSummary"
             >
-              Loading connected companies...
+              Quick Analysis:
+            </div>
+            <div class="quick-action-grid">
+              <div
+                class="quick-action-btn"
+                onclick="quickAnalysis('trial-balance')"
+              >
+                Trial Balance
+              </div>
+              <div
+                class="quick-action-btn"
+                onclick="quickAnalysis('cash-position')"
+              >
+                Cash Position
+              </div>
+              <div
+                class="quick-action-btn"
+                onclick="quickAnalysis('profit-loss')"
+              >
+                P&L Summary
+              </div>
+              <div
+                class="quick-action-btn"
+                onclick="quickAnalysis('financial-ratios')"
+              >
+                Key Ratios
+              </div>
+              <div
+                class="quick-action-btn"
+                onclick="quickAnalysis('outstanding-invoices')"
+              >
+                Outstanding
+              </div>
+              <div
+                class="quick-action-btn"
+                onclick="quickAnalysis('consolidate-all')"
+              >
+                Consolidate All
+              </div>
             </div>
           </div>
 
           <div class="ai-chat-content">
             <div class="chat-messages" id="chatMessages">
               <div class="message assistant">
-                <strong>Claude:</strong> Hi! I'm connected to your RAC Xero MCP
-                system. I can help you analyze financial data, run reports, and
-                investigate accounting issues. The company filters above show
-                your connected entities. What would you like to explore?
+                <strong>Claude:</strong> Hi! I'm your RAC Financial AI Assistant
+                connected to the Xero MCP system. I can analyze data from your
+                connected companies using 23+ specialized tools.
+                <div class="company-analysis-status" id="chatAnalysisStatus">
+                  Ready to analyze all connected companies
+                </div>
+                Use the company filters above to control which entities I
+                analyze, or try the quick analysis buttons for common reports.
               </div>
             </div>
 
@@ -1191,6 +1322,7 @@
           setupCompanyFilters();
           await loadDashboardData();
           initializeChat();
+          initializeResizer();
         } catch (error) {
           console.error("Error initializing dashboard:", error);
         }
@@ -1228,12 +1360,16 @@
       function setupCompanyFilters() {
         const filtersContainer = document.getElementById("companyFilters");
         const summaryElement = document.getElementById("filterSummary");
+        const chatStatus = document.getElementById("chatAnalysisStatus");
 
         if (connectedCompanies.length === 0) {
           filtersContainer.innerHTML =
             '<div style="color: #e74c3c;">No companies connected</div>';
           summaryElement.textContent =
             "No connected companies found. Please manage connections.";
+          chatStatus.textContent = "No companies available for analysis";
+          chatStatus.style.background = "#f8d7da";
+          chatStatus.style.color = "#721c24";
           return;
         }
 
@@ -1252,6 +1388,7 @@
           .join("");
 
         updateFilterSummary();
+        updateChatAnalysisStatus();
       }
 
       function toggleCompanyFilter(tenantId) {
@@ -1269,7 +1406,17 @@
         }
 
         updateFilterSummary();
+        updateChatAnalysisStatus();
         loadDashboardData();
+
+        // Add chat message about filter change
+        const selectedCompanies = getSelectedCompanyNames();
+        addMessage(
+          "assistant",
+          `Analysis scope updated: Now analyzing ${
+            selectedCompanies.length
+          } companies: ${selectedCompanies.join(", ")}`
+        );
       }
 
       function updateFilterSummary() {
@@ -1291,6 +1438,237 @@
           summary.style.color = "#856404";
         }
       }
+
+      function updateChatAnalysisStatus() {
+        const chatStatus = document.getElementById("chatAnalysisStatus");
+        const selectedCompanies = getSelectedCompanyNames();
+
+        if (selectedCompanies.length === 0) {
+          chatStatus.textContent =
+            "No companies selected - choose companies above to analyze";
+          chatStatus.style.background = "#f8d7da";
+          chatStatus.style.color = "#721c24";
+        } else if (selectedCompanies.length === connectedCompanies.length) {
+          chatStatus.textContent = `Ready to analyze all ${selectedCompanies.length} connected companies`;
+          chatStatus.style.background = "#d4edda";
+          chatStatus.style.color = "#155724";
+        } else {
+          chatStatus.textContent = `Analyzing: ${selectedCompanies.join(", ")}`;
+          chatStatus.style.background = "#e8f4f8";
+          chatStatus.style.color = "#0c5460";
+        }
+      }
+
+      function getSelectedCompanyNames() {
+        return activeCompanyFilters.map((tenantId) => {
+          const company = connectedCompanies.find(
+            (c) => c.tenantId === tenantId
+          );
+          return company
+            ? company.tenantName
+                .replace("Rirratjingu ", "")
+                .replace(" Pty Ltd", "")
+            : "Unknown";
+        });
+      }
+
+      // ====== QUICK FILTER FUNCTIONS ======
+      function selectAllCompanies() {
+        activeCompanyFilters = connectedCompanies.map((c) => c.tenantId);
+        connectedCompanies.forEach((company) => {
+          const checkbox = document.getElementById(
+            `filter-${company.tenantId}`
+          );
+          if (checkbox) checkbox.checked = true;
+        });
+        updateFilterSummary();
+        updateChatAnalysisStatus();
+        loadDashboardData();
+        addMessage(
+          "assistant",
+          "Analysis scope updated: Now analyzing all connected companies"
+        );
+      }
+
+      function selectNoCompanies() {
+        activeCompanyFilters = [];
+        connectedCompanies.forEach((company) => {
+          const checkbox = document.getElementById(
+            `filter-${company.tenantId}`
+          );
+          if (checkbox) checkbox.checked = false;
+        });
+        updateFilterSummary();
+        updateChatAnalysisStatus();
+        loadDashboardData();
+        addMessage(
+          "assistant",
+          "Analysis scope cleared: No companies selected. Choose companies above to begin analysis."
+        );
+      }
+
+      function selectMainEntities() {
+        // Select main entities: Aboriginal Corp and Mining
+        const mainEntityNames = ["Aboriginal Corporation", "Mining"];
+        activeCompanyFilters = [];
+
+        connectedCompanies.forEach((company) => {
+          const checkbox = document.getElementById(
+            `filter-${company.tenantId}`
+          );
+          const isMain = mainEntityNames.some((name) =>
+            company.tenantName.includes(name)
+          );
+
+          if (checkbox) checkbox.checked = isMain;
+          if (isMain) activeCompanyFilters.push(company.tenantId);
+        });
+
+        updateFilterSummary();
+        updateChatAnalysisStatus();
+        loadDashboardData();
+
+        const selectedNames = getSelectedCompanyNames();
+        addMessage(
+          "assistant",
+          `Analysis scope updated: Focusing on main entities - ${selectedNames.join(
+            ", "
+          )}`
+        );
+      }
+
+      // ====== QUICK ANALYSIS FUNCTIONS ======
+      function quickAnalysis(type) {
+        const selectedCompanies = getSelectedCompanyNames();
+
+        if (selectedCompanies.length === 0) {
+          addMessage(
+            "assistant",
+            "Please select companies using the filters above before requesting analysis."
+          );
+          return;
+        }
+
+        let query = "";
+        let analysisType = "";
+
+        switch (type) {
+          case "trial-balance":
+            query = "Show me the trial balance";
+            analysisType = "Trial Balance Analysis";
+            break;
+          case "cash-position":
+            query = "What is the current cash position?";
+            analysisType = "Cash Position Analysis";
+            break;
+          case "profit-loss":
+            query = "Show me the profit and loss summary";
+            analysisType = "Profit & Loss Analysis";
+            break;
+          case "financial-ratios":
+            query = "Calculate key financial ratios";
+            analysisType = "Financial Ratios Analysis";
+            break;
+          case "outstanding-invoices":
+            query = "Show me outstanding invoices";
+            analysisType = "Outstanding Invoices Analysis";
+            break;
+          case "consolidate-all":
+            query = "Show me consolidated financial summary";
+            analysisType = "Consolidated Analysis";
+            break;
+        }
+
+        addMessage("user", query);
+
+        // Show analysis in progress
+        setTimeout(() => {
+          addMessage(
+            "assistant",
+            `Processing ${analysisType} for: ${selectedCompanies.join(", ")}...`
+          );
+
+          // Simulate actual MCP analysis - replace with real MCP calls
+          setTimeout(() => {
+            addMessage(
+              "assistant",
+              `${analysisType} completed for ${selectedCompanies.length} companies. Here's the summary: [This would contain actual financial data from your MCP server tools]`
+            );
+          }, 2000);
+        }, 500);
+      }
+
+      // ====== CHAT FUNCTIONS ======
+
+      function initializeChat() {
+        const chatInput = document.getElementById("chatInput");
+
+        chatInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+      }
+
+      function sendMessage() {
+        const chatInput = document.getElementById("chatInput");
+        const message = chatInput.value.trim();
+
+        if (!message) return;
+
+        const selectedCompanies = getSelectedCompanyNames();
+
+        if (selectedCompanies.length === 0) {
+          addMessage(
+            "assistant",
+            "Please select companies using the filters above before asking questions."
+          );
+          return;
+        }
+
+        addMessage("user", message);
+        chatInput.value = "";
+
+        // Show analysis scope and processing message
+        setTimeout(() => {
+          const scope =
+            selectedCompanies.length === connectedCompanies.length
+              ? `all ${connectedCompanies.length} connected companies`
+              : `${
+                  selectedCompanies.length
+                } selected companies: ${selectedCompanies.join(", ")}`;
+
+          addMessage(
+            "assistant",
+            `I'll analyze ${scope} for your query: "${message}". Accessing RAC Xero MCP system with ${selectedCompanies.length} company scope...`
+          );
+
+          // Here you would integrate with your actual MCP server
+          // For now, showing example of what the integration would look like
+          setTimeout(() => {
+            addMessage(
+              "assistant",
+              `Analysis complete for ${selectedCompanies.join(
+                ", "
+              )}. [This response would contain actual financial data from your MCP server based on the selected companies and query type.]`
+            );
+          }, 2000);
+        }, 500);
+      }
+
+      function addMessage(type, content) {
+        const messagesContainer = document.getElementById("chatMessages");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${type}`;
+        messageDiv.innerHTML = `<strong>${
+          type === "user" ? "You" : "Claude"
+        }:</strong> ${content}`;
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      // ====== DASHBOARD DATA LOADING FUNCTIONS ======
 
       async function loadDashboardData() {
         const dashboardElement = document.getElementById("dashboardData");
@@ -1432,7 +1810,6 @@
       }
 
       async function loadTrialBalanceData() {
-        // This would load detailed trial balance data
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
                 <div class="dashboard-card">
@@ -1513,76 +1890,6 @@
         }
       }
 
-      // ====== CHAT FUNCTIONS ======
-
-      function initializeChat() {
-        const chatInput = document.getElementById("chatInput");
-
-        chatInput.addEventListener("keydown", function (e) {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-          }
-        });
-      }
-
-      function sendMessage() {
-        const chatInput = document.getElementById("chatInput");
-        const message = chatInput.value.trim();
-
-        if (!message) return;
-
-        const selectedCompanies = getSelectedCompanyNames();
-
-        if (selectedCompanies.length === 0) {
-          addMessage(
-            "assistant",
-            "Please select companies using the filters above before asking questions."
-          );
-          return;
-        }
-
-        addMessage("user", message);
-        chatInput.value = "";
-
-        // Show analysis scope and processing message
-        setTimeout(() => {
-          const scope =
-            selectedCompanies.length === connectedCompanies.length
-              ? `all ${connectedCompanies.length} connected companies`
-              : `${
-                  selectedCompanies.length
-                } selected companies: ${selectedCompanies.join(", ")}`;
-
-          addMessage(
-            "assistant",
-            `I'll analyze ${scope} for your query: "${message}". Accessing RAC Xero MCP system with ${selectedCompanies.length} company scope...`
-          );
-
-          // Here you would integrate with your actual MCP server
-          // For now, showing example of what the integration would look like
-          setTimeout(() => {
-            addMessage(
-              "assistant",
-              `Analysis complete for ${selectedCompanies.join(
-                ", "
-              )}. [This response would contain actual financial data from your MCP server based on the selected companies and query type.]`
-            );
-          }, 2000);
-        }, 500);
-      }
-
-      function addMessage(type, content) {
-        const messagesContainer = document.getElementById("chatMessages");
-        const messageDiv = document.createElement("div");
-        messageDiv.className = `message ${type}`;
-        messageDiv.innerHTML = `<strong>${
-          type === "user" ? "You" : "Claude"
-        }:</strong> ${content}`;
-        messagesContainer.appendChild(messageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-      }
-
       // ====== RESIZER FUNCTIONALITY ======
 
       function initializeResizer() {
@@ -1637,7 +1944,6 @@
             document.getElementById("connectionManager").style.display = "none";
             document.getElementById("mainDashboard").style.display = "block";
             initializeMainDashboard();
-            initializeResizer();
           } else {
             document.getElementById("connectionManager").style.display =
               "block";
