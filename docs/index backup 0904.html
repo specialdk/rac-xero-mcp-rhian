@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAC MCP - Split Screen Dashboard with Chat Integration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .header .session-info {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px);
+            position: relative;
+        }
+
+        .ai-chat-panel {
+            width: 50%;
+            background: white;
+            border-right: 2px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .dashboard-panel {
+            width: 50%;
+            background: #fafafa;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .panel-header {
+            background: #34495e;
+            color: white;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            border-bottom: 1px solid #2c3e50;
+        }
+
+        .company-filter-bar {
+            background: #ecf0f1;
+            padding: 12px 20px;
+            border-bottom: 1px solid #bdc3c7;
+            font-size: 13px;
+        }
+
+        .company-filter-bar .filter-label {
+            display: inline-block;
+            margin-right: 15px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .company-checkboxes {
+            display: inline-flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .company-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .company-checkbox-item:hover {
+            background: rgba(52, 152, 219, 0.1);
+        }
+
+        .company-checkbox-item input[type="checkbox"] {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .company-checkbox-item label {
+            font-weight: 500;
+            color: #2c3e50;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .company-checkbox-item.balanced label {
+            color: #27ae60;
+        }
+
+        .company-checkbox-item.imbalanced label {
+            color: #e74c3c;
+        }
+
+        .ai-chat-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dashboard-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            max-width: 85%;
+        }
+
+        .message.user {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .message.assistant {
+            background: #f1f8e9;
+            border: 1px solid #c8e6c9;
+            margin-right: auto;
+        }
+
+        .chat-input-area {
+            border-top: 1px solid #e0e0e0;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 44px;
+            font-family: inherit;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+        }
+
+        .send-button {
+            margin-top: 10px;
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .send-button:hover {
+            background: #2980b9;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid #e0e0e0;
+        }
+
+        .dashboard-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #27ae60;
+        }
+
+        .metric-value.negative {
+            color: #e74c3c;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.balanced {
+            background: #27ae60;
+        }
+
+        .status-indicator.imbalanced {
+            background: #e74c3c;
+        }
+
+        .resizer {
+            width: 4px;
+            background: #bdc3c7;
+            cursor: col-resize;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            transition: background-color 0.2s;
+        }
+
+        .resizer:hover {
+            background: #3498db;
+        }
+
+        .artifact-preview {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin: 10px 0;
+            padding: 15px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .toolbar button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .toolbar button:hover {
+            background: #f0f0f0;
+        }
+
+        .toolbar button.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .filter-summary {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .ai-chat-panel,
+            .dashboard-panel {
+                width: 100%;
+                height: 50%;
+            }
+            
+            .resizer {
+                display: none;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .company-checkboxes {
+                flex-direction: column;
+                gap: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>RAC MCP Dashboard & AI Assistant</h1>
+        <div class="session-info">
+            Session: Active | User: RAC Admin | <button style="background:none;border:1px solid rgba(255,255,255,0.3);color:white;padding:4px 8px;border-radius:4px;cursor:pointer;">Logout</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="ai-chat-panel">
+            <div class="panel-header">
+                <span class="status-indicator balanced"></span>
+                AI Assistant - RAC Xero MCP
+            </div>
+            
+            <div class="company-filter-bar">
+                <span class="filter-label">Companies:</span>
+                <div class="company-checkboxes">
+                    <div class="company-checkbox-item imbalanced" onclick="toggleCompanyFilter('rac')">
+                        <input type="checkbox" id="filter-rac" checked>
+                        <label for="filter-rac">RAC</label>
+                    </div>
+                    <div class="company-checkbox-item balanced" onclick="toggleCompanyFilter('ent')">
+                        <input type="checkbox" id="filter-ent" checked>
+                        <label for="filter-ent">ENT</label>
+                    </div>
+                    <div class="company-checkbox-item balanced" onclick="toggleCompanyFilter('min')">
+                        <input type="checkbox" id="filter-min" checked>
+                        <label for="filter-min">MIN</label>
+                    </div>
+                    <div class="company-checkbox-item balanced" onclick="toggleCompanyFilter('ppm')">
+                        <input type="checkbox" id="filter-ppm" checked>
+                        <label for="filter-ppm">PPM</label>
+                    </div>
+                    <div class="company-checkbox-item balanced" onclick="toggleCompanyFilter('nga')">
+                        <input type="checkbox" id="filter-nga" checked>
+                        <label for="filter-nga">NGA</label>
+                    </div>
+                    <div class="company-checkbox-item balanced" onclick="toggleCompanyFilter('mil')">
+                        <input type="checkbox" id="filter-mil" checked>
+                        <label for="filter-mil">MIL</label>
+                    </div>
+                    <div class="company-checkbox-item balanced" onclick="toggleCompanyFilter('mar')">
+                        <input type="checkbox" id="filter-mar" checked>
+                        <label for="filter-mar">MAR</label>
+                    </div>
+                </div>
+                <div class="filter-summary" id="filter-summary">
+                    Analyzing data from 7 companies
+                </div>
+            </div>
+            
+            <div class="ai-chat-content">
+                <div class="chat-messages">
+                    <div class="message assistant">
+                        <strong>Claude:</strong> Hi! I'm connected to your RAC Xero MCP system. I can help you analyze financial data, run reports, and investigate any accounting issues. Use the company filters above to control which entities I analyze. What would you like to explore?
+                    </div>
+                    
+                    <div class="message user">
+                        <strong>You:</strong> Show me trial balance for only RAC
+                    </div>
+                    
+                    <div class="message assistant">
+                        <strong>Claude:</strong> Analyzing trial balance for Aboriginal Corporation only:
+                        <div class="artifact-preview">
+                            <strong>RAC Aboriginal Corporation 8538:</strong><br>
+                            Status: Out of Balance (-$26.4M difference)<br>
+                            Primary Issue: Future Fund account ($29.5M)<br>
+                            Total Assets: $18.1M | Total Liabilities: $1.9M | Total Equity: $68.4M
+                        </div>
+                        The imbalance is isolated to this entity. The Future Fund account appears to be the source of the discrepancy.
+                    </div>
+                </div>
+                
+                <div class="chat-input-area">
+                    <textarea class="chat-input" placeholder="Ask me about financial data for the selected companies..."></textarea>
+                    <button class="send-button">Send Query</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="resizer"></div>
+
+        <div class="dashboard-panel">
+            <div class="panel-header">
+                <span class="status-indicator imbalanced"></span>
+                Financial Dashboard - Live Data
+            </div>
+            
+            <div class="dashboard-content">
+                <div class="toolbar">
+                    <button class="active">Overview</button>
+                    <button>P&L</button>
+                    <button>Balance Sheet</button>
+                    <button>Cash Flow</button>
+                    <button>Alerts</button>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <h3>Trial Balance Status</h3>
+                        <div class="metric">
+                            <span>Mining Entity</span>
+                            <span class="metric-value">Balanced</span>
+                        </div>
+                        <div class="metric">
+                            <span>Aboriginal Corp</span>
+                            <span class="metric-value negative">-$26.4M</span>
+                        </div>
+                        <div class="metric">
+                            <span>Consolidated</span>
+                            <span class="metric-value negative">Imbalanced</span>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <h3>Financial Performance</h3>
+                        <div class="metric">
+                            <span>Mining Revenue</span>
+                            <span class="metric-value">$5.73M</span>
+                        </div>
+                        <div class="metric">
+                            <span>Mining Profit</span>
+                            <span class="metric-value">$1.84M</span>
+                        </div>
+                        <div class="metric">
+                            <span>Corp Revenue</span>
+                            <span class="metric-value">$1.87M</span>
+                        </div>
+                        <div class="metric">
+                            <span>Corp Loss</span>
+                            <span class="metric-value negative">-$3.82M</span>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <h3>Top Account Balances</h3>
+                        <div class="metric">
+                            <span>Future Fund</span>
+                            <span class="metric-value">$29.51M</span>
+                        </div>
+                        <div class="metric">
+                            <span>Retained Earnings</span>
+                            <span class="metric-value">$13.71M</span>
+                        </div>
+                        <div class="metric">
+                            <span>Cash Account</span>
+                            <span class="metric-value">$4.60M</span>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <h3>System Status</h3>
+                        <div class="metric">
+                            <span>Xero Connection</span>
+                            <span class="metric-value">Active</span>
+                        </div>
+                        <div class="metric">
+                            <span>Data Sync</span>
+                            <span class="metric-value">Current</span>
+                        </div>
+                        <div class="metric">
+                            <span>Last Updated</span>
+                            <span class="metric-value">29 Aug 2025</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>Critical Issues Requiring Attention</h3>
+                    <div style="padding: 15px; background: #fff5f5; border-left: 4px solid #e74c3c; margin: 10px 0;">
+                        <strong>Trial Balance Imbalance:</strong> Aboriginal Corporation shows -$26.4M imbalance primarily due to Future Fund account inconsistencies.
+                    </div>
+                    <div style="padding: 15px; background: #fffdf5; border-left: 4px solid #f39c12; margin: 10px 0;">
+                        <strong>Data Integrity:</strong> Future Fund shows $29.5M in trial balance but $0 in transaction history - suggests system sync issue.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let activeCompanies = ['rac', 'ent', 'min', 'ppm', 'nga', 'mil', 'mar'];
+        
+        const companyNames = {
+            'rac': 'Aboriginal Corporation',
+            'ent': 'Enterprises', 
+            'min': 'Mining',
+            'ppm': 'Property Management',
+            'nga': 'Ngarrkuwuy Developments',
+            'mil': 'Invest Trust',
+            'mar': 'Marrin Square'
+        };
+
+        function toggleCompanyFilter(companyId) {
+            const checkbox = document.getElementById(`filter-${companyId}`);
+            checkbox.checked = !checkbox.checked;
+            
+            if (checkbox.checked) {
+                if (!activeCompanies.includes(companyId)) {
+                    activeCompanies.push(companyId);
+                }
+            } else {
+                activeCompanies = activeCompanies.filter(id => id !== companyId);
+            }
+            
+            updateFilterSummary();
+            // This would trigger dashboard data refresh in real implementation
+            console.log('Active companies:', activeCompanies);
+        }
+
+        function updateFilterSummary() {
+            const summary = document.getElementById('filter-summary');
+            const count = activeCompanies.length;
+            
+            if (count === 7) {
+                summary.textContent = 'Analyzing data from all 7 companies';
+            } else if (count === 1) {
+                const companyName = companyNames[activeCompanies[0]];
+                summary.textContent = `Analyzing data from ${companyName} only`;
+            } else if (count === 0) {
+                summary.textContent = 'No companies selected for analysis';
+            } else {
+                summary.textContent = `Analyzing data from ${count} selected companies`;
+            }
+        }
+
+        // Make the panels resizable
+        let isResizing = false;
+
+        document.querySelector('.resizer').addEventListener('mousedown', function(e) {
+            isResizing = true;
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', function() {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+            });
+        });
+
+        function handleMouseMove(e) {
+            if (!isResizing) return;
+            
+            const container = document.querySelector('.main-container');
+            const containerRect = container.getBoundingClientRect();
+            const percentage = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+            
+            if (percentage > 20 && percentage < 80) {
+                document.querySelector('.ai-chat-panel').style.width = percentage + '%';
+                document.querySelector('.dashboard-panel').style.width = (100 - percentage) + '%';
+                document.querySelector('.resizer').style.left = percentage + '%';
+            }
+        }
+
+        // Simulate chat input functionality
+        document.querySelector('.chat-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const message = this.value.trim();
+                if (message) {
+                    addMessage('user', message);
+                    this.value = '';
+                    // Simulate AI response with company context
+                    setTimeout(() => {
+                        const companyContext = activeCompanies.length === 7 ? 'all companies' : 
+                                             activeCompanies.length === 1 ? companyNames[activeCompanies[0]] :
+                                             `${activeCompanies.length} selected companies`;
+                        addMessage('assistant', `I'll analyze ${companyContext} for your query: "${message}". Let me access the RAC Xero MCP system...`);
+                    }, 1000);
+                }
+            }
+        });
+
+        document.querySelector('.send-button').addEventListener('click', function() {
+            const input = document.querySelector('.chat-input');
+            const message = input.value.trim();
+            if (message) {
+                addMessage('user', message);
+                input.value = '';
+                setTimeout(() => {
+                    addMessage('assistant', 'Processing your request for the selected companies...');
+                }, 1000);
+            }
+        });
+
+        function addMessage(type, content) {
+            const messagesContainer = document.querySelector('.chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = `<strong>${type === 'user' ? 'You' : 'Claude'}:</strong> ${content}`;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Toolbar functionality
+        document.querySelectorAll('.toolbar button').forEach(button => {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>
