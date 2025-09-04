@@ -1532,21 +1532,44 @@
 
         if (!message) return;
 
+        const selectedCompanies = getSelectedCompanyNames();
+
+        if (selectedCompanies.length === 0) {
+          addMessage(
+            "assistant",
+            "Please select companies using the filters above before asking questions."
+          );
+          return;
+        }
+
         addMessage("user", message);
         chatInput.value = "";
 
-        // Show typing indicator
+        // Show analysis scope and processing message
         setTimeout(() => {
-          const companyContext =
-            activeCompanyFilters.length === connectedCompanies.length
-              ? "all connected companies"
-              : `${activeCompanyFilters.length} selected companies`;
+          const scope =
+            selectedCompanies.length === connectedCompanies.length
+              ? `all ${connectedCompanies.length} connected companies`
+              : `${
+                  selectedCompanies.length
+                } selected companies: ${selectedCompanies.join(", ")}`;
 
           addMessage(
             "assistant",
-            `I'll analyze ${companyContext} for your query: "${message}". Let me access the RAC Xero MCP system...`
+            `I'll analyze ${scope} for your query: "${message}". Accessing RAC Xero MCP system with ${selectedCompanies.length} company scope...`
           );
-        }, 1000);
+
+          // Here you would integrate with your actual MCP server
+          // For now, showing example of what the integration would look like
+          setTimeout(() => {
+            addMessage(
+              "assistant",
+              `Analysis complete for ${selectedCompanies.join(
+                ", "
+              )}. [This response would contain actual financial data from your MCP server based on the selected companies and query type.]`
+            );
+          }, 2000);
+        }, 500);
       }
 
       function addMessage(type, content) {
