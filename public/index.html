@@ -1689,20 +1689,25 @@
 
         if (activeCompanyFilters.length === 0) {
           dashboardElement.innerHTML = `
-                          <div style="text-align: center; padding: 40px; color: #666;">
-                              <h3>No Companies Selected</h3>
-                              <p>Please select companies using the filters above to view financial data.</p>
-                          </div>
-                      `;
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <h3>No Companies Selected</h3>
+        <p>Please select companies using the filters above to view financial data.</p>
+      </div>
+    `;
           return;
         }
 
+        // Show loading with specific company count
+        const selectedCompanyNames = getSelectedCompanyNames();
         dashboardElement.innerHTML = `
-                      <div class="loading">
-                          <div class="loading-spinner"></div>
-                          Loading ${currentView} data from ${activeCompanyFilters.length} companies...
-                      </div>
-                  `;
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      Loading ${currentView} data from ${
+          activeCompanyFilters.length
+        } companies:<br>
+      <small>${selectedCompanyNames.join(", ")}</small>
+    </div>
+  `;
 
         try {
           if (currentView === "overview") {
@@ -1718,112 +1723,189 @@
           }
         } catch (error) {
           dashboardElement.innerHTML = `
-                          <div style="text-align: center; padding: 40px; color: #e74c3c;">
-                              <h3>Error Loading Data</h3>
-                              <p>Failed to load dashboard data: ${error.message}</p>
-                              <button onclick="loadDashboardData()" style="margin-top: 10px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                  Retry
-                              </button>
-                          </div>
-                      `;
+      <div style="text-align: center; padding: 40px; color: #e74c3c;">
+        <h3>Error Loading Data</h3>
+        <p>Failed to load dashboard data: ${error.message}</p>
+        <button onclick="loadDashboardData()" style="margin-top: 10px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          Retry
+        </button>
+      </div>
+    `;
         }
       }
-
       async function loadOverviewData() {
-        // Load consolidated data for overview
-        const response = await fetch("/api/consolidated-trial-balance");
-        const data = await response.json();
+        // Check if any companies are selected
+        if (activeCompanyFilters.length === 0) {
+          const dashboardElement = document.getElementById("dashboardData");
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <h3>No Companies Selected</h3>
+        <p>Please select companies using the filters above to view financial data.</p>
+      </div>
+    `;
+          return;
+        }
 
-        const dashboardElement = document.getElementById("dashboardData");
-        dashboardElement.innerHTML = `
-                      <div class="dashboard-grid">
-                          <div class="dashboard-card">
-                              <h3>Financial Summary</h3>
-                              <div class="metric">
-                                  <span>Total Assets</span>
-                                  <span class="metric-value">$${data.consolidated.totals.totalAssets.toLocaleString()}</span>
-                              </div>
-                              <div class="metric">
-                                  <span>Total Liabilities</span>
-                                  <span class="metric-value">$${data.consolidated.totals.totalLiabilities.toLocaleString()}</span>
-                              </div>
-                              <div class="metric">
-                                  <span>Total Equity</span>
-                                  <span class="metric-value">$${data.consolidated.totals.totalEquity.toLocaleString()}</span>
-                              </div>
-                              <div class="metric">
-                                  <span>Net Worth</span>
-                                  <span class="metric-value">$${(
-                                    data.consolidated.totals.totalAssets -
-                                    data.consolidated.totals.totalLiabilities
-                                  ).toLocaleString()}</span>
-                              </div>
-                          </div>
+        try {
+          // Get data for each selected company
+          const companyDataPromises = activeCompanyFilters.map(
+            async (tenantId) => {
+              const company = connectedCompanies.find(
+                (c) => c.tenantId === tenantId
+              );
+              if (!company) return null;
 
-                          <div class="dashboard-card">
-                              <h3>Balance Status</h3>
-                              <div class="metric">
-                                  <span>Consolidated Status</span>
-                                  <span class="metric-value ${
-                                    data.consolidated.balanceCheck
-                                      .debitsEqualCredits
-                                      ? ""
-                                      : "negative"
-                                  }">
-                                      ${
-                                        data.consolidated.balanceCheck
-                                          .debitsEqualCredits
-                                          ? "Balanced"
-                                          : "Imbalanced"
-                                      }
-                                  </span>
-                              </div>
-                              <div class="metric">
-                                  <span>Connected Companies</span>
-                                  <span class="metric-value">${
-                                    data.companies.length
-                                  }</span>
-                              </div>
-                              <div class="metric">
-                                  <span>Balanced Companies</span>
-                                  <span class="metric-value">${
-                                    data.companies.filter(
-                                      (c) => c.balanceCheck.debitsEqualCredits
-                                    ).length
-                                  }</span>
-                              </div>
-                          </div>
-                      </div>
+              try {
+                // Use individual company endpoints based on tenantId
+                const response = await fetch(
+                  `/api/trial-balance?tenantId=${tenantId}`
+                );
+                const data = await response.json();
+                return {
+                  ...data,
+                  tenantId: tenantId,
+                  tenantName: company.tenantName,
+                };
+              } catch (error) {
+                console.error(
+                  `Error loading data for ${company.tenantName}:`,
+                  error
+                );
+                return {
+                  tenantId: tenantId,
+                  tenantName: company.tenantName,
+                  error: true,
+                  assets: 0,
+                  liabilities: 0,
+                  equity: 0,
+                };
+              }
+            }
+          );
 
-                      <div class="dashboard-card">
-                          <h3>Company Breakdown</h3>
-                          ${data.companies
-                            .map(
-                              (company) => `
-                              <div class="metric">
-                                  <span>${company.tenantName.replace(
-                                    "Rirratjingu ",
-                                    ""
-                                  )}</span>
-                                  <span class="metric-value ${
-                                    company.balanceCheck.debitsEqualCredits
-                                      ? ""
-                                      : "negative"
-                                  }">
-                                      ${
-                                        company.balanceCheck.debitsEqualCredits
-                                          ? "✅ Balanced"
-                                          : "❌ Imbalanced"
-                                      }
-                                  </span>
-                              </div>
-                          `
-                            )
-                            .join("")}
-                      </div>
-                  `;
+          const companyDataResults = await Promise.all(companyDataPromises);
+          const validCompanyData = companyDataResults.filter(
+            (data) => data !== null
+          );
+
+          // Calculate totals from selected companies only
+          const totals = validCompanyData.reduce(
+            (acc, company) => {
+              if (company.error) return acc;
+
+              // Sum up assets, liabilities, equity from each company
+              // Note: Adjust these property names based on your actual API response structure
+              acc.totalAssets += company.totals?.totalAssets || 0;
+              acc.totalLiabilities += company.totals?.totalLiabilities || 0;
+              acc.totalEquity += company.totals?.totalEquity || 0;
+              return acc;
+            },
+            {
+              totalAssets: 0,
+              totalLiabilities: 0,
+              totalEquity: 0,
+            }
+          );
+
+          // Check balance status for selected companies
+          const balancedCompanies = validCompanyData.filter(
+            (c) => !c.error && c.balanceCheck?.debitsEqualCredits
+          ).length;
+
+          const dashboardElement = document.getElementById("dashboardData");
+          dashboardElement.innerHTML = `
+      <div class="dashboard-grid">
+        <div class="dashboard-card">
+          <h3>Financial Summary (${activeCompanyFilters.length} Companies)</h3>
+          <div class="metric">
+            <span>Total Assets</span>
+            <span class="metric-value">$${totals.totalAssets.toLocaleString()}</span>
+          </div>
+          <div class="metric">
+            <span>Total Liabilities</span>
+            <span class="metric-value">$${totals.totalLiabilities.toLocaleString()}</span>
+          </div>
+          <div class="metric">
+            <span>Total Equity</span>
+            <span class="metric-value">$${totals.totalEquity.toLocaleString()}</span>
+          </div>
+          <div class="metric">
+            <span>Net Worth</span>
+            <span class="metric-value">$${(
+              totals.totalAssets - totals.totalLiabilities
+            ).toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div class="dashboard-card">
+          <h3>Balance Status</h3>
+          <div class="metric">
+            <span>Selected Companies</span>
+            <span class="metric-value">${activeCompanyFilters.length}</span>
+          </div>
+          <div class="metric">
+            <span>Balanced Companies</span>
+            <span class="metric-value">${balancedCompanies}</span>
+          </div>
+          <div class="metric">
+            <span>Overall Status</span>
+            <span class="metric-value ${
+              balancedCompanies === activeCompanyFilters.length
+                ? ""
+                : "negative"
+            }">
+              ${
+                balancedCompanies === activeCompanyFilters.length
+                  ? "All Balanced"
+                  : "Issues Found"
+              }
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <h3>Selected Company Breakdown</h3>
+        ${validCompanyData
+          .map(
+            (company) => `
+          <div class="metric">
+            <span>${company.tenantName.replace("Rirratjingu ", "")}</span>
+            <span class="metric-value ${
+              company.error
+                ? "negative"
+                : company.balanceCheck?.debitsEqualCredits
+                ? ""
+                : "negative"
+            }">
+              ${
+                company.error
+                  ? "Error Loading"
+                  : company.balanceCheck?.debitsEqualCredits
+                  ? "✅ Balanced"
+                  : "⚠ Imbalanced"
+              }
+            </span>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+    `;
+        } catch (error) {
+          console.error("Error in loadOverviewData:", error);
+          const dashboardElement = document.getElementById("dashboardData");
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #e74c3c;">
+        <h3>Error Loading Data</h3>
+        <p>Failed to load dashboard data for selected companies: ${error.message}</p>
+        <button onclick="loadDashboardData()" style="margin-top: 10px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          Retry
+        </button>
+      </div>
+    `;
+        }
       }
-
       async function loadTrialBalanceData() {
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
