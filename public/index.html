@@ -1167,9 +1167,9 @@
           }`;
 
           document.getElementById("oauthInstructions").innerHTML = `
-                    <strong>Next Company:</strong> ${companyName}<br>
-                    <small>When the Xero login opens, select "${companyName}" from the dropdown and authorize access.</small>
-                `;
+                          <strong>Next Company:</strong> ${companyName}<br>
+                          <small>When the Xero login opens, select "${companyName}" from the dropdown and authorize access.</small>
+                      `;
         }
       }
 
@@ -1261,14 +1261,14 @@
         connectedList.innerHTML = connectedCompanies
           .map(
             (company) => `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid #28a745; background: #f8fff9; border-radius: 6px; margin-bottom: 0.5rem;">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <div style="width: 12px; height: 12px; border-radius: 50%; background: #28a745;"></div>
-                        <strong>${company.name}</strong>
-                    </div>
-                    <div style="color: #28a745; font-size: 0.9rem;">✅ Connected</div>
-                </div>
-            `
+                      <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid #28a745; background: #f8fff9; border-radius: 6px; margin-bottom: 0.5rem;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                              <div style="width: 12px; height: 12px; border-radius: 50%; background: #28a745;"></div>
+                              <strong>${company.name}</strong>
+                          </div>
+                          <div style="color: #28a745; font-size: 0.9rem;">✅ Connected</div>
+                      </div>
+                  `
           )
           .join("");
 
@@ -1379,11 +1379,15 @@
               .replace("Rirratjingu ", "")
               .replace(" Pty Ltd", "");
             return `
-                    <div class="company-checkbox-item balanced" onclick="toggleCompanyFilter('${company.tenantId}')">
-                        <input type="checkbox" id="filter-${company.tenantId}" checked>
-                        <label for="filter-${company.tenantId}">${shortName}</label>
-                    </div>
-                `;
+              <div class="company-checkbox-item balanced">
+                <input type="checkbox"
+                       id="filter-${company.tenantId}"
+                       checked
+                       onchange="handleCompanyFilterChange('${company.tenantId}')">
+                <label for="filter-${company.tenantId}"
+                       onclick="toggleCompanyFilterByLabel('${company.tenantId}')">${shortName}</label>
+              </div>
+            `;
           })
           .join("");
 
@@ -1391,9 +1395,10 @@
         updateChatAnalysisStatus();
       }
 
-      function toggleCompanyFilter(tenantId) {
+      // Add these functions after the setupCompanyFilters() function:
+
+      function handleCompanyFilterChange(tenantId) {
         const checkbox = document.getElementById(`filter-${tenantId}`);
-        checkbox.checked = !checkbox.checked;
 
         if (checkbox.checked) {
           if (!activeCompanyFilters.includes(tenantId)) {
@@ -1417,6 +1422,15 @@
             selectedCompanies.length
           } companies: ${selectedCompanies.join(", ")}`
         );
+      }
+
+      function toggleCompanyFilterByLabel(tenantId) {
+        const checkbox = document.getElementById(`filter-${tenantId}`);
+        checkbox.checked = !checkbox.checked;
+
+        // Trigger the change event
+        const event = new Event("change");
+        checkbox.dispatchEvent(event);
       }
 
       function updateFilterSummary() {
@@ -1675,20 +1689,20 @@
 
         if (activeCompanyFilters.length === 0) {
           dashboardElement.innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: #666;">
-                        <h3>No Companies Selected</h3>
-                        <p>Please select companies using the filters above to view financial data.</p>
-                    </div>
-                `;
+                          <div style="text-align: center; padding: 40px; color: #666;">
+                              <h3>No Companies Selected</h3>
+                              <p>Please select companies using the filters above to view financial data.</p>
+                          </div>
+                      `;
           return;
         }
 
         dashboardElement.innerHTML = `
-                <div class="loading">
-                    <div class="loading-spinner"></div>
-                    Loading ${currentView} data from ${activeCompanyFilters.length} companies...
-                </div>
-            `;
+                      <div class="loading">
+                          <div class="loading-spinner"></div>
+                          Loading ${currentView} data from ${activeCompanyFilters.length} companies...
+                      </div>
+                  `;
 
         try {
           if (currentView === "overview") {
@@ -1704,14 +1718,14 @@
           }
         } catch (error) {
           dashboardElement.innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: #e74c3c;">
-                        <h3>Error Loading Data</h3>
-                        <p>Failed to load dashboard data: ${error.message}</p>
-                        <button onclick="loadDashboardData()" style="margin-top: 10px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                            Retry
-                        </button>
-                    </div>
-                `;
+                          <div style="text-align: center; padding: 40px; color: #e74c3c;">
+                              <h3>Error Loading Data</h3>
+                              <p>Failed to load dashboard data: ${error.message}</p>
+                              <button onclick="loadDashboardData()" style="margin-top: 10px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                  Retry
+                              </button>
+                          </div>
+                      `;
         }
       }
 
@@ -1722,137 +1736,138 @@
 
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
-                <div class="dashboard-grid">
-                    <div class="dashboard-card">
-                        <h3>Financial Summary</h3>
-                        <div class="metric">
-                            <span>Total Assets</span>
-                            <span class="metric-value">$${data.consolidated.totals.totalAssets.toLocaleString()}</span>
-                        </div>
-                        <div class="metric">
-                            <span>Total Liabilities</span>
-                            <span class="metric-value">$${data.consolidated.totals.totalLiabilities.toLocaleString()}</span>
-                        </div>
-                        <div class="metric">
-                            <span>Total Equity</span>
-                            <span class="metric-value">$${data.consolidated.totals.totalEquity.toLocaleString()}</span>
-                        </div>
-                        <div class="metric">
-                            <span>Net Worth</span>
-                            <span class="metric-value">$${(
-                              data.consolidated.totals.totalAssets -
-                              data.consolidated.totals.totalLiabilities
-                            ).toLocaleString()}</span>
-                        </div>
-                    </div>
+                      <div class="dashboard-grid">
+                          <div class="dashboard-card">
+                              <h3>Financial Summary</h3>
+                              <div class="metric">
+                                  <span>Total Assets</span>
+                                  <span class="metric-value">$${data.consolidated.totals.totalAssets.toLocaleString()}</span>
+                              </div>
+                              <div class="metric">
+                                  <span>Total Liabilities</span>
+                                  <span class="metric-value">$${data.consolidated.totals.totalLiabilities.toLocaleString()}</span>
+                              </div>
+                              <div class="metric">
+                                  <span>Total Equity</span>
+                                  <span class="metric-value">$${data.consolidated.totals.totalEquity.toLocaleString()}</span>
+                              </div>
+                              <div class="metric">
+                                  <span>Net Worth</span>
+                                  <span class="metric-value">$${(
+                                    data.consolidated.totals.totalAssets -
+                                    data.consolidated.totals.totalLiabilities
+                                  ).toLocaleString()}</span>
+                              </div>
+                          </div>
 
-                    <div class="dashboard-card">
-                        <h3>Balance Status</h3>
-                        <div class="metric">
-                            <span>Consolidated Status</span>
-                            <span class="metric-value ${
-                              data.consolidated.balanceCheck.debitsEqualCredits
-                                ? ""
-                                : "negative"
-                            }">
-                                ${
-                                  data.consolidated.balanceCheck
-                                    .debitsEqualCredits
-                                    ? "Balanced"
-                                    : "Imbalanced"
-                                }
-                            </span>
-                        </div>
-                        <div class="metric">
-                            <span>Connected Companies</span>
-                            <span class="metric-value">${
-                              data.companies.length
-                            }</span>
-                        </div>
-                        <div class="metric">
-                            <span>Balanced Companies</span>
-                            <span class="metric-value">${
-                              data.companies.filter(
-                                (c) => c.balanceCheck.debitsEqualCredits
-                              ).length
-                            }</span>
-                        </div>
-                    </div>
-                </div>
+                          <div class="dashboard-card">
+                              <h3>Balance Status</h3>
+                              <div class="metric">
+                                  <span>Consolidated Status</span>
+                                  <span class="metric-value ${
+                                    data.consolidated.balanceCheck
+                                      .debitsEqualCredits
+                                      ? ""
+                                      : "negative"
+                                  }">
+                                      ${
+                                        data.consolidated.balanceCheck
+                                          .debitsEqualCredits
+                                          ? "Balanced"
+                                          : "Imbalanced"
+                                      }
+                                  </span>
+                              </div>
+                              <div class="metric">
+                                  <span>Connected Companies</span>
+                                  <span class="metric-value">${
+                                    data.companies.length
+                                  }</span>
+                              </div>
+                              <div class="metric">
+                                  <span>Balanced Companies</span>
+                                  <span class="metric-value">${
+                                    data.companies.filter(
+                                      (c) => c.balanceCheck.debitsEqualCredits
+                                    ).length
+                                  }</span>
+                              </div>
+                          </div>
+                      </div>
 
-                <div class="dashboard-card">
-                    <h3>Company Breakdown</h3>
-                    ${data.companies
-                      .map(
-                        (company) => `
-                        <div class="metric">
-                            <span>${company.tenantName.replace(
-                              "Rirratjingu ",
-                              ""
-                            )}</span>
-                            <span class="metric-value ${
-                              company.balanceCheck.debitsEqualCredits
-                                ? ""
-                                : "negative"
-                            }">
-                                ${
-                                  company.balanceCheck.debitsEqualCredits
-                                    ? "✅ Balanced"
-                                    : "❌ Imbalanced"
-                                }
-                            </span>
-                        </div>
-                    `
-                      )
-                      .join("")}
-                </div>
-            `;
+                      <div class="dashboard-card">
+                          <h3>Company Breakdown</h3>
+                          ${data.companies
+                            .map(
+                              (company) => `
+                              <div class="metric">
+                                  <span>${company.tenantName.replace(
+                                    "Rirratjingu ",
+                                    ""
+                                  )}</span>
+                                  <span class="metric-value ${
+                                    company.balanceCheck.debitsEqualCredits
+                                      ? ""
+                                      : "negative"
+                                  }">
+                                      ${
+                                        company.balanceCheck.debitsEqualCredits
+                                          ? "✅ Balanced"
+                                          : "❌ Imbalanced"
+                                      }
+                                  </span>
+                              </div>
+                          `
+                            )
+                            .join("")}
+                      </div>
+                  `;
       }
 
       async function loadTrialBalanceData() {
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
-                <div class="dashboard-card">
-                    <h3>Trial Balance Analysis</h3>
-                    <p>Detailed trial balance data for selected companies will be displayed here.</p>
-                    <p>This would show account-level details, balance checks, and discrepancies.</p>
-                </div>
-            `;
+                      <div class="dashboard-card">
+                          <h3>Trial Balance Analysis</h3>
+                          <p>Detailed trial balance data for selected companies will be displayed here.</p>
+                          <p>This would show account-level details, balance checks, and discrepancies.</p>
+                      </div>
+                  `;
       }
 
       async function loadCashFlowData() {
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
-                <div class="dashboard-card">
-                    <h3>Cash Flow Analysis</h3>
-                    <p>Cash flow data and bank account summaries will be displayed here.</p>
-                </div>
-            `;
+                      <div class="dashboard-card">
+                          <h3>Cash Flow Analysis</h3>
+                          <p>Cash flow data and bank account summaries will be displayed here.</p>
+                      </div>
+                  `;
       }
 
       async function loadProfitLossData() {
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
-                <div class="dashboard-card">
-                    <h3>Profit & Loss Summary</h3>
-                    <p>Revenue, expenses, and profit analysis will be displayed here.</p>
-                </div>
-            `;
+                      <div class="dashboard-card">
+                          <h3>Profit & Loss Summary</h3>
+                          <p>Revenue, expenses, and profit analysis will be displayed here.</p>
+                      </div>
+                  `;
       }
 
       async function loadAlertsData() {
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
-                <div class="dashboard-card">
-                    <h3>Financial Alerts</h3>
-                    <div style="padding: 15px; background: #fff5f5; border-left: 4px solid #e74c3c; margin: 10px 0;">
-                        <strong>Trial Balance Issues:</strong> Some companies may have balance discrepancies.
-                    </div>
-                    <div style="padding: 15px; background: #fffdf5; border-left: 4px solid #f39c12; margin: 10px 0;">
-                        <strong>Token Expiry:</strong> OAuth tokens may need renewal soon.
-                    </div>
-                </div>
-            `;
+                      <div class="dashboard-card">
+                          <h3>Financial Alerts</h3>
+                          <div style="padding: 15px; background: #fff5f5; border-left: 4px solid #e74c3c; margin: 10px 0;">
+                              <strong>Trial Balance Issues:</strong> Some companies may have balance discrepancies.
+                          </div>
+                          <div style="padding: 15px; background: #fffdf5; border-left: 4px solid #f39c12; margin: 10px 0;">
+                              <strong>Token Expiry:</strong> OAuth tokens may need renewal soon.
+                          </div>
+                      </div>
+                  `;
       }
 
       function setView(view, button) {
