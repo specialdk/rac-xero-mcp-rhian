@@ -1796,19 +1796,19 @@
                 // Fetch multiple data sources in parallel
                 const [cashResponse, ratiosResponse, profitLossResponse] =
                   await Promise.all([
-                    fetch("/api/rac-xero/get_cash_position", {
+                    fetch("/api/cash-position", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ organizationName: orgName }),
                     }).catch(() => null),
 
-                    fetch("/api/rac-xero/get_financial_ratios", {
+                    fetch("/api/financial-ratios", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ organizationName: orgName }),
                     }).catch(() => null),
 
-                    fetch("/api/rac-xero/get_profit_loss_summary", {
+                    fetch("/api/profit-loss-summary", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ organizationName: orgName }),
