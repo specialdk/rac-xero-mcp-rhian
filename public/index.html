@@ -1711,7 +1711,7 @@
 
         try {
           if (currentView === "overview") {
-            await loadOverviewData();
+            await loadOverviewDataWithYoY();
           } else if (currentView === "trial-balance") {
             await loadTrialBalanceData();
           } else if (currentView === "cash-flow") {
@@ -1734,9 +1734,9 @@
         }
       }
 
-      // ====== ENHANCED loadOverviewData() WITH MORE BUSINESS METRICS ======
+      // ====== ENHANCED loadOverviewDataWithYoY() WITH MORE BUSINESS METRICS ======
 
-      async function loadOverviewData() {
+      async function loadOverviewDataWithYoY() {
         // Check if any companies are selected
         if (activeCompanyFilters.length === 0) {
           const dashboardElement = document.getElementById("dashboardData");
@@ -2089,7 +2089,7 @@
       </div>
     `;
         } catch (error) {
-          console.error("Error in enhanced loadOverviewData:", error);
+          console.error("Error in enhanced loadOverviewDataWithYoY:", error);
           const dashboardElement = document.getElementById("dashboardData");
           dashboardElement.innerHTML = `
       <div style="text-align: center; padding: 40px; color: #e74c3c;">
