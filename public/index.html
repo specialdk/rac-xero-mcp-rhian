@@ -1734,6 +1734,8 @@
         }
       }
 
+      // ====== ENHANCED loadOverviewData() WITH MORE BUSINESS METRICS ======
+
       async function loadOverviewData() {
         // Check if any companies are selected
         if (activeCompanyFilters.length === 0) {
@@ -1748,54 +1750,170 @@
         }
 
         try {
-          // Load consolidated data (this works since you showed it working before)
+          // Load consolidated data + enhanced metrics for selected companies
           const response = await fetch("/api/consolidated-trial-balance");
           const data = await response.json();
 
-          // Filter the data based on selected companies
-          const selectedCompanies = data.companies.filter((company) =>
-            activeCompanyFilters.includes(company.tenantId)
-          );
+          // Enhanced matching logic (keeping the good parts from before)
+          const selectedCompanies = [];
+          const enhancedMetrics = [];
 
-          if (selectedCompanies.length === 0) {
-            const dashboardElement = document.getElementById("dashboardData");
-            dashboardElement.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: #e74c3c;">
-          <h3>No Data Available</h3>
-          <p>The selected companies don't have data in the consolidated response.</p>
-          <p>Selected tenant IDs: ${activeCompanyFilters.join(", ")}</p>
-        </div>
-      `;
-            return;
+          for (const tenantId of activeCompanyFilters) {
+            const connectedCompany = connectedCompanies.find(
+              (c) => c.tenantId === tenantId
+            );
+            if (!connectedCompany) continue;
+
+            // Find matching company data
+            let matchedCompany = data.companies?.find(
+              (company) => company.tenantId === tenantId
+            );
+
+            if (!matchedCompany) {
+              matchedCompany = data.companies?.find((company) => {
+                const companyName = company.tenantName.toLowerCase();
+                const targetName = connectedCompany.tenantName.toLowerCase();
+                return (
+                  (companyName.includes("mining") &&
+                    targetName.includes("mining")) ||
+                  (companyName.includes("aboriginal") &&
+                    targetName.includes("aboriginal")) ||
+                  (companyName.includes("property") &&
+                    targetName.includes("property"))
+                );
+              });
+            }
+
+            if (matchedCompany) {
+              selectedCompanies.push(matchedCompany);
+
+              // Load enhanced metrics for each selected company
+              try {
+                const orgName = getOrganizationName(
+                  connectedCompany.tenantName
+                );
+
+                // Fetch multiple data sources in parallel
+                const [cashResponse, ratiosResponse, profitLossResponse] =
+                  await Promise.all([
+                    fetch("/api/rac-xero/get_cash_position", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ organizationName: orgName }),
+                    }).catch(() => null),
+
+                    fetch("/api/rac-xero/get_financial_ratios", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ organizationName: orgName }),
+                    }).catch(() => null),
+
+                    fetch("/api/rac-xero/get_profit_loss_summary", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ organizationName: orgName }),
+                    }).catch(() => null),
+                  ]);
+
+                // Parse enhanced metrics
+                const enhancedData = {
+                  tenantId: tenantId,
+                  companyName: connectedCompany.tenantName,
+
+                  // Basic financials from trial balance
+                  totalAssets: matchedCompany.totals?.totalAssets || 0,
+                  totalLiabilities: Math.abs(
+                    matchedCompany.totals?.totalLiabilities || 0
+                  ),
+                  totalEquity: matchedCompany.totals?.totalEquity || 0,
+                  balanced:
+                    matchedCompany.balanceCheck?.debitsEqualCredits || false,
+
+                  // Enhanced metrics (parsed from MCP responses)
+                  cashPosition: cashResponse
+                    ? parseCashPosition(await cashResponse.text())
+                    : 0,
+                  currentRatio: ratiosResponse
+                    ? parseRatio(await ratiosResponse.text(), "Current Ratio:")
+                    : 0,
+                  debtToEquity: ratiosResponse
+                    ? parseRatio(await ratiosResponse.text(), "Debt-to-Equity:")
+                    : 0,
+                  netProfitMargin: ratiosResponse
+                    ? parseRatio(
+                        await ratiosResponse.text(),
+                        "Net Profit Margin:"
+                      )
+                    : 0,
+                  returnOnAssets: ratiosResponse
+                    ? parseRatio(
+                        await ratiosResponse.text(),
+                        "Return on Assets:"
+                      )
+                    : 0,
+                  revenue: ratiosResponse
+                    ? parseMonetary(await ratiosResponse.text(), "Revenue:")
+                    : 0,
+                  netProfit: ratiosResponse
+                    ? parseMonetary(await ratiosResponse.text(), "Net Profit:")
+                    : 0,
+                };
+
+                enhancedMetrics.push(enhancedData);
+              } catch (error) {
+                console.error(
+                  `Error loading enhanced metrics for ${connectedCompany.tenantName}:`,
+                  error
+                );
+                enhancedMetrics.push({
+                  tenantId: tenantId,
+                  companyName: connectedCompany.tenantName,
+                  totalAssets: matchedCompany.totals?.totalAssets || 0,
+                  totalLiabilities: Math.abs(
+                    matchedCompany.totals?.totalLiabilities || 0
+                  ),
+                  totalEquity: matchedCompany.totals?.totalEquity || 0,
+                  balanced:
+                    matchedCompany.balanceCheck?.debitsEqualCredits || false,
+                  error: true,
+                });
+              }
+            }
           }
 
-          // Calculate totals from selected companies only
-          const totals = selectedCompanies.reduce(
+          // Calculate consolidated totals
+          const totals = enhancedMetrics.reduce(
             (acc, company) => {
-              acc.totalAssets += company.totals?.totalAssets || 0;
-              acc.totalLiabilities += company.totals?.totalLiabilities || 0;
-              acc.totalEquity += company.totals?.totalEquity || 0;
+              if (company.error) return acc;
+              acc.totalAssets += company.totalAssets || 0;
+              acc.totalLiabilities += company.totalLiabilities || 0;
+              acc.totalEquity += company.totalEquity || 0;
+              acc.totalCash += company.cashPosition || 0;
+              acc.totalRevenue += company.revenue || 0;
+              acc.totalProfit += company.netProfit || 0;
               return acc;
             },
             {
               totalAssets: 0,
               totalLiabilities: 0,
               totalEquity: 0,
+              totalCash: 0,
+              totalRevenue: 0,
+              totalProfit: 0,
             }
           );
 
-          // Check balance status for selected companies
-          const balancedCompanies = selectedCompanies.filter(
-            (c) => c.balanceCheck?.debitsEqualCredits
+          const balancedCompanies = enhancedMetrics.filter(
+            (c) => !c.error && c.balanced
           ).length;
 
           const dashboardElement = document.getElementById("dashboardData");
           dashboardElement.innerHTML = `
-      <div class="dashboard-grid">
+      <!-- ENHANCED FINANCIAL OVERVIEW -->
+      <div class="dashboard-grid" style="grid-template-columns: repeat(3, 1fr);">
+        
         <div class="dashboard-card">
-          <h3>Financial Summary (${
-            selectedCompanies.length
-          } Selected Companies)</h3>
+          <h3>📊 Financial Position</h3>
           <div class="metric">
             <span>Total Assets</span>
             <span class="metric-value">$${totals.totalAssets.toLocaleString()}</span>
@@ -1805,7 +1923,7 @@
             <span class="metric-value">$${totals.totalLiabilities.toLocaleString()}</span>
           </div>
           <div class="metric">
-            <span>Total Equity</span>
+            <span>Net Equity</span>
             <span class="metric-value">$${totals.totalEquity.toLocaleString()}</span>
           </div>
           <div class="metric">
@@ -1817,70 +1935,165 @@
         </div>
 
         <div class="dashboard-card">
-          <h3>Balance Status</h3>
+          <h3>💰 Cash & Performance</h3>
           <div class="metric">
-            <span>Selected Companies</span>
-            <span class="metric-value">${selectedCompanies.length}</span>
+            <span>Total Cash Position</span>
+            <span class="metric-value">$${totals.totalCash.toLocaleString()}</span>
           </div>
           <div class="metric">
-            <span>Balanced Companies</span>
-            <span class="metric-value">${balancedCompanies}</span>
+            <span>Annual Revenue</span>
+            <span class="metric-value">$${totals.totalRevenue.toLocaleString()}</span>
+          </div>
+          <div class="metric">
+            <span>Net Profit</span>
+            <span class="metric-value ${
+              totals.totalProfit > 0 ? "" : "negative"
+            }">$${totals.totalProfit.toLocaleString()}</span>
+          </div>
+          <div class="metric">
+            <span>Profit Margin</span>
+            <span class="metric-value">${
+              totals.totalRevenue > 0
+                ? ((totals.totalProfit / totals.totalRevenue) * 100).toFixed(1)
+                : 0
+            }%</span>
+          </div>
+        </div>
+
+        <div class="dashboard-card">
+          <h3>⚖️ Health & Risk</h3>
+          <div class="metric">
+            <span>Companies</span>
+            <span class="metric-value">${enhancedMetrics.length}</span>
+          </div>
+          <div class="metric">
+            <span>Balanced Books</span>
+            <span class="metric-value ${
+              balancedCompanies === enhancedMetrics.length ? "" : "negative"
+            }">${balancedCompanies}/${enhancedMetrics.length}</span>
+          </div>
+          <div class="metric">
+            <span>Debt/Equity Ratio</span>
+            <span class="metric-value">${
+              totals.totalEquity > 0
+                ? (totals.totalLiabilities / totals.totalEquity).toFixed(2)
+                : "N/A"
+            }</span>
           </div>
           <div class="metric">
             <span>Overall Status</span>
             <span class="metric-value ${
-              balancedCompanies === selectedCompanies.length ? "" : "negative"
+              balancedCompanies === enhancedMetrics.length ? "" : "negative"
             }">
               ${
-                balancedCompanies === selectedCompanies.length
-                  ? "All Balanced"
-                  : "Issues Found"
+                balancedCompanies === enhancedMetrics.length
+                  ? "✅ Healthy"
+                  : "⚠️ Review Needed"
               }
             </span>
           </div>
         </div>
       </div>
 
+      <!-- COMPANY BREAKDOWN WITH ENHANCED METRICS -->
       <div class="dashboard-card">
-        <h3>Selected Company Breakdown</h3>
-        ${selectedCompanies
+        <h3>📈 Company Performance Breakdown</h3>
+        ${enhancedMetrics
           .map(
             (company) => `
-          <div class="metric">
-            <span>${company.tenantName.replace("Rirratjingu ", "")}</span>
-            <span class="metric-value ${
-              company.balanceCheck?.debitsEqualCredits ? "" : "negative"
-            }">
-              ${
-                company.balanceCheck?.debitsEqualCredits
-                  ? "✅ Balanced"
-                  : "❌ Imbalanced"
-              }
-            </span>
+          <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px; margin: 10px 0; background: ${
+            company.balanced ? "#f8fff8" : "#fff8f8"
+          };">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <strong style="font-size: 16px;">${company.companyName.replace(
+                "Rirratjingu ",
+                ""
+              )}</strong>
+              <span class="metric-value ${
+                company.error ? "negative" : company.balanced ? "" : "negative"
+              }" style="font-size: 14px;">
+                ${
+                  company.error
+                    ? "⚠️ Data Error"
+                    : company.balanced
+                    ? "✅ Balanced"
+                    : "❌ Imbalanced"
+                }
+              </span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; font-size: 13px;">
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">Assets</div>
+                <div style="font-weight: 600;">$${(
+                  company.totalAssets || 0
+                ).toLocaleString()}</div>
+              </div>
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">Revenue</div>
+                <div style="font-weight: 600;">$${(
+                  company.revenue || 0
+                ).toLocaleString()}</div>
+              </div>
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">Net Profit</div>
+                <div style="font-weight: 600; color: ${
+                  (company.netProfit || 0) > 0 ? "#27ae60" : "#e74c3c"
+                };">$${(company.netProfit || 0).toLocaleString()}</div>
+              </div>
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">Profit Margin</div>
+                <div style="font-weight: 600;">${(
+                  company.netProfitMargin || 0
+                ).toFixed(1)}%</div>
+              </div>
+            </div>
+
+            ${
+              !company.error
+                ? `
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; font-size: 13px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;">
+                <div>
+                  <div style="color: #666; margin-bottom: 3px;">Cash Position</div>
+                  <div style="font-weight: 600;">$${(
+                    company.cashPosition || 0
+                  ).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div style="color: #666; margin-bottom: 3px;">Current Ratio</div>
+                  <div style="font-weight: 600;">${(
+                    company.currentRatio || 0
+                  ).toFixed(2)}</div>
+                </div>
+                <div>
+                  <div style="color: #666; margin-bottom: 3px;">ROA</div>
+                  <div style="font-weight: 600;">${(
+                    company.returnOnAssets || 0
+                  ).toFixed(1)}%</div>
+                </div>
+                <div>
+                  <div style="color: #666; margin-bottom: 3px;">D/E Ratio</div>
+                  <div style="font-weight: 600;">${(
+                    company.debtToEquity || 0
+                  ).toFixed(2)}</div>
+                </div>
+              </div>
+            `
+                : ""
+            }
           </div>
         `
           )
           .join("")}
       </div>
-
-      <div class="dashboard-card" style="background: #f8f9fa; border: 1px solid #dee2e6;">
-        <h3>Debug Info</h3>
-        <div style="font-size: 12px; color: #666;">
-          <div>Active Filters: ${activeCompanyFilters.length}</div>
-          <div>Tenant IDs: ${activeCompanyFilters.join(", ")}</div>
-          <div>Found Companies: ${selectedCompanies.length}</div>
-          <div>Company Names: ${selectedCompanies
-            .map((c) => c.tenantName)
-            .join(", ")}</div>
-        </div>
-      </div>
     `;
         } catch (error) {
-          console.error("Error in loadOverviewData:", error);
+          console.error("Error in enhanced loadOverviewData:", error);
           const dashboardElement = document.getElementById("dashboardData");
           dashboardElement.innerHTML = `
       <div style="text-align: center; padding: 40px; color: #e74c3c;">
-        <h3>Error Loading Data</h3>
+        <h3>Error Loading Enhanced Data</h3>
         <p>Failed to load dashboard data: ${error.message}</p>
         <button onclick="loadDashboardData()" style="margin-top: 10px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
           Retry
@@ -1888,6 +2101,41 @@
       </div>
     `;
         }
+      }
+
+      // ====== HELPER FUNCTIONS FOR PARSING MCP RESPONSES ======
+
+      function getOrganizationName(tenantName) {
+        if (tenantName.includes("Mining")) return "Mining";
+        if (tenantName.includes("Aboriginal Corporation"))
+          return "Aboriginal Corporation";
+        if (tenantName.includes("Property")) return "Property";
+        if (tenantName.includes("Enterprises")) return "Enterprises";
+        if (tenantName.includes("Invest")) return "Invest";
+        if (tenantName.includes("Ngarrkuwuy")) return "Ngarrkuwuy";
+        if (tenantName.includes("Marrin")) return "Marrin";
+        return "Unknown";
+      }
+
+      function parseCashPosition(text) {
+        const match = text.match(/Total Cash:\s*\$([0-9,.-]+)/i);
+        return match ? parseFloat(match[1].replace(/,/g, "")) : 0;
+      }
+
+      function parseRatio(text, label) {
+        const regex = new RegExp(label + "\\s*([0-9,.%-]+)", "i");
+        const match = text.match(regex);
+        if (match && match[1]) {
+          const value = match[1].replace(/[,%]/g, "");
+          return parseFloat(value) || 0;
+        }
+        return 0;
+      }
+
+      function parseMonetary(text, label) {
+        const regex = new RegExp(label + "\\s*\\$([0-9,.-]+)", "i");
+        const match = text.match(regex);
+        return match ? parseFloat(match[1].replace(/,/g, "")) : 0;
       }
 
       async function loadTrialBalanceData() {
