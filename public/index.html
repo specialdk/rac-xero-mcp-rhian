@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RAC MCP - Split Screen Dashboard with Chat Integration</title>
+    <title>RAC MCP - Integrated Dashboard with OAuth Manager</title>
     <style>
       * {
         margin: 0;
@@ -16,6 +16,219 @@
           sans-serif;
         height: 100vh;
         overflow: hidden;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+
+      /* CONNECTION MANAGER STYLES */
+      .connection-manager {
+        min-height: 100vh;
+        padding: 2rem;
+        display: block;
+      }
+
+      .login-container {
+        max-width: 800px;
+        margin: 40px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+      }
+
+      .login-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      .login-header h1 {
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .login-content {
+        padding: 2rem;
+      }
+
+      .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 2rem;
+      }
+
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        background: #f8f9fa;
+        color: #666;
+        font-size: 0.9rem;
+        margin: 0 0.5rem;
+      }
+
+      .step.active {
+        background: #667eea;
+        color: white;
+      }
+
+      .step.completed {
+        background: #28a745;
+        color: white;
+      }
+
+      .step-number {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: bold;
+      }
+
+      .company-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .company-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        transition: background-color 0.2s;
+        cursor: pointer;
+      }
+
+      .company-item:hover {
+        background-color: #f8f9fa;
+      }
+
+      .company-item.all-companies {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: bold;
+        margin-bottom: 1rem;
+      }
+
+      .company-checkbox {
+        width: 18px;
+        height: 18px;
+        margin-right: 1rem;
+        cursor: pointer;
+      }
+
+      .company-name {
+        flex: 1;
+        font-size: 1rem;
+      }
+
+      .selection-summary {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+        text-align: center;
+      }
+
+      .continue-btn {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 6px;
+        font-size: 1rem;
+        cursor: pointer;
+        width: 100%;
+        transition: background 0.2s;
+      }
+
+      .continue-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+
+      .oauth-flow {
+        display: none;
+        text-align: center;
+      }
+
+      .current-connection {
+        background: #f8f9fa;
+        padding: 2rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+      }
+
+      .progress-bar {
+        background: #e0e0e0;
+        border-radius: 10px;
+        height: 8px;
+        margin: 15px 0;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        background: linear-gradient(45deg, #4caf50, #8bc34a);
+        height: 100%;
+        transition: width 0.3s ease;
+      }
+
+      .oauth-btn {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 6px;
+        font-size: 1rem;
+        cursor: pointer;
+        margin: 0.5rem;
+      }
+
+      .oauth-btn.primary {
+        background: #667eea;
+      }
+
+      .completion {
+        display: none;
+        text-align: center;
+      }
+
+      .launch-btn {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 1.5rem 3rem;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: background 0.2s;
+        margin-top: 1rem;
+      }
+
+      .success-box {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        border-radius: 8px;
+        padding: 12px;
+        margin: 10px 0;
+        color: #155724;
+      }
+
+      /* SPLIT SCREEN DASHBOARD STYLES */
+      .main-dashboard {
+        display: none;
+        height: 100vh;
         background: #f5f5f5;
       }
 
@@ -280,18 +493,6 @@
         background: #3498db;
       }
 
-      .artifact-preview {
-        background: #fff;
-        border: 1px solid #e0e0e0;
-        border-radius: 6px;
-        margin: 10px 0;
-        padding: 15px;
-        font-family: "Monaco", "Consolas", monospace;
-        font-size: 12px;
-        max-height: 200px;
-        overflow-y: auto;
-      }
-
       .toolbar {
         display: flex;
         gap: 10px;
@@ -317,16 +518,45 @@
         border-color: #3498db;
       }
 
-      .filter-summary {
-        background: #fff3cd;
-        border: 1px solid #ffeaa7;
-        border-radius: 4px;
-        padding: 8px 12px;
-        margin-top: 8px;
-        font-size: 12px;
-        color: #856404;
+      /* Loading states */
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: #666;
       }
 
+      .loading-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3498db;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 15px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Back to connection button */
+      .back-to-connections {
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-left: 10px;
+      }
+
+      /* Responsive design */
       @media (max-width: 768px) {
         .main-container {
           flex-direction: column;
@@ -351,244 +581,311 @@
           gap: 6px;
         }
       }
+
+      .hidden {
+        display: none !important;
+      }
     </style>
   </head>
   <body>
-    <div class="header">
-      <h1>RAC MCP Dashboard & AI Assistant</h1>
-      <div class="session-info">
-        Session: Active | User: RAC Admin |
-        <button
-          style="
-            background: none;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-          "
-        >
-          Logout
-        </button>
+    <!-- CONNECTION MANAGER SECTION -->
+    <div class="connection-manager" id="connectionManager">
+      <div class="login-container">
+        <div class="login-header">
+          <h1>RAC Multi-Company Login Manager</h1>
+          <p>Streamlined access to your Xero organisations</p>
+        </div>
+
+        <div class="login-content">
+          <!-- Step Indicator -->
+          <div class="step-indicator">
+            <div class="step active" id="step1Indicator">
+              <div class="step-number">1</div>
+              <span>Select Companies</span>
+            </div>
+            <div class="step" id="step2Indicator">
+              <div class="step-number">2</div>
+              <span>OAuth Authentication</span>
+            </div>
+            <div class="step" id="step3Indicator">
+              <div class="step-number">3</div>
+              <span>Launch Dashboard</span>
+            </div>
+          </div>
+
+          <!-- Step 1: Company Selection -->
+          <div class="company-selection" id="step1">
+            <h2 style="text-align: center; margin-bottom: 1rem; color: #333">
+              Select Companies to Connect
+            </h2>
+
+            <div class="company-list">
+              <!-- ALL Companies Option -->
+              <div
+                class="company-item all-companies"
+                onclick="toggleAllCompanies(event)"
+              >
+                <input
+                  type="checkbox"
+                  class="company-checkbox"
+                  id="all-companies"
+                />
+                <div class="company-name">🚀 ALL COMPANIES (Quick Connect)</div>
+              </div>
+
+              <!-- Individual Companies -->
+              <div class="company-item" onclick="toggleCompany('rac', event)">
+                <input
+                  type="checkbox"
+                  class="company-checkbox"
+                  id="company-rac"
+                />
+                <div class="company-name">
+                  Rirratjingu Aboriginal Corporation 8538
+                </div>
+              </div>
+
+              <div
+                class="company-item"
+                onclick="toggleCompany('mining', event)"
+              >
+                <input
+                  type="checkbox"
+                  class="company-checkbox"
+                  id="company-mining"
+                />
+                <div class="company-name">Rirratjingu Mining Pty Ltd 7168</div>
+              </div>
+
+              <div
+                class="company-item"
+                onclick="toggleCompany('property', event)"
+              >
+                <input
+                  type="checkbox"
+                  class="company-checkbox"
+                  id="company-property"
+                />
+                <div class="company-name">
+                  Rirratjingu Property Management & Maintenance Services Pty Ltd
+                </div>
+              </div>
+
+              <div
+                class="company-item"
+                onclick="toggleCompany('enterprises', event)"
+              >
+                <input
+                  type="checkbox"
+                  class="company-checkbox"
+                  id="company-enterprises"
+                />
+                <div class="company-name">Rirratjingu Enterprises Pty Ltd</div>
+              </div>
+
+              <div
+                class="company-item"
+                onclick="toggleCompany('invest', event)"
+              >
+                <input
+                  type="checkbox"
+                  class="company-checkbox"
+                  id="company-invest"
+                />
+                <div class="company-name">
+                  Rirratjingu Invest P/ L ATF Miliditjpi Trust
+                </div>
+              </div>
+
+              <div
+                class="company-item"
+                onclick="toggleCompany('ngarrkuwuy', event)"
+              >
+                <input
+                  type="checkbox"
+                  class="company-checkbox"
+                  id="company-ngarrkuwuy"
+                />
+                <div class="company-name">Ngarrkuwuy Developments Pty Ltd</div>
+              </div>
+
+              <div
+                class="company-item"
+                onclick="toggleCompany('marrin', event)"
+              >
+                <input
+                  type="checkbox"
+                  class="company-checkbox"
+                  id="company-marrin"
+                />
+                <div class="company-name">
+                  Marrin Square Developments Pty Ltd
+                </div>
+              </div>
+            </div>
+
+            <div class="selection-summary" id="selectionSummary">
+              <strong>Selected: 0 companies</strong>
+            </div>
+
+            <button
+              class="continue-btn"
+              id="continueBtn"
+              onclick="startOAuthFlow()"
+              disabled
+            >
+              Continue with Selected Companies
+            </button>
+          </div>
+
+          <!-- Step 2: OAuth Flow -->
+          <div class="oauth-flow" id="step2">
+            <h2>Connecting to Your Companies</h2>
+
+            <div class="current-connection">
+              <h3 id="currentCompanyName">Ready to connect...</h3>
+              <div class="progress-bar">
+                <div
+                  class="progress-fill"
+                  id="progressFill"
+                  style="width: 0%"
+                ></div>
+              </div>
+              <div id="progressText">Preparing connections...</div>
+            </div>
+
+            <div class="success-box" id="oauthInstructions">
+              <strong>Ready to start:</strong> Click "Start OAuth Flow" to begin
+              connecting to your selected companies.
+            </div>
+
+            <div id="oauthButtons">
+              <button
+                class="oauth-btn primary"
+                onclick="startNextOAuth()"
+                id="startOAuthBtn"
+              >
+                🔗 Start OAuth Flow
+              </button>
+            </div>
+
+            <div id="waitingMessage" style="display: none">
+              <div class="success-box">
+                <strong>Waiting for OAuth completion...</strong><br />
+                Complete the Xero authorization, then return here.
+              </div>
+              <button class="oauth-btn" onclick="checkOAuthStatus()">
+                ✅ I've completed the OAuth - Continue
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 3: Completion -->
+          <div class="completion" id="step3">
+            <h2>🎉 All Companies Connected!</h2>
+            <div class="connected-companies" id="connectedCompaniesList"></div>
+            <div class="success-box">
+              <strong>Ready to launch!</strong> All selected companies are now
+              connected.
+            </div>
+            <button class="launch-btn" onclick="showMainDashboard()">
+              🚀 Launch Financial Dashboard
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="main-container">
-      <div class="ai-chat-panel">
-        <div class="panel-header">
-          <span class="status-indicator balanced"></span>
-          AI Assistant - RAC Xero MCP
-        </div>
-
-        <div class="company-filter-bar">
-          <span class="filter-label">Companies:</span>
-          <div class="company-checkboxes">
-            <div
-              class="company-checkbox-item imbalanced"
-              onclick="toggleCompanyFilter('rac')"
-            >
-              <input type="checkbox" id="filter-rac" checked />
-              <label for="filter-rac">RAC</label>
-            </div>
-            <div
-              class="company-checkbox-item balanced"
-              onclick="toggleCompanyFilter('ent')"
-            >
-              <input type="checkbox" id="filter-ent" checked />
-              <label for="filter-ent">ENT</label>
-            </div>
-            <div
-              class="company-checkbox-item balanced"
-              onclick="toggleCompanyFilter('min')"
-            >
-              <input type="checkbox" id="filter-min" checked />
-              <label for="filter-min">MIN</label>
-            </div>
-            <div
-              class="company-checkbox-item balanced"
-              onclick="toggleCompanyFilter('ppm')"
-            >
-              <input type="checkbox" id="filter-ppm" checked />
-              <label for="filter-ppm">PPM</label>
-            </div>
-            <div
-              class="company-checkbox-item balanced"
-              onclick="toggleCompanyFilter('nga')"
-            >
-              <input type="checkbox" id="filter-nga" checked />
-              <label for="filter-nga">NGA</label>
-            </div>
-            <div
-              class="company-checkbox-item balanced"
-              onclick="toggleCompanyFilter('mil')"
-            >
-              <input type="checkbox" id="filter-mil" checked />
-              <label for="filter-mil">MIL</label>
-            </div>
-            <div
-              class="company-checkbox-item balanced"
-              onclick="toggleCompanyFilter('mar')"
-            >
-              <input type="checkbox" id="filter-mar" checked />
-              <label for="filter-mar">MAR</label>
-            </div>
-          </div>
-          <div class="filter-summary" id="filter-summary">
-            Analyzing data from 7 companies
-          </div>
-        </div>
-
-        <div class="ai-chat-content">
-          <div class="chat-messages">
-            <div class="message assistant">
-              <strong>Claude:</strong> Hi! I'm connected to your RAC Xero MCP
-              system. I can help you analyze financial data, run reports, and
-              investigate any accounting issues. Use the company filters above
-              to control which entities I analyze. What would you like to
-              explore?
-            </div>
-
-            <div class="message user">
-              <strong>You:</strong> Show me trial balance for only RAC
-            </div>
-
-            <div class="message assistant">
-              <strong>Claude:</strong> Analyzing trial balance for Aboriginal
-              Corporation only:
-              <div class="artifact-preview">
-                <strong>RAC Aboriginal Corporation 8538:</strong><br />
-                Status: Out of Balance (-$26.4M difference)<br />
-                Primary Issue: Future Fund account ($29.5M)<br />
-                Total Assets: $18.1M | Total Liabilities: $1.9M | Total Equity:
-                $68.4M
-              </div>
-              The imbalance is isolated to this entity. The Future Fund account
-              appears to be the source of the discrepancy.
-            </div>
-          </div>
-
-          <div class="chat-input-area">
-            <textarea
-              class="chat-input"
-              placeholder="Ask me about financial data for the selected companies..."
-            ></textarea>
-            <button class="send-button">Send Query</button>
-          </div>
+    <!-- SPLIT SCREEN DASHBOARD SECTION -->
+    <div class="main-dashboard" id="mainDashboard">
+      <div class="header">
+        <h1>RAC MCP Dashboard & AI Assistant</h1>
+        <div class="session-info">
+          Session: Active | Connected Companies:
+          <span id="connectedCount">0</span>
+          <button class="back-to-connections" onclick="backToConnections()">
+            🔙 Manage Connections
+          </button>
         </div>
       </div>
 
-      <div class="resizer"></div>
+      <div class="main-container">
+        <div class="ai-chat-panel">
+          <div class="panel-header">
+            <span class="status-indicator balanced" id="aiStatus"></span>
+            AI Assistant - RAC Xero MCP
+          </div>
 
-      <div class="dashboard-panel">
-        <div class="panel-header">
-          <span class="status-indicator imbalanced"></span>
-          Financial Dashboard - Live Data
+          <div class="company-filter-bar">
+            <span class="filter-label">Active Companies:</span>
+            <div class="company-checkboxes" id="companyFilters">
+              <!-- Company filters will be populated dynamically -->
+            </div>
+            <div
+              style="
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                border-radius: 4px;
+                padding: 8px 12px;
+                margin-top: 8px;
+                font-size: 12px;
+                color: #856404;
+              "
+              id="filterSummary"
+            >
+              Loading connected companies...
+            </div>
+          </div>
+
+          <div class="ai-chat-content">
+            <div class="chat-messages" id="chatMessages">
+              <div class="message assistant">
+                <strong>Claude:</strong> Hi! I'm connected to your RAC Xero MCP
+                system. I can help you analyze financial data, run reports, and
+                investigate accounting issues. The company filters above show
+                your connected entities. What would you like to explore?
+              </div>
+            </div>
+
+            <div class="chat-input-area">
+              <textarea
+                class="chat-input"
+                id="chatInput"
+                placeholder="Ask me about financial data for your connected companies..."
+              ></textarea>
+              <button class="send-button" onclick="sendMessage()">
+                Send Query
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div class="dashboard-content">
-          <div class="toolbar">
-            <button class="active">Overview</button>
-            <button>P&L</button>
-            <button>Balance Sheet</button>
-            <button>Cash Flow</button>
-            <button>Alerts</button>
+        <div class="resizer"></div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <span class="status-indicator balanced" id="dashboardStatus"></span>
+            Financial Dashboard - Live Data
           </div>
 
-          <div class="dashboard-grid">
-            <div class="dashboard-card">
-              <h3>Trial Balance Status</h3>
-              <div class="metric">
-                <span>Mining Entity</span>
-                <span class="metric-value">Balanced</span>
-              </div>
-              <div class="metric">
-                <span>Aboriginal Corp</span>
-                <span class="metric-value negative">-$26.4M</span>
-              </div>
-              <div class="metric">
-                <span>Consolidated</span>
-                <span class="metric-value negative">Imbalanced</span>
-              </div>
+          <div class="dashboard-content">
+            <div class="toolbar">
+              <button class="active" onclick="setView('overview', this)">
+                Overview
+              </button>
+              <button onclick="setView('trial-balance', this)">
+                Trial Balance
+              </button>
+              <button onclick="setView('cash-flow', this)">Cash Flow</button>
+              <button onclick="setView('p-and-l', this)">P&L</button>
+              <button onclick="setView('alerts', this)">Alerts</button>
             </div>
 
-            <div class="dashboard-card">
-              <h3>Financial Performance</h3>
-              <div class="metric">
-                <span>Mining Revenue</span>
-                <span class="metric-value">$5.73M</span>
+            <div id="dashboardData">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+                Loading financial data from connected companies...
               </div>
-              <div class="metric">
-                <span>Mining Profit</span>
-                <span class="metric-value">$1.84M</span>
-              </div>
-              <div class="metric">
-                <span>Corp Revenue</span>
-                <span class="metric-value">$1.87M</span>
-              </div>
-              <div class="metric">
-                <span>Corp Loss</span>
-                <span class="metric-value negative">-$3.82M</span>
-              </div>
-            </div>
-
-            <div class="dashboard-card">
-              <h3>Top Account Balances</h3>
-              <div class="metric">
-                <span>Future Fund</span>
-                <span class="metric-value">$29.51M</span>
-              </div>
-              <div class="metric">
-                <span>Retained Earnings</span>
-                <span class="metric-value">$13.71M</span>
-              </div>
-              <div class="metric">
-                <span>Cash Account</span>
-                <span class="metric-value">$4.60M</span>
-              </div>
-            </div>
-
-            <div class="dashboard-card">
-              <h3>System Status</h3>
-              <div class="metric">
-                <span>Xero Connection</span>
-                <span class="metric-value">Active</span>
-              </div>
-              <div class="metric">
-                <span>Data Sync</span>
-                <span class="metric-value">Current</span>
-              </div>
-              <div class="metric">
-                <span>Last Updated</span>
-                <span class="metric-value">29 Aug 2025</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="dashboard-card">
-            <h3>Critical Issues Requiring Attention</h3>
-            <div
-              style="
-                padding: 15px;
-                background: #fff5f5;
-                border-left: 4px solid #e74c3c;
-                margin: 10px 0;
-              "
-            >
-              <strong>Trial Balance Imbalance:</strong> Aboriginal Corporation
-              shows -$26.4M imbalance primarily due to Future Fund account
-              inconsistencies.
-            </div>
-            <div
-              style="
-                padding: 15px;
-                background: #fffdf5;
-                border-left: 4px solid #f39c12;
-                margin: 10px 0;
-              "
-            >
-              <strong>Data Integrity:</strong> Future Fund shows $29.5M in trial
-              balance but $0 in transaction history - suggests system sync
-              issue.
             </div>
           </div>
         </div>
@@ -596,128 +893,664 @@
     </div>
 
     <script>
-      let activeCompanies = ["rac", "ent", "min", "ppm", "nga", "mil", "mar"];
-
-      const companyNames = {
-        rac: "Aboriginal Corporation",
-        ent: "Enterprises",
-        min: "Mining",
-        ppm: "Property Management",
-        nga: "Ngarrkuwuy Developments",
-        mil: "Invest Trust",
-        mar: "Marrin Square",
+      // ====== GLOBAL VARIABLES ======
+      const companies = {
+        rac: "Rirratjingu Aboriginal Corporation 8538",
+        mining: "Rirratjingu Mining Pty Ltd 7168",
+        property:
+          "Rirratjingu Property Management & Maintenance Services Pty Ltd",
+        enterprises: "Rirratjingu Enterprises Pty Ltd",
+        invest: "Rirratjingu Invest P/ L ATF Miliditjpi Trust",
+        ngarrkuwuy: "Ngarrkuwuy Developments Pty Ltd",
+        marrin: "Marrin Square Developments Pty Ltd",
       };
 
-      function toggleCompanyFilter(companyId) {
-        const checkbox = document.getElementById(`filter-${companyId}`);
+      let selectedCompanies = [];
+      let oauthProgress = 0;
+      let connectedCompanies = [];
+      let isOAuthInProgress = false;
+      let activeCompanyFilters = [];
+      let currentView = "overview";
+
+      // ====== CONNECTION MANAGER FUNCTIONS ======
+
+      function loadSavedPreferences() {
+        const saved = localStorage.getItem("racCompanyPreferences");
+        if (saved) {
+          try {
+            selectedCompanies = JSON.parse(saved);
+            selectedCompanies.forEach((companyId) => {
+              const checkbox = document.getElementById(`company-${companyId}`);
+              if (checkbox) checkbox.checked = true;
+            });
+            updateSelectionSummary();
+          } catch (error) {
+            console.log("No valid saved preferences");
+          }
+        }
+      }
+
+      function savePreferences() {
+        localStorage.setItem(
+          "racCompanyPreferences",
+          JSON.stringify(selectedCompanies)
+        );
+      }
+
+      function toggleCompany(companyId, event) {
+        event.stopPropagation();
+        const checkbox = document.getElementById(`company-${companyId}`);
         checkbox.checked = !checkbox.checked;
 
         if (checkbox.checked) {
-          if (!activeCompanies.includes(companyId)) {
-            activeCompanies.push(companyId);
+          if (!selectedCompanies.includes(companyId)) {
+            selectedCompanies.push(companyId);
           }
         } else {
-          activeCompanies = activeCompanies.filter((id) => id !== companyId);
+          selectedCompanies = selectedCompanies.filter(
+            (id) => id !== companyId
+          );
+          document.getElementById("all-companies").checked = false;
+        }
+
+        updateSelectionSummary();
+        savePreferences();
+      }
+
+      function toggleAllCompanies(event) {
+        event.stopPropagation();
+        const allCheckbox = document.getElementById("all-companies");
+        allCheckbox.checked = !allCheckbox.checked;
+
+        if (allCheckbox.checked) {
+          selectedCompanies = Object.keys(companies);
+          Object.keys(companies).forEach((companyId) => {
+            document.getElementById(`company-${companyId}`).checked = true;
+          });
+        } else {
+          selectedCompanies = [];
+          Object.keys(companies).forEach((companyId) => {
+            document.getElementById(`company-${companyId}`).checked = false;
+          });
+        }
+
+        updateSelectionSummary();
+        savePreferences();
+      }
+
+      function updateSelectionSummary() {
+        const summary = document.getElementById("selectionSummary");
+        const continueBtn = document.getElementById("continueBtn");
+
+        summary.innerHTML = `<strong>Selected: ${selectedCompanies.length} companies</strong>`;
+
+        if (selectedCompanies.length > 0) {
+          const companyNames = selectedCompanies.map((id) => companies[id]);
+          summary.innerHTML += `<br><small>${companyNames.join(", ")}</small>`;
+          continueBtn.disabled = false;
+        } else {
+          continueBtn.disabled = true;
+        }
+      }
+
+      function startOAuthFlow() {
+        if (selectedCompanies.length === 0) {
+          alert("Please select at least one company to continue.");
+          return;
+        }
+
+        document.getElementById("step1").style.display = "none";
+        document.getElementById("step2").style.display = "block";
+        document.getElementById("step1Indicator").classList.add("completed");
+        document.getElementById("step1Indicator").classList.remove("active");
+        document.getElementById("step2Indicator").classList.add("active");
+
+        oauthProgress = 0;
+        connectedCompanies = [];
+        localStorage.setItem(
+          "oauthCompanies",
+          JSON.stringify(selectedCompanies)
+        );
+        localStorage.setItem("oauthProgress", "0");
+        updateOAuthProgress();
+      }
+
+      function updateOAuthProgress() {
+        const currentCompanyName =
+          document.getElementById("currentCompanyName");
+        const progressFill = document.getElementById("progressFill");
+        const progressText = document.getElementById("progressText");
+
+        if (oauthProgress < selectedCompanies.length) {
+          const companyId = selectedCompanies[oauthProgress];
+          const companyName = companies[companyId];
+
+          currentCompanyName.textContent = `Ready to connect: ${companyName} (${
+            oauthProgress + 1
+          }/${selectedCompanies.length})`;
+          const progressPercent =
+            (oauthProgress / selectedCompanies.length) * 100;
+          progressFill.style.width = progressPercent + "%";
+          progressText.textContent = `Step ${oauthProgress + 1} of ${
+            selectedCompanies.length
+          }`;
+
+          document.getElementById("oauthInstructions").innerHTML = `
+                    <strong>Next Company:</strong> ${companyName}<br>
+                    <small>When the Xero login opens, select "${companyName}" from the dropdown and authorize access.</small>
+                `;
+        }
+      }
+
+      function startNextOAuth() {
+        if (oauthProgress >= selectedCompanies.length) {
+          showCompletion();
+          return;
+        }
+
+        const companyId = selectedCompanies[oauthProgress];
+        const companyName = companies[companyId];
+
+        localStorage.setItem("currentOAuthCompany", companyId);
+        localStorage.setItem("currentOAuthCompanyName", companyName);
+
+        isOAuthInProgress = true;
+        document.getElementById("startOAuthBtn").style.display = "none";
+        document.getElementById("waitingMessage").style.display = "block";
+
+        window.location.href = "/auth";
+      }
+
+      async function checkOAuthStatus() {
+        try {
+          const response = await fetch("/api/connection-status");
+          const connections = await response.json();
+
+          const currentCompanyName = localStorage.getItem(
+            "currentOAuthCompanyName"
+          );
+          const currentCompanyId = localStorage.getItem("currentOAuthCompany");
+
+          const newConnection = connections.find(
+            (conn) => conn.tenantName === currentCompanyName && conn.connected
+          );
+
+          if (newConnection) {
+            connectedCompanies.push({
+              id: currentCompanyId,
+              name: currentCompanyName,
+              tenantId: newConnection.tenantId,
+            });
+
+            oauthProgress++;
+            localStorage.setItem("oauthProgress", oauthProgress.toString());
+
+            isOAuthInProgress = false;
+            document.getElementById("startOAuthBtn").style.display =
+              "inline-block";
+            document.getElementById("waitingMessage").style.display = "none";
+
+            if (oauthProgress < selectedCompanies.length) {
+              updateOAuthProgress();
+              document.getElementById(
+                "startOAuthBtn"
+              ).textContent = `🔗 Connect Next Company (${oauthProgress + 1}/${
+                selectedCompanies.length
+              })`;
+            } else {
+              showCompletion();
+            }
+          } else {
+            alert(
+              `❌ Failed to connect ${currentCompanyName}. Please try again.`
+            );
+            isOAuthInProgress = false;
+            document.getElementById("startOAuthBtn").style.display =
+              "inline-block";
+            document.getElementById("waitingMessage").style.display = "none";
+          }
+        } catch (error) {
+          console.error("❌ Error checking OAuth status:", error);
+          alert("❌ Error checking connection status. Please try again.");
+          isOAuthInProgress = false;
+          document.getElementById("startOAuthBtn").style.display =
+            "inline-block";
+          document.getElementById("waitingMessage").style.display = "none";
+        }
+      }
+
+      function showCompletion() {
+        document.getElementById("step2").style.display = "none";
+        document.getElementById("step3").style.display = "block";
+        document.getElementById("step2Indicator").classList.add("completed");
+        document.getElementById("step2Indicator").classList.remove("active");
+        document.getElementById("step3Indicator").classList.add("active");
+
+        const connectedList = document.getElementById("connectedCompaniesList");
+        connectedList.innerHTML = connectedCompanies
+          .map(
+            (company) => `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid #28a745; background: #f8fff9; border-radius: 6px; margin-bottom: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background: #28a745;"></div>
+                        <strong>${company.name}</strong>
+                    </div>
+                    <div style="color: #28a745; font-size: 0.9rem;">✅ Connected</div>
+                </div>
+            `
+          )
+          .join("");
+
+        // Auto-launch after 3 seconds
+        setTimeout(() => showMainDashboard(), 3000);
+      }
+
+      function showMainDashboard() {
+        localStorage.removeItem("oauthCompanies");
+        localStorage.removeItem("oauthProgress");
+        localStorage.removeItem("currentOAuthCompany");
+        localStorage.removeItem("currentOAuthCompanyName");
+        localStorage.setItem("racCompaniesConnected", "true");
+
+        document.getElementById("connectionManager").style.display = "none";
+        document.getElementById("mainDashboard").style.display = "block";
+
+        initializeMainDashboard();
+      }
+
+      function handleOAuthReturn() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isSuccess = urlParams.has("success");
+        const isError = urlParams.has("error");
+        const oauthCompanies = localStorage.getItem("oauthCompanies");
+
+        if (isSuccess && oauthCompanies) {
+          selectedCompanies = JSON.parse(oauthCompanies);
+          oauthProgress = parseInt(localStorage.getItem("oauthProgress")) || 0;
+
+          document.getElementById("connectionManager").style.display = "block";
+          document.getElementById("mainDashboard").style.display = "none";
+          document.getElementById("step1").style.display = "none";
+          document.getElementById("step2").style.display = "block";
+          document.getElementById("step1Indicator").classList.add("completed");
+          document.getElementById("step2Indicator").classList.add("active");
+
+          setTimeout(() => checkOAuthStatus(), 1000);
+        }
+
+        if (isSuccess || isError) {
+          history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+
+      // ====== DASHBOARD FUNCTIONS ======
+
+      async function initializeMainDashboard() {
+        try {
+          await loadConnectedCompanies();
+          setupCompanyFilters();
+          await loadDashboardData();
+          initializeChat();
+        } catch (error) {
+          console.error("Error initializing dashboard:", error);
+        }
+      }
+
+      async function loadConnectedCompanies() {
+        try {
+          const response = await fetch("/api/connection-status");
+          const connections = await response.json();
+
+          connectedCompanies = connections.filter((conn) => conn.connected);
+          activeCompanyFilters = connectedCompanies.map(
+            (conn) => conn.tenantId
+          );
+
+          document.getElementById("connectedCount").textContent =
+            connectedCompanies.length;
+
+          // Update status indicators
+          const hasConnections = connectedCompanies.length > 0;
+          document.getElementById("aiStatus").className = `status-indicator ${
+            hasConnections ? "balanced" : "imbalanced"
+          }`;
+          document.getElementById(
+            "dashboardStatus"
+          ).className = `status-indicator ${
+            hasConnections ? "balanced" : "imbalanced"
+          }`;
+        } catch (error) {
+          console.error("Error loading connected companies:", error);
+          connectedCompanies = [];
+        }
+      }
+
+      function setupCompanyFilters() {
+        const filtersContainer = document.getElementById("companyFilters");
+        const summaryElement = document.getElementById("filterSummary");
+
+        if (connectedCompanies.length === 0) {
+          filtersContainer.innerHTML =
+            '<div style="color: #e74c3c;">No companies connected</div>';
+          summaryElement.textContent =
+            "No connected companies found. Please manage connections.";
+          return;
+        }
+
+        filtersContainer.innerHTML = connectedCompanies
+          .map((company) => {
+            const shortName = company.tenantName
+              .replace("Rirratjingu ", "")
+              .replace(" Pty Ltd", "");
+            return `
+                    <div class="company-checkbox-item balanced" onclick="toggleCompanyFilter('${company.tenantId}')">
+                        <input type="checkbox" id="filter-${company.tenantId}" checked>
+                        <label for="filter-${company.tenantId}">${shortName}</label>
+                    </div>
+                `;
+          })
+          .join("");
+
+        updateFilterSummary();
+      }
+
+      function toggleCompanyFilter(tenantId) {
+        const checkbox = document.getElementById(`filter-${tenantId}`);
+        checkbox.checked = !checkbox.checked;
+
+        if (checkbox.checked) {
+          if (!activeCompanyFilters.includes(tenantId)) {
+            activeCompanyFilters.push(tenantId);
+          }
+        } else {
+          activeCompanyFilters = activeCompanyFilters.filter(
+            (id) => id !== tenantId
+          );
         }
 
         updateFilterSummary();
-        // This would trigger dashboard data refresh in real implementation
-        console.log("Active companies:", activeCompanies);
+        loadDashboardData();
       }
 
       function updateFilterSummary() {
-        const summary = document.getElementById("filter-summary");
-        const count = activeCompanies.length;
+        const summary = document.getElementById("filterSummary");
+        const count = activeCompanyFilters.length;
+        const total = connectedCompanies.length;
 
-        if (count === 7) {
-          summary.textContent = "Analyzing data from all 7 companies";
-        } else if (count === 1) {
-          const companyName = companyNames[activeCompanies[0]];
-          summary.textContent = `Analyzing data from ${companyName} only`;
-        } else if (count === 0) {
+        if (count === 0) {
           summary.textContent = "No companies selected for analysis";
+          summary.style.background = "#f8d7da";
+          summary.style.color = "#721c24";
+        } else if (count === total) {
+          summary.textContent = `Analyzing data from all ${total} connected companies`;
+          summary.style.background = "#d4edda";
+          summary.style.color = "#155724";
         } else {
-          summary.textContent = `Analyzing data from ${count} selected companies`;
+          summary.textContent = `Analyzing data from ${count} of ${total} connected companies`;
+          summary.style.background = "#fff3cd";
+          summary.style.color = "#856404";
         }
       }
 
-      // Make the panels resizable
-      let isResizing = false;
+      async function loadDashboardData() {
+        const dashboardElement = document.getElementById("dashboardData");
 
-      document
-        .querySelector(".resizer")
-        .addEventListener("mousedown", function (e) {
-          isResizing = true;
-          document.addEventListener("mousemove", handleMouseMove);
-          document.addEventListener("mouseup", function () {
-            isResizing = false;
-            document.removeEventListener("mousemove", handleMouseMove);
-          });
-        });
+        if (activeCompanyFilters.length === 0) {
+          dashboardElement.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <h3>No Companies Selected</h3>
+                        <p>Please select companies using the filters above to view financial data.</p>
+                    </div>
+                `;
+          return;
+        }
 
-      function handleMouseMove(e) {
-        if (!isResizing) return;
+        dashboardElement.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Loading ${currentView} data from ${activeCompanyFilters.length} companies...
+                </div>
+            `;
 
-        const container = document.querySelector(".main-container");
-        const containerRect = container.getBoundingClientRect();
-        const percentage =
-          ((e.clientX - containerRect.left) / containerRect.width) * 100;
-
-        if (percentage > 20 && percentage < 80) {
-          document.querySelector(".ai-chat-panel").style.width =
-            percentage + "%";
-          document.querySelector(".dashboard-panel").style.width =
-            100 - percentage + "%";
-          document.querySelector(".resizer").style.left = percentage + "%";
+        try {
+          if (currentView === "overview") {
+            await loadOverviewData();
+          } else if (currentView === "trial-balance") {
+            await loadTrialBalanceData();
+          } else if (currentView === "cash-flow") {
+            await loadCashFlowData();
+          } else if (currentView === "p-and-l") {
+            await loadProfitLossData();
+          } else if (currentView === "alerts") {
+            await loadAlertsData();
+          }
+        } catch (error) {
+          dashboardElement.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #e74c3c;">
+                        <h3>Error Loading Data</h3>
+                        <p>Failed to load dashboard data: ${error.message}</p>
+                        <button onclick="loadDashboardData()" style="margin-top: 10px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Retry
+                        </button>
+                    </div>
+                `;
         }
       }
 
-      // Simulate chat input functionality
-      document
-        .querySelector(".chat-input")
-        .addEventListener("keydown", function (e) {
+      async function loadOverviewData() {
+        // Load consolidated data for overview
+        const response = await fetch("/api/consolidated-trial-balance");
+        const data = await response.json();
+
+        const dashboardElement = document.getElementById("dashboardData");
+        dashboardElement.innerHTML = `
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <h3>Financial Summary</h3>
+                        <div class="metric">
+                            <span>Total Assets</span>
+                            <span class="metric-value">$${data.consolidated.totals.totalAssets.toLocaleString()}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Total Liabilities</span>
+                            <span class="metric-value">$${data.consolidated.totals.totalLiabilities.toLocaleString()}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Total Equity</span>
+                            <span class="metric-value">$${data.consolidated.totals.totalEquity.toLocaleString()}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Net Worth</span>
+                            <span class="metric-value">$${(
+                              data.consolidated.totals.totalAssets -
+                              data.consolidated.totals.totalLiabilities
+                            ).toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <h3>Balance Status</h3>
+                        <div class="metric">
+                            <span>Consolidated Status</span>
+                            <span class="metric-value ${
+                              data.consolidated.balanceCheck.debitsEqualCredits
+                                ? ""
+                                : "negative"
+                            }">
+                                ${
+                                  data.consolidated.balanceCheck
+                                    .debitsEqualCredits
+                                    ? "Balanced"
+                                    : "Imbalanced"
+                                }
+                            </span>
+                        </div>
+                        <div class="metric">
+                            <span>Connected Companies</span>
+                            <span class="metric-value">${
+                              data.companies.length
+                            }</span>
+                        </div>
+                        <div class="metric">
+                            <span>Balanced Companies</span>
+                            <span class="metric-value">${
+                              data.companies.filter(
+                                (c) => c.balanceCheck.debitsEqualCredits
+                              ).length
+                            }</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>Company Breakdown</h3>
+                    ${data.companies
+                      .map(
+                        (company) => `
+                        <div class="metric">
+                            <span>${company.tenantName.replace(
+                              "Rirratjingu ",
+                              ""
+                            )}</span>
+                            <span class="metric-value ${
+                              company.balanceCheck.debitsEqualCredits
+                                ? ""
+                                : "negative"
+                            }">
+                                ${
+                                  company.balanceCheck.debitsEqualCredits
+                                    ? "✅ Balanced"
+                                    : "❌ Imbalanced"
+                                }
+                            </span>
+                        </div>
+                    `
+                      )
+                      .join("")}
+                </div>
+            `;
+      }
+
+      async function loadTrialBalanceData() {
+        // This would load detailed trial balance data
+        const dashboardElement = document.getElementById("dashboardData");
+        dashboardElement.innerHTML = `
+                <div class="dashboard-card">
+                    <h3>Trial Balance Analysis</h3>
+                    <p>Detailed trial balance data for selected companies will be displayed here.</p>
+                    <p>This would show account-level details, balance checks, and discrepancies.</p>
+                </div>
+            `;
+      }
+
+      async function loadCashFlowData() {
+        const dashboardElement = document.getElementById("dashboardData");
+        dashboardElement.innerHTML = `
+                <div class="dashboard-card">
+                    <h3>Cash Flow Analysis</h3>
+                    <p>Cash flow data and bank account summaries will be displayed here.</p>
+                </div>
+            `;
+      }
+
+      async function loadProfitLossData() {
+        const dashboardElement = document.getElementById("dashboardData");
+        dashboardElement.innerHTML = `
+                <div class="dashboard-card">
+                    <h3>Profit & Loss Summary</h3>
+                    <p>Revenue, expenses, and profit analysis will be displayed here.</p>
+                </div>
+            `;
+      }
+
+      async function loadAlertsData() {
+        const dashboardElement = document.getElementById("dashboardData");
+        dashboardElement.innerHTML = `
+                <div class="dashboard-card">
+                    <h3>Financial Alerts</h3>
+                    <div style="padding: 15px; background: #fff5f5; border-left: 4px solid #e74c3c; margin: 10px 0;">
+                        <strong>Trial Balance Issues:</strong> Some companies may have balance discrepancies.
+                    </div>
+                    <div style="padding: 15px; background: #fffdf5; border-left: 4px solid #f39c12; margin: 10px 0;">
+                        <strong>Token Expiry:</strong> OAuth tokens may need renewal soon.
+                    </div>
+                </div>
+            `;
+      }
+
+      function setView(view, button) {
+        currentView = view;
+
+        // Update active button
+        document
+          .querySelectorAll(".toolbar button")
+          .forEach((btn) => btn.classList.remove("active"));
+        button.classList.add("active");
+
+        // Reload dashboard data for new view
+        loadDashboardData();
+      }
+
+      function backToConnections() {
+        if (
+          confirm(
+            "Return to connection manager? This will allow you to modify your company connections."
+          )
+        ) {
+          document.getElementById("mainDashboard").style.display = "none";
+          document.getElementById("connectionManager").style.display = "block";
+
+          // Reset to step 1
+          document.getElementById("step1").style.display = "block";
+          document.getElementById("step2").style.display = "none";
+          document.getElementById("step3").style.display = "none";
+
+          document.getElementById("step1Indicator").className = "step active";
+          document.getElementById("step2Indicator").className = "step";
+          document.getElementById("step3Indicator").className = "step";
+
+          loadSavedPreferences();
+        }
+      }
+
+      // ====== CHAT FUNCTIONS ======
+
+      function initializeChat() {
+        const chatInput = document.getElementById("chatInput");
+
+        chatInput.addEventListener("keydown", function (e) {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            const message = this.value.trim();
-            if (message) {
-              addMessage("user", message);
-              this.value = "";
-              // Simulate AI response with company context
-              setTimeout(() => {
-                const companyContext =
-                  activeCompanies.length === 7
-                    ? "all companies"
-                    : activeCompanies.length === 1
-                    ? companyNames[activeCompanies[0]]
-                    : `${activeCompanies.length} selected companies`;
-                addMessage(
-                  "assistant",
-                  `I'll analyze ${companyContext} for your query: "${message}". Let me access the RAC Xero MCP system...`
-                );
-              }, 1000);
-            }
+            sendMessage();
           }
         });
+      }
 
-      document
-        .querySelector(".send-button")
-        .addEventListener("click", function () {
-          const input = document.querySelector(".chat-input");
-          const message = input.value.trim();
-          if (message) {
-            addMessage("user", message);
-            input.value = "";
-            setTimeout(() => {
-              addMessage(
-                "assistant",
-                "Processing your request for the selected companies..."
-              );
-            }, 1000);
-          }
-        });
+      function sendMessage() {
+        const chatInput = document.getElementById("chatInput");
+        const message = chatInput.value.trim();
+
+        if (!message) return;
+
+        addMessage("user", message);
+        chatInput.value = "";
+
+        // Show typing indicator
+        setTimeout(() => {
+          const companyContext =
+            activeCompanyFilters.length === connectedCompanies.length
+              ? "all connected companies"
+              : `${activeCompanyFilters.length} selected companies`;
+
+          addMessage(
+            "assistant",
+            `I'll analyze ${companyContext} for your query: "${message}". Let me access the RAC Xero MCP system...`
+          );
+        }, 1000);
+      }
 
       function addMessage(type, content) {
-        const messagesContainer = document.querySelector(".chat-messages");
+        const messagesContainer = document.getElementById("chatMessages");
         const messageDiv = document.createElement("div");
         messageDiv.className = `message ${type}`;
         messageDiv.innerHTML = `<strong>${
@@ -727,15 +1560,81 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
 
-      // Toolbar functionality
-      document.querySelectorAll(".toolbar button").forEach((button) => {
-        button.addEventListener("click", function () {
-          document
-            .querySelectorAll(".toolbar button")
-            .forEach((b) => b.classList.remove("active"));
-          this.classList.add("active");
-        });
+      // ====== RESIZER FUNCTIONALITY ======
+
+      function initializeResizer() {
+        let isResizing = false;
+
+        document
+          .querySelector(".resizer")
+          .addEventListener("mousedown", function (e) {
+            isResizing = true;
+            document.addEventListener("mousemove", handleMouseMove);
+            document.addEventListener("mouseup", function () {
+              isResizing = false;
+              document.removeEventListener("mousemove", handleMouseMove);
+            });
+          });
+
+        function handleMouseMove(e) {
+          if (!isResizing) return;
+
+          const container = document.querySelector(".main-container");
+          const containerRect = container.getBoundingClientRect();
+          const percentage =
+            ((e.clientX - containerRect.left) / containerRect.width) * 100;
+
+          if (percentage > 20 && percentage < 80) {
+            document.querySelector(".ai-chat-panel").style.width =
+              percentage + "%";
+            document.querySelector(".dashboard-panel").style.width =
+              100 - percentage + "%";
+            document.querySelector(".resizer").style.left = percentage + "%";
+          }
+        }
+      }
+
+      // ====== INITIALIZATION ======
+
+      async function initializePage() {
+        handleOAuthReturn();
+
+        if (localStorage.getItem("oauthCompanies")) {
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/connection-status");
+          const connections = await response.json();
+          const connectedCount = connections.filter(
+            (conn) => conn.connected
+          ).length;
+
+          if (connectedCount > 0) {
+            document.getElementById("connectionManager").style.display = "none";
+            document.getElementById("mainDashboard").style.display = "block";
+            initializeMainDashboard();
+            initializeResizer();
+          } else {
+            document.getElementById("connectionManager").style.display =
+              "block";
+            document.getElementById("mainDashboard").style.display = "none";
+            loadSavedPreferences();
+          }
+        } catch (error) {
+          document.getElementById("connectionManager").style.display = "block";
+          document.getElementById("mainDashboard").style.display = "none";
+          loadSavedPreferences();
+        }
+      }
+
+      // ====== EVENT LISTENERS ======
+
+      document.addEventListener("DOMContentLoaded", function () {
+        initializePage();
       });
+
+      window.addEventListener("popstate", handleOAuthReturn);
     </script>
   </body>
 </html>
