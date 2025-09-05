@@ -255,22 +255,17 @@
       }
 
       .main-container {
-        display: flex;
+        display: block; /* Change from flex */
         height: calc(100vh - 60px);
         position: relative;
       }
 
       .ai-chat-panel {
-        width: 50%;
-        background: white;
-        border-right: 2px solid #e0e0e0;
-        display: flex;
-        flex-direction: column;
-        position: relative;
+        display: none; /* Hide chat panel entirely */
       }
 
       .dashboard-panel {
-        width: 50%;
+        width: 100%; /* Full width */
         background: #fafafa;
         display: flex;
         flex-direction: column;
@@ -553,16 +548,7 @@
       }
 
       .resizer {
-        width: 4px;
-        background: #bdc3c7;
-        cursor: col-resize;
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 100;
-        transition: background-color 0.2s;
+        display: none; /* Remove resizer */
       }
 
       .resizer:hover {
@@ -872,10 +858,10 @@
       </div>
     </div>
 
-    <!-- SPLIT SCREEN DASHBOARD SECTION -->
+    <!-- SINGLE PANEL DASHBOARD SECTION -->
     <div class="main-dashboard" id="mainDashboard">
       <div class="header">
-        <h1>RAC MCP Dashboard & AI Assistant</h1>
+        <h1>RAC Financial Dashboard</h1>
         <div class="session-info">
           Session: Active | Connected Companies:
           <span id="connectedCount">0</span>
@@ -886,117 +872,25 @@
       </div>
 
       <div class="main-container">
-        <div class="ai-chat-panel">
-          <div class="panel-header">
-            <span class="status-indicator balanced" id="aiStatus"></span>
-            AI Assistant - RAC Xero MCP
-          </div>
-
-          <div class="company-filter-bar">
-            <span class="filter-label">Chat Analysis Scope:</span>
-            <div class="company-checkboxes" id="companyFilters">
-              <!-- Company filters will be populated dynamically -->
-            </div>
-            <div class="filter-summary" id="filterSummary">
-              Loading connected companies...
-            </div>
-            <div class="quick-filter-buttons">
-              <button class="quick-filter-btn" onclick="selectAllCompanies()">
-                All
-              </button>
-              <button class="quick-filter-btn" onclick="selectNoCompanies()">
-                None
-              </button>
-              <button class="quick-filter-btn" onclick="selectMainEntities()">
-                Main Only
-              </button>
-            </div>
-          </div>
-
-          <div class="chat-quick-actions">
-            <div
-              style="
-                font-weight: 600;
-                margin-bottom: 8px;
-                color: #2c3e50;
-                font-size: 12px;
-              "
-            >
-              Quick Analysis:
-            </div>
-            <div class="quick-action-grid">
-              <div
-                class="quick-action-btn"
-                onclick="quickAnalysis('trial-balance')"
-              >
-                Trial Balance
-              </div>
-              <div
-                class="quick-action-btn"
-                onclick="quickAnalysis('cash-position')"
-              >
-                Cash Position
-              </div>
-              <div
-                class="quick-action-btn"
-                onclick="quickAnalysis('profit-loss')"
-              >
-                P&L Summary
-              </div>
-              <div
-                class="quick-action-btn"
-                onclick="quickAnalysis('financial-ratios')"
-              >
-                Key Ratios
-              </div>
-              <div
-                class="quick-action-btn"
-                onclick="quickAnalysis('outstanding-invoices')"
-              >
-                Outstanding
-              </div>
-              <div
-                class="quick-action-btn"
-                onclick="quickAnalysis('consolidate-all')"
-              >
-                Consolidate All
-              </div>
-            </div>
-          </div>
-
-          <div class="ai-chat-content">
-            <div class="chat-messages" id="chatMessages">
-              <div class="message assistant">
-                <strong>Claude:</strong> Hi! I'm your RAC Financial AI Assistant
-                connected to the Xero MCP system. I can analyze data from your
-                connected companies using 23+ specialized tools.
-                <div class="company-analysis-status" id="chatAnalysisStatus">
-                  Ready to analyze all connected companies
-                </div>
-                Use the company filters above to control which entities I
-                analyze, or try the quick analysis buttons for common reports.
-              </div>
-            </div>
-
-            <div class="chat-input-area">
-              <textarea
-                class="chat-input"
-                id="chatInput"
-                placeholder="Ask me about financial data for your connected companies..."
-              ></textarea>
-              <button class="send-button" onclick="sendMessage()">
-                Send Query
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="resizer"></div>
-
         <div class="dashboard-panel">
           <div class="panel-header">
             <span class="status-indicator balanced" id="dashboardStatus"></span>
             Financial Dashboard - Live Data
+
+            <!-- Simple company filter moved to header -->
+            <div
+              style="
+                display: inline-flex;
+                gap: 15px;
+                margin-left: 30px;
+                font-size: 13px;
+              "
+            >
+              <span style="font-weight: 600">Companies:</span>
+              <div id="companyFilters" style="display: inline-flex; gap: 10px">
+                <!-- Company checkboxes will be populated here -->
+              </div>
+            </div>
           </div>
 
           <div class="dashboard-content">
@@ -1025,7 +919,6 @@
         </div>
       </div>
     </div>
-
     <script>
       // ====== GLOBAL VARIABLES ======
       const companies = {
