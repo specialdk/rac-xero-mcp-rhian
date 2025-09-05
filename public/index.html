@@ -1867,6 +1867,7 @@
                 }
 
                 // Parse enhanced metrics using stored text
+                // Extract from JSON responses
                 const enhancedData = {
                   tenantId: tenantId,
                   companyName: connectedCompany.tenantName,
@@ -1880,28 +1881,18 @@
                   balanced:
                     matchedCompany.balanceCheck?.debitsEqualCredits || false,
 
-                  // Enhanced metrics (parsed from stored text)
-                  cashPosition: cashText ? parseCashPosition(cashText) : 0,
-                  currentRatio: ratiosText
-                    ? parseRatio(ratiosText, "Current Ratio:")
-                    : 0,
-                  debtToEquity: ratiosText
-                    ? parseRatio(ratiosText, "Debt-to-Equity:")
-                    : 0,
-                  netProfitMargin: ratiosText
-                    ? parseRatio(ratiosText, "Net Profit Margin:")
-                    : 0,
-                  returnOnAssets: ratiosText
-                    ? parseRatio(ratiosText, "Return on Assets:")
-                    : 0,
-                  revenue: ratiosText
-                    ? parseMonetary(ratiosText, "Revenue:")
-                    : 0,
-                  netProfit: ratiosText
-                    ? parseMonetary(ratiosText, "Net Profit:")
-                    : 0,
+                  // Enhanced metrics from API responses
+                  cashPosition: cashData?.totalCash || 0,
+                  currentRatio:
+                    ratiosData?.ratios?.liquidity?.currentRatio || 0,
+                  debtToEquity: ratiosData?.ratios?.leverage?.debtToEquity || 0,
+                  netProfitMargin:
+                    ratiosData?.ratios?.profitability?.netProfitMargin || 0,
+                  returnOnAssets:
+                    ratiosData?.ratios?.profitability?.returnOnAssets || 0,
+                  revenue: profitLossData?.summary?.totalRevenue || 0,
+                  netProfit: profitLossData?.summary?.netProfit || 0,
                 };
-
                 enhancedMetrics.push(enhancedData);
               } catch (error) {
                 console.error(
@@ -2158,27 +2149,6 @@
         if (tenantName.includes("Ngarrkuwuy")) return "Ngarrkuwuy";
         if (tenantName.includes("Marrin")) return "Marrin";
         return "Unknown";
-      }
-
-      function parseCashPosition(text) {
-        const match = text.match(/Total Cash:\s*\$([0-9,.-]+)/i);
-        return match ? parseFloat(match[1].replace(/,/g, "")) : 0;
-      }
-
-      function parseRatio(text, label) {
-        const regex = new RegExp(label + "\\s*([0-9,.%-]+)", "i");
-        const match = text.match(regex);
-        if (match && match[1]) {
-          const value = match[1].replace(/[,%]/g, "");
-          return parseFloat(value) || 0;
-        }
-        return 0;
-      }
-
-      function parseMonetary(text, label) {
-        const regex = new RegExp(label + "\\s*\\$([0-9,.-]+)", "i");
-        const match = text.match(regex);
-        return match ? parseFloat(match[1].replace(/,/g, "")) : 0;
       }
 
       async function loadTrialBalanceData() {
