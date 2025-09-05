@@ -2776,49 +2776,769 @@
       }
 
       async function loadTrialBalanceData() {
+        if (activeCompanyFilters.length === 0) {
+          const dashboardElement = document.getElementById("dashboardData");
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <h3>No Companies Selected</h3>
+        <p>Please select companies using the filters above to view trial balance.</p>
+      </div>
+    `;
+          return;
+        }
+
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
-                      <div class="dashboard-card">
-                          <h3>Trial Balance Analysis</h3>
-                          <p>Detailed trial balance data for selected companies will be displayed here.</p>
-                          <p>This would show account-level details, balance checks, and discrepancies.</p>
-                      </div>
-                  `;
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      Loading detailed trial balance data...
+    </div>
+  `;
+
+        try {
+          const trialBalanceData = [];
+
+          for (const tenantId of activeCompanyFilters) {
+            const connectedCompany = connectedCompanies.find(
+              (c) => c.tenantId === tenantId
+            );
+            if (!connectedCompany) continue;
+
+            const orgName = getOrganizationName(connectedCompany.tenantName);
+
+            const response = await fetch("/api/trial-balance", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ organizationName: orgName }),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              trialBalanceData.push({
+                companyName: connectedCompany.tenantName.replace(
+                  "Rirratjingu ",
+                  ""
+                ),
+                ...data,
+              });
+            }
+          }
+
+          // Render detailed trial balance
+          dashboardElement.innerHTML = `
+      ${trialBalanceData
+        .map(
+          (company) => `
+        <div class="dashboard-card">
+          <h3>${company.companyName} - Trial Balance</h3>
+          <div style="margin-bottom: 15px;">
+            <strong>Status:</strong> 
+            <span style="color: ${
+              company.balanceCheck.debitsEqualCredits ? "#27ae60" : "#e74c3c"
+            };">
+              ${
+                company.balanceCheck.debitsEqualCredits
+                  ? "✅ Balanced"
+                  : "⚠️ Out of Balance"
+              }
+            </span>
+            ${
+              !company.balanceCheck.debitsEqualCredits
+                ? `<span style="margin-left: 10px; color: #e74c3c;">
+                Difference: $${company.balanceCheck.difference.toLocaleString()}
+              </span>`
+                : ""
+            }
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+            <div>
+              <h4>Assets (${company.trialBalance.assets.length} accounts)</h4>
+              <div style="max-height: 300px; overflow-y: auto;">
+                ${company.trialBalance.assets
+                  .map(
+                    (account) => `
+                  <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
+                    <span style="font-size: 13px;">${account.name}</span>
+                    <span style="font-weight: 600;">$${account.balance.toLocaleString()}</span>
+                  </div>
+                `
+                  )
+                  .join("")}
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #27ae60; font-weight: bold; color: #27ae60;">
+                  <span>Total Assets</span>
+                  <span>$${company.trialBalance.totals.totalAssets.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4>Liabilities (${
+                company.trialBalance.liabilities.length
+              } accounts)</h4>
+              <div style="max-height: 300px; overflow-y: auto;">
+                ${company.trialBalance.liabilities
+                  .map(
+                    (account) => `
+                  <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
+                    <span style="font-size: 13px;">${account.name}</span>
+                    <span style="font-weight: 600;">$${account.balance.toLocaleString()}</span>
+                  </div>
+                `
+                  )
+                  .join("")}
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #e74c3c; font-weight: bold; color: #e74c3c;">
+                  <span>Total Liabilities</span>
+                  <span>$${company.trialBalance.totals.totalLiabilities.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4>Equity (${company.trialBalance.equity.length} accounts)</h4>
+              <div style="max-height: 300px; overflow-y: auto;">
+                ${company.trialBalance.equity
+                  .map(
+                    (account) => `
+                  <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
+                    <span style="font-size: 13px;">${account.name}</span>
+                    <span style="font-weight: 600;">$${account.balance.toLocaleString()}</span>
+                  </div>
+                `
+                  )
+                  .join("")}
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #3498db; font-weight: bold; color: #3498db;">
+                  <span>Total Equity</span>
+                  <span>$${company.trialBalance.totals.totalEquity.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `
+        )
+        .join("")}
+    `;
+        } catch (error) {
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #e74c3c;">
+        <h3>Error Loading Trial Balance</h3>
+        <p>${error.message}</p>
+      </div>
+    `;
+        }
       }
 
       async function loadCashFlowData() {
+        if (activeCompanyFilters.length === 0) {
+          const dashboardElement = document.getElementById("dashboardData");
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <h3>No Companies Selected</h3>
+        <p>Please select companies using the filters above to view cash flow.</p>
+      </div>
+    `;
+          return;
+        }
+
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
-                      <div class="dashboard-card">
-                          <h3>Cash Flow Analysis</h3>
-                          <p>Cash flow data and bank account summaries will be displayed here.</p>
-                      </div>
-                  `;
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      Loading cash flow data...
+    </div>
+  `;
+
+        try {
+          const cashData = [];
+
+          for (const tenantId of activeCompanyFilters) {
+            const connectedCompany = connectedCompanies.find(
+              (c) => c.tenantId === tenantId
+            );
+            if (!connectedCompany) continue;
+
+            const orgName = getOrganizationName(connectedCompany.tenantName);
+
+            const response = await fetch("/api/cash-position", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ organizationName: orgName }),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              cashData.push({
+                companyName: connectedCompany.tenantName.replace(
+                  "Rirratjingu ",
+                  ""
+                ),
+                ...data,
+              });
+            }
+          }
+
+          const totalCash = cashData.reduce(
+            (sum, company) => sum + company.totalCash,
+            0
+          );
+
+          dashboardElement.innerHTML = `
+      <div class="dashboard-grid">
+        <div class="dashboard-card">
+          <h3>Consolidated Cash Position</h3>
+          <div class="metric">
+            <span>Total Cash Across All Entities</span>
+            <span class="metric-value">$${totalCash.toLocaleString()}</span>
+          </div>
+          <div class="metric">
+            <span>Companies Analyzed</span>
+            <span class="metric-value">${cashData.length}</span>
+          </div>
+        </div>
+      </div>
+
+      ${cashData
+        .map(
+          (company) => `
+        <div class="dashboard-card">
+          <h3>${company.companyName} - Bank Accounts</h3>
+          <div style="margin-bottom: 15px;">
+            <strong>Total Cash:</strong> $${company.totalCash.toLocaleString()}
+          </div>
+          
+          ${
+            company.bankAccounts.length > 0
+              ? `
+            <div style="max-height: 400px; overflow-y: auto;">
+              ${company.bankAccounts
+                .map(
+                  (account) => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                  <div>
+                    <div style="font-weight: 600;">${account.name}</div>
+                    <div style="font-size: 12px; color: #666;">Code: ${
+                      account.code
+                    }</div>
+                  </div>
+                  <div style="font-weight: 600; text-align: right;">
+                    $${account.balance.toLocaleString()}
+                  </div>
+                </div>
+              `
+                )
+                .join("")}
+            </div>
+          `
+              : `
+            <div style="text-align: center; padding: 20px; color: #666;">
+              No bank accounts found
+            </div>
+          `
+          }
+        </div>
+      `
+        )
+        .join("")}
+    `;
+        } catch (error) {
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #e74c3c;">
+        <h3>Error Loading Cash Flow Data</h3>
+        <p>${error.message}</p>
+      </div>
+    `;
+        }
       }
 
       async function loadProfitLossData() {
+        if (activeCompanyFilters.length === 0) {
+          const dashboardElement = document.getElementById("dashboardData");
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <h3>No Companies Selected</h3>
+        <p>Please select companies using the filters above to view P&L.</p>
+      </div>
+    `;
+          return;
+        }
+
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
-                      <div class="dashboard-card">
-                          <h3>Profit & Loss Summary</h3>
-                          <p>Revenue, expenses, and profit analysis will be displayed here.</p>
-                      </div>
-                  `;
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      Loading profit & loss data...
+    </div>
+  `;
+
+        try {
+          const plData = [];
+
+          for (const tenantId of activeCompanyFilters) {
+            const connectedCompany = connectedCompanies.find(
+              (c) => c.tenantId === tenantId
+            );
+            if (!connectedCompany) continue;
+
+            const orgName = getOrganizationName(connectedCompany.tenantName);
+
+            const response = await fetch("/api/profit-loss-summary", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ organizationName: orgName }),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              plData.push({
+                companyName: connectedCompany.tenantName.replace(
+                  "Rirratjingu ",
+                  ""
+                ),
+                ...data,
+              });
+            }
+          }
+
+          const consolidated = plData.reduce(
+            (acc, company) => {
+              acc.totalRevenue += company.summary.totalRevenue;
+              acc.totalExpenses += company.summary.totalExpenses;
+              acc.netProfit += company.summary.netProfit;
+              return acc;
+            },
+            { totalRevenue: 0, totalExpenses: 0, netProfit: 0 }
+          );
+
+          dashboardElement.innerHTML = `
+      <div class="dashboard-grid">
+        <div class="dashboard-card">
+          <h3>Consolidated P&L Summary</h3>
+          <div class="metric">
+            <span>Total Revenue</span>
+            <span class="metric-value">$${consolidated.totalRevenue.toLocaleString()}</span>
+          </div>
+          <div class="metric">
+            <span>Total Expenses</span>
+            <span class="metric-value">$${consolidated.totalExpenses.toLocaleString()}</span>
+          </div>
+          <div class="metric">
+            <span>Net Profit</span>
+            <span class="metric-value ${
+              consolidated.netProfit >= 0 ? "" : "negative"
+            }">
+              $${consolidated.netProfit.toLocaleString()}
+            </span>
+          </div>
+          <div class="metric">
+            <span>Profit Margin</span>
+            <span class="metric-value">
+              ${
+                consolidated.totalRevenue > 0
+                  ? (
+                      (consolidated.netProfit / consolidated.totalRevenue) *
+                      100
+                    ).toFixed(1)
+                  : 0
+              }%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      ${plData
+        .map(
+          (company) => `
+        <div class="dashboard-card">
+          <h3>${company.companyName} - Profit & Loss</h3>
+          <div style="margin-bottom: 15px;">
+            <strong>Period:</strong> ${company.period.from} to ${
+            company.period.to
+          }
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+              <h4>Revenue (${
+                company.summary.revenueAccounts.length
+              } accounts)</h4>
+              ${company.summary.revenueAccounts
+                .slice(0, 10)
+                .map(
+                  (account) => `
+                <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                  <span style="font-size: 13px;">${account.name}</span>
+                  <span style="font-weight: 600;">$${account.amount.toLocaleString()}</span>
+                </div>
+              `
+                )
+                .join("")}
+              <div style="border-top: 2px solid #27ae60; padding: 8px 0; font-weight: bold; color: #27ae60;">
+                Total Revenue: $${company.summary.totalRevenue.toLocaleString()}
+              </div>
+            </div>
+
+            <div>
+              <h4>Expenses (${
+                company.summary.expenseAccounts.length
+              } accounts)</h4>
+              ${company.summary.expenseAccounts
+                .slice(0, 10)
+                .map(
+                  (account) => `
+                <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                  <span style="font-size: 13px;">${account.name}</span>
+                  <span style="font-weight: 600;">$${account.amount.toLocaleString()}</span>
+                </div>
+              `
+                )
+                .join("")}
+              <div style="border-top: 2px solid #e74c3c; padding: 8px 0; font-weight: bold; color: #e74c3c;">
+                Total Expenses: $${company.summary.totalExpenses.toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 15px; padding: 15px; background: ${
+            company.summary.netProfit >= 0 ? "#f8fff8" : "#fff8f8"
+          }; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-weight: bold; font-size: 16px;">Net Profit:</span>
+              <span style="font-weight: bold; font-size: 18px; color: ${
+                company.summary.netProfit >= 0 ? "#27ae60" : "#e74c3c"
+              };">
+                $${company.summary.netProfit.toLocaleString()}
+              </span>
+            </div>
+            <div style="margin-top: 5px;">
+              <span>Profit Margin: ${(
+                (company.summary.netProfit / company.summary.totalRevenue) *
+                100
+              ).toFixed(1)}%</span>
+            </div>
+          </div>
+        </div>
+      `
+        )
+        .join("")}
+    `;
+        } catch (error) {
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #e74c3c;">
+        <h3>Error Loading P&L Data</h3>
+        <p>${error.message}</p>
+      </div>
+    `;
+        }
       }
 
       async function loadAlertsData() {
+        if (activeCompanyFilters.length === 0) {
+          const dashboardElement = document.getElementById("dashboardData");
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <h3>No Companies Selected</h3>
+        <p>Please select companies using the filters above to view alerts.</p>
+      </div>
+    `;
+          return;
+        }
+
         const dashboardElement = document.getElementById("dashboardData");
         dashboardElement.innerHTML = `
-                      <div class="dashboard-card">
-                          <h3>Financial Alerts</h3>
-                          <div style="padding: 15px; background: #fff5f5; border-left: 4px solid #e74c3c; margin: 10px 0;">
-                              <strong>Trial Balance Issues:</strong> Some companies may have balance discrepancies.
-                          </div>
-                          <div style="padding: 15px; background: #fffdf5; border-left: 4px solid #f39c12; margin: 10px 0;">
-                              <strong>Token Expiry:</strong> OAuth tokens may need renewal soon.
-                          </div>
-                      </div>
-                  `;
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      Analyzing financial data for alerts...
+    </div>
+  `;
+
+        try {
+          const alerts = [];
+
+          // Check each selected company for issues
+          for (const tenantId of activeCompanyFilters) {
+            const connectedCompany = connectedCompanies.find(
+              (c) => c.tenantId === tenantId
+            );
+            if (!connectedCompany) continue;
+
+            const orgName = getOrganizationName(connectedCompany.tenantName);
+
+            // Get multiple data points for comprehensive alerts
+            const [tbResponse, cashResponse, ratiosResponse] =
+              await Promise.all([
+                fetch("/api/trial-balance", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ organizationName: orgName }),
+                }).catch(() => null),
+                fetch("/api/cash-position", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ organizationName: orgName }),
+                }).catch(() => null),
+                fetch("/api/financial-ratios", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ organizationName: orgName }),
+                }).catch(() => null),
+              ]);
+
+            const companyName = connectedCompany.tenantName.replace(
+              "Rirratjingu ",
+              ""
+            );
+
+            // Parse responses
+            const tbData =
+              tbResponse && tbResponse.ok ? await tbResponse.json() : null;
+            const cashData =
+              cashResponse && cashResponse.ok
+                ? await cashResponse.json()
+                : null;
+            const ratiosData =
+              ratiosResponse && ratiosResponse.ok
+                ? await ratiosResponse.json()
+                : null;
+
+            // Check for trial balance issues
+            if (tbData && !tbData.balanceCheck.debitsEqualCredits) {
+              alerts.push({
+                type: "critical",
+                company: companyName,
+                title: "Trial Balance Imbalance",
+                message: `Books are out of balance by $${Math.abs(
+                  tbData.balanceCheck.difference
+                ).toLocaleString()}`,
+                action: "Review journal entries and account reconciliations",
+              });
+            }
+
+            // Check for cash flow concerns
+            if (
+              cashData &&
+              cashData.totalCash === 0 &&
+              cashData.bankAccounts.length > 0
+            ) {
+              alerts.push({
+                type: "warning",
+                company: companyName,
+                title: "Zero Cash Position",
+                message: `${cashData.bankAccounts.length} bank accounts but $0 total cash`,
+                action: "Verify bank account balances and connectivity",
+              });
+            }
+
+            // Check financial ratios for concerning trends
+            if (ratiosData) {
+              const currentRatio =
+                ratiosData.ratios?.liquidity?.currentRatio || 0;
+              const debtToEquity =
+                ratiosData.ratios?.leverage?.debtToEquity || 0;
+              const profitMargin =
+                ratiosData.ratios?.profitability?.netProfitMargin || 0;
+
+              if (currentRatio < 1.0 && currentRatio > 0) {
+                alerts.push({
+                  type: "warning",
+                  company: companyName,
+                  title: "Low Liquidity Ratio",
+                  message: `Current ratio of ${currentRatio.toFixed(
+                    2
+                  )} indicates potential cash flow issues`,
+                  action: "Review accounts payable and receivable timing",
+                });
+              }
+
+              if (debtToEquity > 2.0) {
+                alerts.push({
+                  type: "warning",
+                  company: companyName,
+                  title: "High Debt-to-Equity Ratio",
+                  message: `Debt-to-equity ratio of ${debtToEquity.toFixed(
+                    2
+                  )} may indicate overleveraging`,
+                  action: "Consider debt reduction strategies",
+                });
+              }
+
+              if (profitMargin < -10) {
+                alerts.push({
+                  type: "critical",
+                  company: companyName,
+                  title: "Negative Profit Margin",
+                  message: `Profit margin of ${profitMargin.toFixed(
+                    1
+                  )}% indicates significant losses`,
+                  action:
+                    "Urgent review of operations and cost structure needed",
+                });
+              }
+            }
+
+            // Check for data loading errors
+            if (!tbData && !cashData && !ratiosData) {
+              alerts.push({
+                type: "info",
+                company: companyName,
+                title: "Data Connection Issues",
+                message: "Unable to load financial data for analysis",
+                action: "Check Xero connection and token status",
+              });
+            }
+          }
+
+          // Add system-wide alerts
+          try {
+            const tokenResponse = await fetch("/api/token-status");
+            if (tokenResponse.ok) {
+              const tokenStatus = await tokenResponse.json();
+              if (tokenStatus.expiringTokens > 0) {
+                alerts.push({
+                  type: "warning",
+                  company: "System",
+                  title: "OAuth Token Expiry",
+                  message: `${tokenStatus.expiringTokens} token(s) expiring soon`,
+                  action: "Refresh OAuth connections to maintain data access",
+                });
+              }
+            }
+          } catch (error) {
+            // Token status check failed, add alert
+            alerts.push({
+              type: "info",
+              company: "System",
+              title: "Token Status Unknown",
+              message: "Unable to check OAuth token expiry status",
+              action: "Monitor connection stability",
+            });
+          }
+
+          // Render alerts dashboard
+          const criticalAlerts = alerts.filter((a) => a.type === "critical");
+          const warningAlerts = alerts.filter((a) => a.type === "warning");
+          const infoAlerts = alerts.filter((a) => a.type === "info");
+
+          dashboardElement.innerHTML = `
+      <div class="dashboard-grid">
+        <div class="dashboard-card">
+          <h3>Alert Summary</h3>
+          <div class="metric">
+            <span>Critical Issues</span>
+            <span class="metric-value ${
+              criticalAlerts.length > 0 ? "negative" : ""
+            }">${criticalAlerts.length}</span>
+          </div>
+          <div class="metric">
+            <span>Warnings</span>
+            <span class="metric-value">${warningAlerts.length}</span>
+          </div>
+          <div class="metric">
+            <span>Information</span>
+            <span class="metric-value">${infoAlerts.length}</span>
+          </div>
+          <div class="metric">
+            <span>Overall Status</span>
+            <span class="metric-value ${
+              criticalAlerts.length > 0
+                ? "negative"
+                : warningAlerts.length > 0
+                ? ""
+                : ""
+            }">
+              ${
+                criticalAlerts.length > 0
+                  ? "🔴 Critical"
+                  : warningAlerts.length > 0
+                  ? "🟡 Caution"
+                  : "🟢 Healthy"
+              }
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <h3>Financial Alerts & Recommendations</h3>
+        
+        ${
+          alerts.length === 0
+            ? `
+          <div style="text-align: center; padding: 40px; color: #27ae60;">
+            <h4>🟢 All Systems Healthy</h4>
+            <p>No financial alerts detected for the selected companies.</p>
+          </div>
+        `
+            : alerts
+                .map(
+                  (alert) => `
+          <div style="padding: 15px; margin: 10px 0; border-radius: 6px; border-left: 4px solid ${
+            alert.type === "critical"
+              ? "#e74c3c"
+              : alert.type === "warning"
+              ? "#f39c12"
+              : "#3498db"
+          }; background: ${
+                    alert.type === "critical"
+                      ? "#fff5f5"
+                      : alert.type === "warning"
+                      ? "#fffdf5"
+                      : "#f8fffe"
+                  };">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+              <div>
+                <strong style="color: ${
+                  alert.type === "critical"
+                    ? "#c0392b"
+                    : alert.type === "warning"
+                    ? "#d68910"
+                    : "#2471a3"
+                };">
+                  ${
+                    alert.type === "critical"
+                      ? "🔴"
+                      : alert.type === "warning"
+                      ? "🟡"
+                      : "🔵"
+                  } 
+                  ${alert.title}
+                </strong>
+                <div style="font-size: 12px; color: #666; margin-top: 2px;">${
+                  alert.company
+                }</div>
+              </div>
+              <span style="background: ${
+                alert.type === "critical"
+                  ? "#e74c3c"
+                  : alert.type === "warning"
+                  ? "#f39c12"
+                  : "#3498db"
+              }; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; text-transform: uppercase;">
+                ${alert.type}
+              </span>
+            </div>
+            <div style="color: #333; margin-bottom: 8px;">${alert.message}</div>
+            <div style="color: #666; font-size: 13px; font-style: italic;">
+              <strong>Recommended Action:</strong> ${alert.action}
+            </div>
+          </div>
+        `
+                )
+                .join("")
+        }
+      </div>
+    `;
+        } catch (error) {
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #e74c3c;">
+        <h3>Error Loading Alerts</h3>
+        <p>Failed to analyze financial data: ${error.message}</p>
+        <button onclick="loadDashboardData()" style="margin-top: 10px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          Retry
+        </button>
+      </div>
+    `;
+        }
       }
 
       function setView(view, button) {
