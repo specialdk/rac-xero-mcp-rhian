@@ -1815,7 +1815,16 @@
                     }).catch(() => null),
                   ]);
 
-                // Parse enhanced metrics
+                // Read response text once and store it
+                const cashText = cashResponse ? await cashResponse.text() : "";
+                const ratiosText = ratiosResponse
+                  ? await ratiosResponse.text()
+                  : "";
+                const profitLossText = profitLossResponse
+                  ? await profitLossResponse.text()
+                  : "";
+
+                // Parse enhanced metrics using stored text
                 const enhancedData = {
                   tenantId: tenantId,
                   companyName: connectedCompany.tenantName,
@@ -1829,33 +1838,25 @@
                   balanced:
                     matchedCompany.balanceCheck?.debitsEqualCredits || false,
 
-                  // Enhanced metrics (parsed from MCP responses)
-                  cashPosition: cashResponse
-                    ? parseCashPosition(await cashResponse.text())
+                  // Enhanced metrics (parsed from stored text)
+                  cashPosition: cashText ? parseCashPosition(cashText) : 0,
+                  currentRatio: ratiosText
+                    ? parseRatio(ratiosText, "Current Ratio:")
                     : 0,
-                  currentRatio: ratiosResponse
-                    ? parseRatio(await ratiosResponse.text(), "Current Ratio:")
+                  debtToEquity: ratiosText
+                    ? parseRatio(ratiosText, "Debt-to-Equity:")
                     : 0,
-                  debtToEquity: ratiosResponse
-                    ? parseRatio(await ratiosResponse.text(), "Debt-to-Equity:")
+                  netProfitMargin: ratiosText
+                    ? parseRatio(ratiosText, "Net Profit Margin:")
                     : 0,
-                  netProfitMargin: ratiosResponse
-                    ? parseRatio(
-                        await ratiosResponse.text(),
-                        "Net Profit Margin:"
-                      )
+                  returnOnAssets: ratiosText
+                    ? parseRatio(ratiosText, "Return on Assets:")
                     : 0,
-                  returnOnAssets: ratiosResponse
-                    ? parseRatio(
-                        await ratiosResponse.text(),
-                        "Return on Assets:"
-                      )
+                  revenue: ratiosText
+                    ? parseMonetary(ratiosText, "Revenue:")
                     : 0,
-                  revenue: ratiosResponse
-                    ? parseMonetary(await ratiosResponse.text(), "Revenue:")
-                    : 0,
-                  netProfit: ratiosResponse
-                    ? parseMonetary(await ratiosResponse.text(), "Net Profit:")
+                  netProfit: ratiosText
+                    ? parseMonetary(ratiosText, "Net Profit:")
                     : 0,
                 };
 
