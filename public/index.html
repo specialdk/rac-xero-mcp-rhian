@@ -1288,7 +1288,7 @@
           })
           .join("");
 
-        updateFilterSummary();
+        //updateFilterSummary();
         updateChatAnalysisStatus();
       }
 
@@ -1307,8 +1307,8 @@
           );
         }
 
-        updateFilterSummary();
-        updateChatAnalysisStatus();
+        //updateFilterSummary();
+        //updateChatAnalysisStatus();
         loadDashboardData();
 
         // Add chat message about filter change
@@ -1328,46 +1328,6 @@
         // Trigger the change event
         const event = new Event("change");
         checkbox.dispatchEvent(event);
-      }
-
-      function updateFilterSummary() {
-        const summary = document.getElementById("filterSummary");
-        const count = activeCompanyFilters.length;
-        const total = connectedCompanies.length;
-
-        if (count === 0) {
-          summary.textContent = "No companies selected for analysis";
-          summary.style.background = "#f8d7da";
-          summary.style.color = "#721c24";
-        } else if (count === total) {
-          summary.textContent = `Analyzing data from all ${total} connected companies`;
-          summary.style.background = "#d4edda";
-          summary.style.color = "#155724";
-        } else {
-          summary.textContent = `Analyzing data from ${count} of ${total} connected companies`;
-          summary.style.background = "#fff3cd";
-          summary.style.color = "#856404";
-        }
-      }
-
-      function updateChatAnalysisStatus() {
-        const chatStatus = document.getElementById("chatAnalysisStatus");
-        const selectedCompanies = getSelectedCompanyNames();
-
-        if (selectedCompanies.length === 0) {
-          chatStatus.textContent =
-            "No companies selected - choose companies above to analyze";
-          chatStatus.style.background = "#f8d7da";
-          chatStatus.style.color = "#721c24";
-        } else if (selectedCompanies.length === connectedCompanies.length) {
-          chatStatus.textContent = `Ready to analyze all ${selectedCompanies.length} connected companies`;
-          chatStatus.style.background = "#d4edda";
-          chatStatus.style.color = "#155724";
-        } else {
-          chatStatus.textContent = `Analyzing: ${selectedCompanies.join(", ")}`;
-          chatStatus.style.background = "#e8f4f8";
-          chatStatus.style.color = "#0c5460";
-        }
       }
 
       function getSelectedCompanyNames() {
@@ -1392,8 +1352,8 @@
           );
           if (checkbox) checkbox.checked = true;
         });
-        updateFilterSummary();
-        updateChatAnalysisStatus();
+        //updateFilterSummary();
+        //updateChatAnalysisStatus();
         loadDashboardData();
         addMessage(
           "assistant",
@@ -1409,8 +1369,8 @@
           );
           if (checkbox) checkbox.checked = false;
         });
-        updateFilterSummary();
-        updateChatAnalysisStatus();
+        //updateFilterSummary();
+        //updateChatAnalysisStatus();
         loadDashboardData();
         addMessage(
           "assistant",
@@ -1435,8 +1395,8 @@
           if (isMain) activeCompanyFilters.push(company.tenantId);
         });
 
-        updateFilterSummary();
-        updateChatAnalysisStatus();
+        //updateFilterSummary();
+        //updateChatAnalysisStatus();
         loadDashboardData();
 
         const selectedNames = getSelectedCompanyNames();
