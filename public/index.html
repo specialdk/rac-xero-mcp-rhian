@@ -1816,13 +1816,55 @@
                   ]);
 
                 // Read response text once and store it
-                const cashText = cashResponse ? await cashResponse.text() : "";
-                const ratiosText = ratiosResponse
-                  ? await ratiosResponse.text()
-                  : "";
-                const profitLossText = profitLossResponse
-                  ? await profitLossResponse.text()
-                  : "";
+                // Read response JSON once and store it with debugging
+                let cashData = null,
+                  ratiosData = null,
+                  profitLossData = null;
+
+                if (cashResponse) {
+                  if (cashResponse.ok) {
+                    cashData = await cashResponse.json();
+                    console.log("Cash data for", orgName, ":", cashData);
+                  } else {
+                    console.error(
+                      "Cash API error for",
+                      orgName,
+                      ":",
+                      cashResponse.status,
+                      await cashResponse.text()
+                    );
+                  }
+                }
+
+                if (ratiosResponse) {
+                  if (ratiosResponse.ok) {
+                    ratiosData = await ratiosResponse.json();
+                    console.log("Ratios data for", orgName, ":", ratiosData);
+                  } else {
+                    console.error(
+                      "Ratios API error for",
+                      orgName,
+                      ":",
+                      ratiosResponse.status,
+                      await ratiosResponse.text()
+                    );
+                  }
+                }
+
+                if (profitLossResponse) {
+                  if (profitLossResponse.ok) {
+                    profitLossData = await profitLossResponse.json();
+                    console.log("P&L data for", orgName, ":", profitLossData);
+                  } else {
+                    console.error(
+                      "P&L API error for",
+                      orgName,
+                      ":",
+                      profitLossResponse.status,
+                      await profitLossResponse.text()
+                    );
+                  }
+                }
 
                 // Parse enhanced metrics using stored text
                 const enhancedData = {
