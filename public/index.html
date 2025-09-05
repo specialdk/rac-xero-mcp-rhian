@@ -2708,14 +2708,16 @@
           <div style="display: grid; grid-template-columns: repeat(3, minmax(300px, 1fr)); gap: 20px; align-items: start;">
             <div>
               <h4>Assets (${company.trialBalance.assets.length} accounts)</h4>
-              <div style="min-height: 400px; overflow-y: auto;">
+              <div style="overflow: visible;">
                 ${company.trialBalance.assets
                   .map(
                     (account) => `
                   <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
-                    <span style="font-size: 13px;">${account.name}</span>
-                    <span style="font-weight: 600;">$${account.balance.toLocaleString()}</span>
-                  </div>
+  <span style="font-size: 13px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 10px;">${
+    account.name
+  }</span>
+  <span style="font-weight: 600; white-space: nowrap;">$${account.balance.toLocaleString()}</span>
+</div>
                 `
                   )
                   .join("")}
