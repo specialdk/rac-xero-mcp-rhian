@@ -1009,6 +1009,9 @@
               </button>
               <button onclick="setView('cash-flow', this)">Cash Flow</button>
               <button onclick="setView('p-and-l', this)">P&L</button>
+              <button onclick="setView('year-over-year', this)">
+                YoY Analysis
+              </button>
               <button onclick="setView('alerts', this)">Alerts</button>
             </div>
 
@@ -1718,6 +1721,8 @@
             await loadCashFlowData();
           } else if (currentView === "p-and-l") {
             await loadProfitLossData();
+          } else if (currentView === "year-over-year") {
+            await loadYearOverYearData(); // <- Add this line
           } else if (currentView === "alerts") {
             await loadAlertsData();
           }
@@ -2137,6 +2142,625 @@
         }
       }
 
+      async function loadYearOverYearData() {
+        if (activeCompanyFilters.length === 0) {
+          const dashboardElement = document.getElementById("dashboardData");
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <h3>No Companies Selected</h3>
+        <p>Please select companies using the filters above to view YoY analysis.</p>
+      </div>
+    `;
+          return;
+        }
+
+        const dashboardElement = document.getElementById("dashboardData");
+        const selectedCompanyNames = getSelectedCompanyNames();
+
+        dashboardElement.innerHTML = `
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      Loading year-over-year analysis for ${
+        activeCompanyFilters.length
+      } companies:<br>
+      <small>${selectedCompanyNames.join(", ")}</small>
+    </div>
+  `;
+
+        try {
+          // Calculate date ranges
+          const currentYear = new Date().getFullYear();
+          const priorYear = currentYear - 1;
+          const currentYearEnd = `${currentYear}-12-31`;
+          const priorYearEnd = `${priorYear}-12-31`;
+          const currentDate = new Date().toISOString().split("T")[0];
+
+          // Load YoY data for each selected company
+          const yoyData = [];
+
+          for (const tenantId of activeCompanyFilters) {
+            const connectedCompany = connectedCompanies.find(
+              (c) => c.tenantId === tenantId
+            );
+            if (!connectedCompany) continue;
+
+            try {
+              const orgName = getOrganizationName(connectedCompany.tenantName);
+
+              // Get current year data
+              const [currentTB, currentPL, currentCash] = await Promise.all([
+                fetch("/api/trial-balance", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    organizationName: orgName,
+                    reportDate: currentDate,
+                  }),
+                }),
+                fetch("/api/profit-loss-summary", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    organizationName: orgName,
+                    periodMonths: 12,
+                  }),
+                }),
+                fetch("/api/cash-position", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ organizationName: orgName }),
+                }),
+              ]);
+
+              // Get prior year data
+              const [priorTB, priorPL] = await Promise.all([
+                fetch("/api/trial-balance", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    organizationName: orgName,
+                    reportDate: priorYearEnd,
+                  }),
+                }),
+                fetch("/api/profit-loss-summary", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    organizationName: orgName,
+                    date: priorYearEnd,
+                    periodMonths: 12,
+                  }),
+                }),
+              ]);
+
+              // Parse responses
+              const currentYearData = {
+                tb: currentTB.ok ? await currentTB.json() : null,
+                pl: currentPL.ok ? await currentPL.json() : null,
+                cash: currentCash.ok ? await currentCash.json() : null,
+              };
+
+              const priorYearData = {
+                tb: priorTB.ok ? await priorTB.json() : null,
+                pl: priorPL.ok ? await priorPL.json() : null,
+              };
+
+              // Calculate YoY metrics
+              const yoyMetrics = calculateYoYMetrics(
+                currentYearData,
+                priorYearData,
+                connectedCompany.tenantName
+              );
+              yoyData.push(yoyMetrics);
+            } catch (error) {
+              console.error(
+                `Error loading YoY data for ${connectedCompany.tenantName}:`,
+                error
+              );
+              yoyData.push({
+                companyName: connectedCompany.tenantName,
+                error: true,
+                errorMessage: error.message,
+              });
+            }
+          }
+
+          // Calculate consolidated YoY metrics
+          const consolidatedYoY = calculateConsolidatedYoY(yoyData);
+
+          // Render YoY dashboard
+          renderYoYDashboard(yoyData, consolidatedYoY, currentYear, priorYear);
+        } catch (error) {
+          console.error("Error in YoY analysis:", error);
+          dashboardElement.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #e74c3c;">
+        <h3>Error Loading YoY Data</h3>
+        <p>Failed to load year-over-year analysis: ${error.message}</p>
+        <button onclick="loadDashboardData()" style="margin-top: 10px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          Retry
+        </button>
+      </div>
+    `;
+        }
+      }
+
+      // 3. Calculate YoY metrics for individual company
+      function calculateYoYMetrics(currentData, priorData, companyName) {
+        const current = {
+          assets: currentData.tb?.trialBalance?.totals?.totalAssets || 0,
+          liabilities:
+            currentData.tb?.trialBalance?.totals?.totalLiabilities || 0,
+          equity: currentData.tb?.trialBalance?.totals?.totalEquity || 0,
+          revenue: currentData.pl?.summary?.totalRevenue || 0,
+          expenses: currentData.pl?.summary?.totalExpenses || 0,
+          netProfit: currentData.pl?.summary?.netProfit || 0,
+          cashPosition: currentData.cash?.totalCash || 0,
+        };
+
+        const prior = {
+          assets: priorData.tb?.trialBalance?.totals?.totalAssets || 0,
+          liabilities:
+            priorData.tb?.trialBalance?.totals?.totalLiabilities || 0,
+          equity: priorData.tb?.trialBalance?.totals?.totalEquity || 0,
+          revenue: priorData.pl?.summary?.totalRevenue || 0,
+          expenses: priorData.pl?.summary?.totalExpenses || 0,
+          netProfit: priorData.pl?.summary?.netProfit || 0,
+        };
+
+        // Calculate growth rates
+        const growth = {
+          assets: calculateGrowthRate(prior.assets, current.assets),
+          liabilities: calculateGrowthRate(
+            prior.liabilities,
+            current.liabilities
+          ),
+          equity: calculateGrowthRate(prior.equity, current.equity),
+          revenue: calculateGrowthRate(prior.revenue, current.revenue),
+          expenses: calculateGrowthRate(prior.expenses, current.expenses),
+          netProfit: calculateGrowthRate(prior.netProfit, current.netProfit),
+        };
+
+        return {
+          companyName: companyName.replace("Rirratjingu ", ""),
+          current,
+          prior,
+          growth,
+          profitMarginCurrent:
+            current.revenue > 0
+              ? (current.netProfit / current.revenue) * 100
+              : 0,
+          profitMarginPrior:
+            prior.revenue > 0 ? (prior.netProfit / prior.revenue) * 100 : 0,
+        };
+      }
+
+      // 4. Calculate growth rate with proper handling of negative numbers
+      function calculateGrowthRate(prior, current) {
+        if (prior === 0 && current === 0) return 0;
+        if (prior === 0) return current > 0 ? 100 : -100;
+        return ((current - prior) / Math.abs(prior)) * 100;
+      }
+
+      // 5. Calculate consolidated YoY metrics
+      function calculateConsolidatedYoY(yoyData) {
+        const validData = yoyData.filter((d) => !d.error);
+
+        const consolidatedCurrent = validData.reduce(
+          (acc, company) => {
+            acc.assets += company.current.assets;
+            acc.liabilities += company.current.liabilities;
+            acc.equity += company.current.equity;
+            acc.revenue += company.current.revenue;
+            acc.expenses += company.current.expenses;
+            acc.netProfit += company.current.netProfit;
+            acc.cashPosition += company.current.cashPosition;
+            return acc;
+          },
+          {
+            assets: 0,
+            liabilities: 0,
+            equity: 0,
+            revenue: 0,
+            expenses: 0,
+            netProfit: 0,
+            cashPosition: 0,
+          }
+        );
+
+        const consolidatedPrior = validData.reduce(
+          (acc, company) => {
+            acc.assets += company.prior.assets;
+            acc.liabilities += company.prior.liabilities;
+            acc.equity += company.prior.equity;
+            acc.revenue += company.prior.revenue;
+            acc.expenses += company.prior.expenses;
+            acc.netProfit += company.prior.netProfit;
+            return acc;
+          },
+          {
+            assets: 0,
+            liabilities: 0,
+            equity: 0,
+            revenue: 0,
+            expenses: 0,
+            netProfit: 0,
+          }
+        );
+
+        return {
+          current: consolidatedCurrent,
+          prior: consolidatedPrior,
+          growth: {
+            assets: calculateGrowthRate(
+              consolidatedPrior.assets,
+              consolidatedCurrent.assets
+            ),
+            liabilities: calculateGrowthRate(
+              consolidatedPrior.liabilities,
+              consolidatedCurrent.liabilities
+            ),
+            equity: calculateGrowthRate(
+              consolidatedPrior.equity,
+              consolidatedCurrent.equity
+            ),
+            revenue: calculateGrowthRate(
+              consolidatedPrior.revenue,
+              consolidatedCurrent.revenue
+            ),
+            expenses: calculateGrowthRate(
+              consolidatedPrior.expenses,
+              consolidatedCurrent.expenses
+            ),
+            netProfit: calculateGrowthRate(
+              consolidatedPrior.netProfit,
+              consolidatedCurrent.netProfit
+            ),
+          },
+        };
+      }
+
+      // 6. Render YoY dashboard
+      function renderYoYDashboard(
+        yoyData,
+        consolidatedYoY,
+        currentYear,
+        priorYear
+      ) {
+        const dashboardElement = document.getElementById("dashboardData");
+
+        dashboardElement.innerHTML = `
+    <!-- CONSOLIDATED YoY SUMMARY -->
+    <div class="dashboard-grid" style="grid-template-columns: repeat(3, 1fr);">
+      
+      <div class="dashboard-card">
+        <h3>📊 Asset Growth Analysis</h3>
+        <div class="metric">
+          <span>${currentYear} Assets</span>
+          <span class="metric-value">$${consolidatedYoY.current.assets.toLocaleString()}</span>
+        </div>
+        <div class="metric">
+          <span>${priorYear} Assets</span>
+          <span class="metric-value">$${consolidatedYoY.prior.assets.toLocaleString()}</span>
+        </div>
+        <div class="metric">
+          <span>Asset Growth</span>
+          <span class="metric-value ${
+            consolidatedYoY.growth.assets >= 0 ? "" : "negative"
+          }">
+            ${
+              consolidatedYoY.growth.assets >= 0 ? "+" : ""
+            }${consolidatedYoY.growth.assets.toFixed(1)}%
+          </span>
+        </div>
+        <div class="metric">
+          <span>Net Worth Change</span>
+          <span class="metric-value ${
+            consolidatedYoY.growth.equity >= 0 ? "" : "negative"
+          }">
+            ${
+              consolidatedYoY.growth.equity >= 0 ? "+" : ""
+            }${consolidatedYoY.growth.equity.toFixed(1)}%
+          </span>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <h3>💰 Revenue Performance</h3>
+        <div class="metric">
+          <span>${currentYear} Revenue</span>
+          <span class="metric-value">$${consolidatedYoY.current.revenue.toLocaleString()}</span>
+        </div>
+        <div class="metric">
+          <span>${priorYear} Revenue</span>
+          <span class="metric-value">$${consolidatedYoY.prior.revenue.toLocaleString()}</span>
+        </div>
+        <div class="metric">
+          <span>Revenue Growth</span>
+          <span class="metric-value ${
+            consolidatedYoY.growth.revenue >= 0 ? "" : "negative"
+          }">
+            ${
+              consolidatedYoY.growth.revenue >= 0 ? "+" : ""
+            }${consolidatedYoY.growth.revenue.toFixed(1)}%
+          </span>
+        </div>
+        <div class="metric">
+          <span>Profit Growth</span>
+          <span class="metric-value ${
+            consolidatedYoY.growth.netProfit >= 0 ? "" : "negative"
+          }">
+            ${
+              consolidatedYoY.growth.netProfit >= 0 ? "+" : ""
+            }${consolidatedYoY.growth.netProfit.toFixed(1)}%
+          </span>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <h3>⚖️ Financial Health Trends</h3>
+        <div class="metric">
+          <span>Companies Analyzed</span>
+          <span class="metric-value">${
+            yoyData.filter((d) => !d.error).length
+          }</span>
+        </div>
+        <div class="metric">
+          <span>Current Profit Margin</span>
+          <span class="metric-value">
+            ${
+              consolidatedYoY.current.revenue > 0
+                ? (
+                    (consolidatedYoY.current.netProfit /
+                      consolidatedYoY.current.revenue) *
+                    100
+                  ).toFixed(1)
+                : 0
+            }%
+          </span>
+        </div>
+        <div class="metric">
+          <span>Prior Profit Margin</span>
+          <span class="metric-value">
+            ${
+              consolidatedYoY.prior.revenue > 0
+                ? (
+                    (consolidatedYoY.prior.netProfit /
+                      consolidatedYoY.prior.revenue) *
+                    100
+                  ).toFixed(1)
+                : 0
+            }%
+          </span>
+        </div>
+        <div class="metric">
+          <span>Overall Trend</span>
+          <span class="metric-value ${
+            consolidatedYoY.growth.revenue > 0 &&
+            consolidatedYoY.growth.netProfit > 0
+              ? ""
+              : "negative"
+          }">
+            ${
+              consolidatedYoY.growth.revenue > 0 &&
+              consolidatedYoY.growth.netProfit > 0
+                ? "✅ Growing"
+                : "⚠️ Declining"
+            }
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPANY-BY-COMPANY YoY ANALYSIS -->
+    <div class="dashboard-card">
+      <h3>📈 Company Performance Comparison (${currentYear} vs ${priorYear})</h3>
+      ${yoyData
+        .map((company) => {
+          if (company.error) {
+            return `
+            <div style="border: 1px solid #e74c3c; border-radius: 6px; padding: 15px; margin: 10px 0; background: #fff5f5;">
+              <strong style="color: #e74c3c;">${company.companyName}</strong>
+              <div style="color: #666; margin-top: 5px;">Error loading YoY data: ${company.errorMessage}</div>
+            </div>
+          `;
+          }
+
+          return `
+          <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px; margin: 10px 0; background: #fafafa;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <strong style="font-size: 16px;">${company.companyName}</strong>
+              <div style="display: flex; gap: 15px; font-size: 14px;">
+                <span style="color: ${
+                  company.growth.revenue >= 0 ? "#27ae60" : "#e74c3c"
+                };">
+                  Revenue: ${
+                    company.growth.revenue >= 0 ? "+" : ""
+                  }${company.growth.revenue.toFixed(1)}%
+                </span>
+                <span style="color: ${
+                  company.growth.netProfit >= 0 ? "#27ae60" : "#e74c3c"
+                };">
+                  Profit: ${
+                    company.growth.netProfit >= 0 ? "+" : ""
+                  }${company.growth.netProfit.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; font-size: 13px;">
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">${currentYear} Revenue</div>
+                <div style="font-weight: 600;">$${company.current.revenue.toLocaleString()}</div>
+              </div>
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">${priorYear} Revenue</div>
+                <div style="font-weight: 600;">$${company.prior.revenue.toLocaleString()}</div>
+              </div>
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">${currentYear} Profit</div>
+                <div style="font-weight: 600; color: ${
+                  company.current.netProfit >= 0 ? "#27ae60" : "#e74c3c"
+                };">
+                  $${company.current.netProfit.toLocaleString()}
+                </div>
+              </div>
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">${priorYear} Profit</div>
+                <div style="font-weight: 600; color: ${
+                  company.prior.netProfit >= 0 ? "#27ae60" : "#e74c3c"
+                };">
+                  $${company.prior.netProfit.toLocaleString()}
+                </div>
+              </div>
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">Margin ${currentYear}</div>
+                <div style="font-weight: 600;">${company.profitMarginCurrent.toFixed(
+                  1
+                )}%</div>
+              </div>
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">Margin ${priorYear}</div>
+                <div style="font-weight: 600;">${company.profitMarginPrior.toFixed(
+                  1
+                )}%</div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; font-size: 13px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">Asset Growth</div>
+                <div style="font-weight: 600; color: ${
+                  company.growth.assets >= 0 ? "#27ae60" : "#e74c3c"
+                };">
+                  ${
+                    company.growth.assets >= 0 ? "+" : ""
+                  }${company.growth.assets.toFixed(1)}%
+                </div>
+              </div>
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">Equity Growth</div>
+                <div style="font-weight: 600; color: ${
+                  company.growth.equity >= 0 ? "#27ae60" : "#e74c3c"
+                };">
+                  ${
+                    company.growth.equity >= 0 ? "+" : ""
+                  }${company.growth.equity.toFixed(1)}%
+                </div>
+              </div>
+              <div>
+                <div style="color: #666; margin-bottom: 3px;">Overall Status</div>
+                <div style="font-weight: 600; color: ${
+                  company.growth.revenue > 0 && company.growth.netProfit > 0
+                    ? "#27ae60"
+                    : company.growth.revenue > 0
+                    ? "#f39c12"
+                    : "#e74c3c"
+                };">
+                  ${
+                    company.growth.revenue > 0 && company.growth.netProfit > 0
+                      ? "Strong Growth"
+                      : company.growth.revenue > 0
+                      ? "Mixed Results"
+                      : "Declining"
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        })
+        .join("")}
+    </div>
+
+    <!-- YoY INSIGHTS -->
+    <div class="dashboard-card">
+      <h3>💡 Key Year-over-Year Insights</h3>
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 10px 0;">
+        ${generateYoYInsights(consolidatedYoY, yoyData)}
+      </div>
+    </div>
+  `;
+      }
+
+      // 7. Generate insights based on YoY data
+      function generateYoYInsights(consolidatedYoY, yoyData) {
+        const insights = [];
+        const validCompanies = yoyData.filter((d) => !d.error);
+
+        // Revenue insights
+        if (consolidatedYoY.growth.revenue > 10) {
+          insights.push(
+            `<strong>Strong Revenue Growth:</strong> Consolidated revenue increased by ${consolidatedYoY.growth.revenue.toFixed(
+              1
+            )}%, indicating robust business expansion.`
+          );
+        } else if (consolidatedYoY.growth.revenue < -5) {
+          insights.push(
+            `<strong>Revenue Decline:</strong> Consolidated revenue decreased by ${Math.abs(
+              consolidatedYoY.growth.revenue
+            ).toFixed(1)}%, requiring strategic attention.`
+          );
+        }
+
+        // Profit insights
+        if (consolidatedYoY.growth.netProfit > 15) {
+          insights.push(
+            `<strong>Excellent Profitability:</strong> Net profit growth of ${consolidatedYoY.growth.netProfit.toFixed(
+              1
+            )}% demonstrates strong operational efficiency.`
+          );
+        } else if (consolidatedYoY.growth.netProfit < -10) {
+          insights.push(
+            `<strong>Profitability Concerns:</strong> Net profit declined by ${Math.abs(
+              consolidatedYoY.growth.netProfit
+            ).toFixed(1)}%, suggesting need for cost management review.`
+          );
+        }
+
+        // Company performance insights
+        const growingCompanies = validCompanies.filter(
+          (c) => c.growth.revenue > 0 && c.growth.netProfit > 0
+        );
+        const decliningCompanies = validCompanies.filter(
+          (c) => c.growth.revenue < 0 || c.growth.netProfit < 0
+        );
+
+        if (growingCompanies.length > 0) {
+          insights.push(
+            `<strong>High Performers:</strong> ${growingCompanies
+              .map((c) => c.companyName)
+              .join(", ")} showing positive growth in both revenue and profit.`
+          );
+        }
+
+        if (decliningCompanies.length > 0) {
+          insights.push(
+            `<strong>Areas for Review:</strong> ${decliningCompanies
+              .map((c) => c.companyName)
+              .join(", ")} may require strategic intervention.`
+          );
+        }
+
+        // Asset growth insights
+        if (consolidatedYoY.growth.assets > 5) {
+          insights.push(
+            `<strong>Asset Expansion:</strong> ${consolidatedYoY.growth.assets.toFixed(
+              1
+            )}% asset growth indicates successful capital investment and business development.`
+          );
+        }
+
+        return insights.length > 0
+          ? insights.join("<br><br>")
+          : "Analyzing year-over-year trends...";
+      }
+
+      // 8. Update your setView function to handle YoY
+      // Find your existing setView function and add this case:
+      // else if (currentView === "year-over-year") {
+      //   await loadYearOverYearData();
+      // }
       // ====== HELPER FUNCTIONS FOR PARSING MCP RESPONSES ======
 
       function getOrganizationName(tenantName) {
