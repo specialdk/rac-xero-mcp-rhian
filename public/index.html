@@ -2729,37 +2729,38 @@
             </div>
 
             <div>
-              <h4>Liabilities (${
-                company.trialBalance.liabilities.length
-              } accounts)</h4>
-              <div style="max-height: 300px; overflow-y: auto;">
-                ${company.trialBalance.liabilities
-                  .map(
-                    (account) => `
-                  <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
-                    <span style="font-size: 13px;">${account.name}</span>
-                    <span style="font-weight: 600;">$${account.balance.toLocaleString()}</span>
-                  </div>
-                `
-                  )
-                  .join("")}
-                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #e74c3c; font-weight: bold; color: #e74c3c;">
-                  <span>Total Liabilities</span>
-                  <span>$${company.trialBalance.totals.totalLiabilities.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
+  <h4>Liabilities (${company.trialBalance.liabilities.length} accounts)</h4>
+  <div style="overflow: visible;">
+    ${company.trialBalance.liabilities
+      .map(
+        (account) => `
+      <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
+        <span style="font-size: 13px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 10px;">${
+          account.name
+        }</span>
+        <span style="font-weight: 600; white-space: nowrap;">$${account.balance.toLocaleString()}</span>
+      </div>
+    `
+      )
+      .join("")}
+    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #e74c3c; font-weight: bold; color: #e74c3c;">
+      <span>Total Liabilities</span>
+      <span>$${company.trialBalance.totals.totalLiabilities.toLocaleString()}</span>
+    </div>
+  </div>
+</div>
             <div>
               <h4>Equity (${company.trialBalance.equity.length} accounts)</h4>
-              <div style="max-height: 300px; overflow-y: auto;">
+              <div style="overflow: visible;">
                 ${company.trialBalance.equity
                   .map(
                     (account) => `
                   <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
-                    <span style="font-size: 13px;">${account.name}</span>
-                    <span style="font-weight: 600;">$${account.balance.toLocaleString()}</span>
-                  </div>
+        <span style="font-size: 13px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 10px;">${
+          account.name
+        }</span>
+        <span style="font-weight: 600; white-space: nowrap;">$${account.balance.toLocaleString()}</span>
+      </div>
                 `
                   )
                   .join("")}
