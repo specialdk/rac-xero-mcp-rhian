@@ -1,0 +1,55 @@
+{
+  "name": "@rac/xero-mcp",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server for RAC Xero financial data integration",
+  "main": "dist/index.js",
+  "bin": {
+    "rac-xero-mcp": "dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "start": "node dist/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "node test/test-connection.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "xero",
+    "financial",
+    "rac",
+    "accounting",
+    "api"
+  ],
+  "author": "RAC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rac/xero-mcp.git"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.3",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "mcp": {
+    "server": {
+      "name": "rac-xero-enhanced",
+      "version": "3.0.0",
+      "description": "RAC Xero MCP Server for financial data analysis"
+    }
+  }
+}

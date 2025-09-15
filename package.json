@@ -1,8 +1,8 @@
 {
-  "name": "rac-financial-dashboard",
+  "name": "rac-xero-mcp-rhian",
   "version": "2.0.0",
   "type": "module",
-  "description": "RAC Financial Dashboard with Xero and ApprovalMax Integration",
+  "description": "RAC XERO MCP Server for Rhian",
   "main": "mcp-server.js",
   "scripts": {
     "start": "node server.js",
